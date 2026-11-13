@@ -3,6 +3,7 @@
 import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS } from './config.js';
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
+import { Loot } from './loot.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -553,4 +554,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub);
+Object.assign(UI.prototype, Meta, Hub, Loot);
