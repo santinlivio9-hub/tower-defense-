@@ -19,10 +19,10 @@ const num = (n) => (n >= 100 || Number.isInteger(+n.toFixed(1)) ? String(Math.ro
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
 const TUTORIAL = [
-  { text: 'Touche une <b>arme</b>', target: () => $('.tb'), done: (g) => !!g.placing || g.towers.length > 0 },
-  { text: 'Pose-la <b>près du chemin</b>', target: (ui) => ui.fieldPoint(300, 285), done: (g) => g.towers.length > 0 },
+  { text: 'Touche un <b>socle</b>', target: (ui) => { const sl = ui.game.slots.find((s) => s.kind === 'tower'); return ui.fieldPoint(sl.x, sl.y); }, done: (g) => !!g.menuSlot || g.towers.length > 0 },
+  { text: 'Choisis une tourelle, puis <b>touche-la encore</b>', target: () => $('#radial .rb'), done: (g) => g.towers.length > 0, keep: true },
   { text: '<b>Lance la vague !</b>', target: () => $('#btn-wave'), done: (g) => g.wave >= 1 },
-  { text: 'Touche ta tourelle pour l\'<b>améliorer</b>', target: (ui) => { const t = ui.game.towers[0]; return t ? ui.fieldPoint(t.x, t.y - 34) : null; }, wait: (g) => g.cleared < 1, done: (g) => !!g.selected || g.wave >= 4 },
+  { text: 'Touche ta tourelle pour l\'<b>améliorer</b>', target: (ui) => { const t = ui.game.towers[0]; return t ? ui.fieldPoint(t.x, t.y) : null; }, wait: (g) => g.cleared < 1 || !g.towers.some((t) => t.canUp), done: (g) => (!!g.menuSlot && !!g.menuSlot.tower) || g.wave >= 4 },
 ];
 
 export class UI {
@@ -31,13 +31,13 @@ export class UI {
     this.haptics = new Haptics(save.data.settings, audio);
     this.diff = 'normal'; this.endless = false; this.shopTab = 'towers';
     this.canvas = $('#game'); this.cache = {}; this.last = 0; this.simulating = false;
-    this.barDrag = null; this.down = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
+    this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
 
     hydrateIcons();
     preloadSprites(save.data.skin);
     document.addEventListener('pointerdown', (e) => {
       this.audio.unlock();
-      if (e.target.closest('.btn, .icon-btn, .seg button, .switch, .tb')) { this.audio.play('click'); this.haptics.pulse(0); }
+      if (e.target.closest('.btn, .icon-btn, .seg button, .switch, .rb')) { this.audio.play('click'); this.haptics.pulse(0); }
     }, { capture: true });
     $$('[data-go]').forEach((b) => b.addEventListener('click', () => this.show(b.dataset.go)));
     $$('#shop-tabs [data-tab]').forEach((b) => b.addEventListener('click', () => { this.shopTab = b.dataset.tab; this.renderShop(); }));
@@ -190,13 +190,14 @@ export class UI {
     box.append(this.switchRow('Vibrations', 'Retour haptique', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
     box.append(this.switchRow('Tremblement d\'écran', 'Explosions et boss', 'quake', 'shake'));
     box.append(this.switchRow('Chiffres de dégâts', 'Nombres flottants', 'numbers', 'damageNumbers'));
+    box.append(this.switchRow('Indicateurs', 'Flèche UP et socles achetables', 'up', 'hints'));
     const tut = el('div', 'setting', `<span class="lab">${icon('book')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
     const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('book')); }; tut.append(tb); box.append(tut);
     const rs = el('div', 'setting', `<span class="lab">${icon('trash')}<span>Réinitialiser<small>Efface toute la progression</small></span></span>`);
     const rb = el('button', 'btn sm red', 'Effacer');
     rb.onclick = () => { if (confirm('Effacer toute la progression (gemmes, déblocages, étoiles, records) ?')) { this.save.reset(); this.audio.settings = this.haptics.settings = this.save.data.settings; this.audio.applyVolume(); this.renderSettings(); this.toast('Progression effacée', '', icon('trash')); } };
     rs.append(rb); box.append(rs);
-    box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 armes · Espace vague · P pause · Échap annuler.'));
+    box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
   }
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
 
@@ -205,10 +206,10 @@ export class UI {
     if (this.game) this.game.commit();
     const g = (this.game = new Game({ canvas: this.canvas, map: getMap(mapId), difficulty: diff, endless, save: this.save, audio: this.audio }));
     this.lastArgs = [mapId, diff, endless];
-    this.cache = {}; this.barDrag = null; this.shown = { money: g.money, score: 0 };
+    this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 };
     g.onEvent = (name, data) => this.onGameEvent(name, data);
-    this.closeOverlay(); this.closeSheet();
-    this.buildTowerBar(); this.syncMute();
+    this.closeOverlay(); this.closeMenu();
+    this.syncMute();
     $('#btn-speed b').textContent = 'x1'; $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
@@ -220,7 +221,7 @@ export class UI {
   }
   onGameEvent(name, data) {
     if (name === 'end') setTimeout(() => this.showEnd(data), data.victory ? 1700 : 1100);
-    else if (name === 'upgraded' || name === 'placed') { this.cache.sheetKey = null; this.haptics.pulse(1); }
+    else if (name === 'upgraded' || name === 'placed') { this.cache.radial = null; this.haptics.pulse(name === 'upgraded' ? 2 : 1); }
     else if (name === 'coins') this.flyCoins(data);
     else if (name === 'haptic') { if (!this.simulating) this.haptics.pulse(data); }
     else if (name === 'combo') { this.audio.play('combo'); const s = $('#hud-score'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); }
@@ -252,31 +253,99 @@ export class UI {
   }
   pop(sel) { const e = $(sel); e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); }
 
-  buildTowerBar() {
-    const bar = $('#towerbar'); bar.innerHTML = '';
-    TOWER_ORDER.forEach((t) => {
-      const cfg = TOWERS[t], unlocked = this.save.towerUnlocked(t);
-      const b = el('div', 'tb' + (unlocked ? '' : ' locked'));
-      b.dataset.type = t; b.setAttribute('aria-label', cfg.name);
-      b.append(towerImg(t, 46, this.save.data.skin), el('span', 'cost', unlocked ? coin() + cfg.cost : icon('lock')));
-      b.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        if (!unlocked) { this.audio.play('error'); this.toast(cfg.name, 'À débloquer dans la boutique avec des gemmes', icon('lock')); return; }
-        const g = this.game; if (!g || g.over || g.paused) return;
-        this.barDrag = { type: t, wasSel: g.placing === t, moved: false };
-        this.setPlacing(t);
-      });
-      bar.append(b);
+  // ------------------------------------------------------------------ menu radial d'un emplacement
+  openMenu(slot) {
+    const g = this.game; if (!g || g.over) return;
+    if (slot !== g.menuSlot) this.audio.play('sheet');
+    g.menuSlot = slot; g.selected = slot ? slot.tower : null; g.preview = null; this.armed = null; this.cache.radial = null;
+    if (!slot) this.renderRadial();
+  }
+  closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
+  statLine(type, s) { return this.statRows(type, s).map((r) => `${r[0]} <b>${r[1]}</b>`).join(' · '); }
+  // Éléments du menu : { key, cls, art, label, price, info, preview, tap (immédiat) ou confirm (2e toucher) }
+  menuItems(slot) {
+    const g = this.game, t = slot.tower, skin = this.save.data.skin, items = [];
+    if (!t) {
+      for (const type of g.buildable(slot)) {
+        const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, this.save.data.perks);
+        items.push({ key: type, cls: g.money < cost ? 'poor' : '', art: towerImg(type, 46, skin), price: cost, free: cost === 0,
+          info: `<b>${cfg.name}</b><span>${cfg.desc}</span><small>${this.statLine(type, st)}</small>`,
+          preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
+          confirm: () => { if (g.placeTower(type, slot)) this.openMenu(null); else this.haptics.pulse(1); } });
+      }
+      return items;
+    }
+    const cur = this.statRows(t.type, t.stats);
+    for (const o of t.upgradeOptions()) {
+      const ns = computeStats(t.type, o.level, o.branch, this.save.data.perks), nxt = this.statRows(t.type, ns);
+      const diff = cur.map((r, i) => (nxt[i][1] !== r[1] ? `${r[0]} <b>${r[1]}</b> → <b class="g">${nxt[i][1]}</b>` : null)).filter(Boolean).join(' · ');
+      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (g.money < o.cost ? ' poor' : ''),
+        art: o.kind === 'level' ? icon('up') : towerImg(t.type, 46, skin, o.level, o.branch), label: o.kind === 'level' ? 'Niv. ' + o.level : o.name, price: o.cost,
+        info: `<b>${o.kind === 'level' ? 'Améliorer au niveau ' + o.level : o.name}</b>${o.kind === 'level' ? '' : `<span>${o.desc}</span>`}<small>${diff}</small>`,
+        preview: { r: t.type === 'mine' ? ns.splash : ns.range, mode: g.money < o.cost ? 'bad' : 'ok' },
+        confirm: () => { if (!g.upgradeTower(t, o)) this.haptics.pulse(1); this.armed = null; this.cache.radial = null; } });
+    }
+    if (t.cfg.targeting) {
+      const names = { first: 'Premier', last: 'Dernier', strong: 'Fort', close: 'Proche' };
+      items.push({ key: 'tgt', cls: 'tgt', art: icon('target'), label: names[t.mode], side: 'left',
+        tap: () => { const ids = TARGET_MODES.map((m) => m[0]); t.mode = ids[(ids.indexOf(t.mode) + 1) % ids.length]; t.target = null; this.cache.radial = null; } });
+    }
+    items.push({ key: 'sell', cls: 'sell', art: icon('trash'), label: 'Vendre', gain: t.sellValue, side: 'bottom',
+      info: `<b>Vendre pour ${t.sellValue} pièces ?</b><small>Touche encore pour confirmer</small>`,
+      confirm: () => { g.sellTower(t); this.openMenu(null); } });
+    return items;
+  }
+  renderRadial() {
+    const g = this.game, box = $('#radial'), slot = g && g.menuSlot;
+    if (!slot || g.over) { box.hidden = true; box.innerHTML = ''; return; }
+    const items = this.menuItems(slot), t = slot.tower;
+    box.hidden = false; box.innerHTML = '';
+    const host = box.getBoundingClientRect(), p = this.toScreen(slot.x, slot.y);
+    const n = items.length, R = !t && n >= 7 ? 88 : !t && n >= 5 ? 80 : 74;
+    const top = $('#hud').offsetHeight + 46, bot = host.height - $('#dock').offsetHeight - 30;
+    const cx = Math.max(R + 36, Math.min(host.width - R - 36, p.x - host.left)), cy = Math.max(top + R, Math.min(bot - R, p.y - host.top));
+    const ring = el('i', 'ring'); ring.style.cssText = `left:${cx}px;top:${cy}px;--r:${R}px`; box.append(ring);
+    // angles : tourelles en cercle ; pour une tourelle posée : améliorations en haut, ciblage à gauche, vente en bas
+    const ups = items.filter((i) => !i.side);
+    items.forEach((it, i) => {
+      let a;
+      if (!t) a = -90 + (360 / Math.max(n, 1)) * i + (n === 2 ? 0 : 0);
+      else if (it.side === 'left') a = 180; else if (it.side === 'bottom') a = 90;
+      else a = ups.length === 1 ? -90 : ups.indexOf(it) === 0 ? -128 : -52;
+      if (!t && n === 1) a = -90;
+      const b = el('button', 'rb ' + (it.cls || '') + (this.armed === it.key ? ' armed' : ''));
+      b.style.cssText = `left:${cx + Math.cos((a * Math.PI) / 180) * R}px;top:${cy + Math.sin((a * Math.PI) / 180) * R}px;--i:${i}`;
+      if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
+      if (it.label) b.append(el('span', 'lab', it.label));
+      if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
+      if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
+      if (this.armed === it.key) b.append(el('span', 'ok', icon('check')));
+      b.onclick = () => {
+        if (it.tap) { it.tap(); return; }
+        if (this.armed === it.key) { it.confirm(); return; }
+        this.armed = it.key; g.preview = it.preview || null; this.cache.radial = null; this.audio.play('tick');
+      };
+      box.append(b);
     });
+    // bulle d'information
+    const armed = items.find((i) => i.key === this.armed);
+    let html;
+    if (armed && armed.info) html = armed.info + (armed.key === 'sell' ? '' : '<em>Touche encore pour confirmer</em>');
+    else if (t) { const rar = RARITY[t.level - 1]; html = `<b style="color:${rar.color}">${t.label}</b><span class="lv">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= t.level ? 'on' : ''}" style="--rar:${rar.color}"></i>`).join('')}</span><small>${this.statLine(t.type, t.stats)}</small><small>${icon('sword')}<b class="dmg">${short(t.dmg)}</b> dégâts · ${icon('skull')}<b class="kills">${t.kills}</b> kills</small>`; }
+    else html = slot.kind === 'mine' ? '<b>Zone de mine</b>' : '<b>Choisis une tourelle</b>';
+    const info = el('div', 'info', html); box.append(info);
+    const ih = info.offsetHeight, above = cy - R - 44 - ih >= top - 44;
+    info.style.left = Math.max(info.offsetWidth / 2 + 6, Math.min(host.width - info.offsetWidth / 2 - 6, cx)) + 'px';
+    info.style.top = (above ? cy - R - 44 - ih : cy + R + 48) + 'px';
   }
-  setPlacing(type) {
-    const g = this.game; if (!g) return;
-    if (type && !this.save.towerUnlocked(type)) { this.audio.play('error'); return; }
-    g.placing = type; if (type) this.select(null);
-    if (!type) g.hover.active = false;
-    $$('.tb').forEach((b) => b.classList.toggle('sel', b.dataset.type === type));
+  updateRadial() {
+    const g = this.game, slot = g.menuSlot;
+    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; g.menuSlot = null; } return; }
+    const t = slot.tower;
+    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', this.armed, this.menuItems(slot).map((i) => i.cls).join(), g.freeNext].join('/');
+    if (this.cache.radial !== key) { this.cache.radial = key; this.renderRadial(); }
+    else if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { d.textContent = short(t.dmg); k.textContent = t.kills; } }
   }
-  select(t) { if (this.game) { if (t && t !== this.game.selected) this.audio.play('sheet'); this.game.selected = t; this.cache.sheetKey = null; } }
 
   toLogical(e) {
     const r = this.canvas.getBoundingClientRect(), v = this.view;
@@ -292,42 +361,18 @@ export class UI {
     const r = this.canvas.getBoundingClientRect(), v = this.view;
     return { x: r.left + v.ox + x * v.s, y: r.top + v.oy + y * v.s };
   }
-  tryPlace(p, keep) {
-    const g = this.game, t = g.placeTower(g.placing, p.x, p.y);
-    if (t && !keep) this.setPlacing(null);
-    if (!t) this.haptics.pulse(1);
-  }
   bindGameInput() {
     const cv = this.canvas;
-    cv.addEventListener('pointermove', (e) => {
-      const g = this.game; if (!g) return; const p = this.toLogical(e);
-      g.hover = { x: p.x, y: p.y, active: true };
-      g.hoverTower = !g.placing && e.pointerType === 'mouse' ? g.towerAt(p.x, p.y) : null;
-    });
-    cv.addEventListener('pointerleave', () => { const g = this.game; if (g) { g.hoverTower = null; if (!this.barDrag && !this.down) g.hover.active = false; } });
-    cv.addEventListener('pointerdown', (e) => {
-      const g = this.game; if (!g || g.over || e.button === 2) return; const p = this.toLogical(e);
-      g.hover = { x: p.x, y: p.y, active: true }; this.down = p;
-    });
+    cv.addEventListener('pointerdown', (e) => { const g = this.game; if (!g || g.over || e.button === 2) return; this.down = this.toLogical(e); });
     cv.addEventListener('pointerup', (e) => {
       const g = this.game; if (!g || !this.down) return; this.down = null; const p = this.toLogical(e);
-      const hit = g.towerAt(p.x, p.y);
-      if (g.placing && hit && hit.type !== 'mine' && g.placing !== 'mine') { this.setPlacing(null); this.select(hit); }
-      else if (g.placing) this.tryPlace(p, e.shiftKey); else this.select(hit);
+      if (g.paused) return;
+      if (this.onFieldTap && this.onFieldTap(p)) return;      // ciblage d'une capacité
+      const slot = g.slotAt(p.x, p.y);
+      this.openMenu(slot && slot !== g.menuSlot ? slot : null);
     });
-    cv.addEventListener('contextmenu', (e) => { e.preventDefault(); this.setPlacing(null); this.select(null); });
-    // glisser-déposer depuis la barre de tourelles
-    window.addEventListener('pointermove', (e) => {
-      const g = this.game; if (!g || !this.barDrag) return; const p = this.toLogical(e);
-      if (p.inside) { this.barDrag.moved = true; g.hover = { x: p.x, y: p.y, active: true }; } else g.hover.active = false;
-    });
-    window.addEventListener('pointerup', (e) => {
-      const g = this.game, d = this.barDrag; if (!g || !d) return; this.barDrag = null;
-      const p = this.toLogical(e);
-      if (p.inside && d.moved) this.tryPlace(p, e.shiftKey);
-      else if (d.wasSel && !d.moved) this.setPlacing(null);
-    });
-    window.addEventListener('pointercancel', () => { this.barDrag = null; this.down = null; });
+    cv.addEventListener('contextmenu', (e) => { e.preventDefault(); this.openMenu(null); });
+    window.addEventListener('pointercancel', () => { this.down = null; });
 
     $('#btn-wave').addEventListener('click', () => { const g = this.game; if (g && !g.paused && g.startNextWave(true)) this.haptics.pulse(1); });
     $('#btn-speed').addEventListener('click', () => { const g = this.game; if (!g) return; g.speed = (g.speed % 3) + 1; $('#btn-speed b').textContent = 'x' + g.speed; });
@@ -339,16 +384,16 @@ export class UI {
     const g = this.game; if (!g || this.screen !== 'game' || e.repeat) return;
     if (e.code === 'KeyP') { this.togglePause(); return; }
     if (g.over || g.paused) return;
-    const n = parseInt(e.key, 10);
-    if (n >= 1 && n <= TOWER_ORDER.length) { const t = TOWER_ORDER[n - 1]; this.setPlacing(g.placing === t ? null : t); if (g.placing) g.hover.active = g.hover.x > 0; }
+    const n = parseInt(e.key, 10), btns = $$('#radial .rb');
+    if (n >= 1 && n <= btns.length) btns[n - 1].click();
     else if (e.code === 'Space') { e.preventDefault(); g.startNextWave(true); }
-    else if (e.code === 'Escape') { if (g.placing) this.setPlacing(null); else if (g.selected) this.select(null); else this.togglePause(); }
+    else if (e.code === 'Escape') { if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
   }
   togglePause() {
     const g = this.game; if (!g || g.over) return;
     g.paused = !g.paused;
     if (!g.paused) { this.closeOverlay(); return; }
-    this.setPlacing(null); this.select(null);
+    this.closeMenu();
     const m = el('div', 'panel glass', `<h2 class="win">PAUSE</h2><p class="sub">${g.map.name} · ${g.endless ? 'Mode infini' : g.diff.name} · vague ${g.wave}</p>
       <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
     const btns = el('div', 'btns');
@@ -398,9 +443,7 @@ export class UI {
     this.set('lives', g.lives, (v) => { const e = $('#hud-lives'); $('b', e).textContent = v; if (v < g.maxLives) { e.classList.remove('hurt'); void e.offsetWidth; e.classList.add('hurt'); } });
     this.roll('money', Math.floor(g.money), '#hud-money');
     this.roll('score', g.score, '#hud-score');
-    this.set('afford', Math.floor(g.money), (v) => $$('.tb').forEach((b) => b.classList.toggle('poor', !b.classList.contains('locked') && TOWERS[b.dataset.type].cost > v)));
     this.set('wave', g.wave, (v) => ($('#hud-wave b').textContent = g.endless ? String(v) : `${v}/${g.totalWaves}`));
-    this.set('placing', g.placing, (v) => $$('.tb').forEach((b) => b.classList.toggle('sel', b.dataset.type === v)));
 
     // bouton de vague + aperçu
     const nw = g.nextWave, btn = $('#btn-wave');
@@ -422,11 +465,11 @@ export class UI {
         w.append(enemyImg(type, 30), document.createTextNode(ENEMIES[type].boss ? 'BOSS' : '×' + count)); box.append(w);
       }
     });
-    this.updateSheet();
+    this.updateRadial();
     this.updateTutorial();
   }
 
-  // ------------------------------------------------------------------ feuille d'amélioration (bottom sheet)
+  // ------------------------------------------------------------------ stats affichées
   statRows(type, s) {
     const mult = (s.pellets ? '×' + s.pellets : '') + (s.barrels > 1 ? '×' + s.barrels : '');
     const rows = [['Dégâts', num(s.damage) + mult]];
@@ -434,57 +477,6 @@ export class UI {
     rows.push(['Cadence', s.rate.toFixed(1) + '/s'], ['Portée', num(s.range)]);
     rows.push(type === 'cryo' ? ['Ralenti', Math.round(s.slow * 100) + ' %'] : ['DPS', num(dpsOf(s))]);
     return rows;
-  }
-  closeSheet() { const sh = $('#sheet'); sh.classList.remove('open'); sh.setAttribute('aria-hidden', 'true'); this.cache.sheetKey = null; }
-  updateSheet() {
-    const g = this.game, t = g.selected, sheet = $('#sheet');
-    if (!t || g.over) { if (sheet.classList.contains('open')) this.closeSheet(); return; }
-    const opts = t.upgradeOptions();
-    const key = [g.towers.indexOf(t), t.level, t.branch, t.mode, opts.map((o) => g.money >= o.cost).join()].join('|');
-    if (this.cache.sheetKey !== key) { this.cache.sheetKey = key; this.renderSheet(t, opts); }
-    const d = $('.dmg', sheet), k = $('.kills', sheet);
-    if (d) { d.textContent = short(t.dmg); k.textContent = t.kills; }
-  }
-  renderSheet(t, opts) {
-    const g = this.game, sheet = $('#sheet'), rar = RARITY[t.level - 1];
-    sheet.innerHTML = ''; sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
-    sheet.style.setProperty('--rar', rar.color);
-    const head = el('div', 's-head');
-    const art = el('div', 'art'); art.append(towerImg(t.type, 58, this.save.data.skin, t.level, t.branch));
-    const x = el('button', 'icon-btn', icon('close')); x.onclick = () => this.select(null);
-    head.append(art, el('div', 'ttl', `<b>${t.label}</b><small>${rar.name}<span class="lv">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= t.level ? 'on' : ''}"></i>`).join('')}</span></small>`), x);
-    const stats = el('div', 's-stats');
-    const cur = this.statRows(t.type, t.stats);
-    const fill = (opt) => {
-      const nxt = opt ? this.statRows(t.type, computeStats(t.type, opt.level, opt.branch, this.save.data.perks)) : null;
-      stats.innerHTML = cur.map((r, i) => `<div><span>${r[0]}</span><b>${r[1]}</b><i>${nxt && nxt[i][1] !== r[1] ? '→ ' + nxt[i][1] : ''}</i></div>`).join('');
-    };
-    fill(opts.length === 1 ? opts[0] : null);
-    const up = el('div', 's-up');
-    if (!opts.length) up.append(el('div', 'max', icon('star') + 'Niveau max · Légendaire'));
-    for (const o of opts) {
-      const ok = g.money >= o.cost;
-      const b = el('button', 'btn ' + (o.kind === 'level' ? 'green' : o.level === 5 ? '' : o.branch ? 'blue' : 'pink') + (ok ? '' : ' off'),
-        `<span class="t">${icon('up')}${o.name}</span>${o.kind === 'level' ? '' : `<small>${o.desc}</small>`}<span class="price">${coin()}${o.cost}</span>`);
-      b.onpointerenter = () => fill(o);
-      b.onpointerleave = () => fill(opts.length === 1 ? opts[0] : null);
-      b.onclick = () => { if (!g.upgradeTower(t, o)) this.haptics.pulse(1); this.cache.sheetKey = null; };
-      up.append(b);
-    }
-    const foot = el('div', 's-foot');
-    if (t.cfg.targeting) {
-      const modes = el('div', 'seg');
-      for (const [id, name] of TARGET_MODES) {
-        const b = el('button', t.mode === id ? 'sel' : '', { first: 'Premier', last: 'Dernier', strong: 'Fort', close: 'Proche' }[id]);
-        b.onclick = () => { t.mode = id; t.target = null; this.cache.sheetKey = null; };
-        modes.append(b);
-      }
-      foot.append(modes);
-    } else foot.append(el('div', 'tally', ''));
-    const sell = el('button', 'btn sm red', `Vendre ${coin()}${t.sellValue}`); sell.onclick = () => g.sellTower(t);
-    foot.append(sell);
-    const tally = el('div', 's-foot', `<div class="tally"><span>${icon('sword')}<b class="dmg">0</b> dégâts</span><span>${icon('skull')}<b class="kills">0</b> kills</span></div>`);
-    sheet.append(el('div', 'grab'), head, stats, up, foot, tally);
   }
 
   // ------------------------------------------------------------------ tutoriel : bulles fléchées
@@ -494,7 +486,7 @@ export class UI {
     let step = TUTORIAL[this.tutStep];
     while (step && step.done(g, this)) { this.tutStep++; step = TUTORIAL[this.tutStep]; this.cache.tut = null; }
     if (!step) { this.endTutorial(); return; }
-    const hide = g.paused || g.over || (step.wait && step.wait(g)) || !!g.selected;
+    const hide = g.paused || g.over || (step.wait && step.wait(g)) || (!!g.menuSlot && !step.keep);
     const target = hide ? null : step.target(this);
     if (!target) { box.hidden = true; this.cache.tut = null; return; }
     const r = target.getBoundingClientRect(), key = `${this.tutStep}|${Math.round(r.left)}|${Math.round(r.top)}`;
@@ -502,6 +494,9 @@ export class UI {
     box.hidden = false; box.innerHTML = `<span>${step.text}</span>`;
     const skip = el('button', '', 'Passer'); skip.onclick = () => this.endTutorial(); box.append(skip);
     const ring = el('i', 'tut-ring'); box.append(ring);
+    // le bandeau se place en bas quand la cible est dans le haut de l'écran : il ne recouvre jamais ce qu'il montre
+    const sg = $('#screen-game').getBoundingClientRect();
+    box.classList.toggle('low', r.top - sg.top < sg.height * 0.42);
     const host = box.getBoundingClientRect();
     ring.style.left = r.left + r.width / 2 - host.left + 'px'; ring.style.top = r.top + r.height / 2 - host.top + 'px';
     ring.style.setProperty('--d', Math.max(58, Math.min(110, Math.max(r.width, r.height) + 16)) + 'px');
@@ -521,7 +516,7 @@ export class UI {
   }
   showEnd(r) {
     const g = this.game; if (!g || g.result !== r) return;
-    this.closeSheet();
+    this.closeMenu();
     const m = el('div', 'panel glass');
     m.append(el('h2', r.victory ? 'win' : 'lose', r.victory ? 'VICTOIRE !' : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'));
     m.append(el('p', 'sub', `${g.map.name} · ${g.endless ? 'Mode infini' : g.diff.name} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`));
