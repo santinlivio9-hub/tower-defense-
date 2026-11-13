@@ -47,31 +47,46 @@ export const Loot = {
     grid.append(g, el('p', 'hint', 'Les boosts sont utilisables directement en partie. Ceux que tu n\'utilises pas restent dans ton stock.'));
   },
   // Ouverture animée : secousse, explosion de lumière, cartes qui se retournent
+  // Ouverture : on tape 3 fois (le coffre tremble de plus en plus, la lumière filtre), il explose de lumière,
+  // puis les cartes sortent et se retournent une à une, de la plus commune à la plus rare.
   openChest(kind) {
-    const stage = el('div', 'chest-stage'), c = CHESTS[kind];
-    stage.innerHTML = `<div class="rays"></div><div class="chest">${chestSvg(kind)}</div><p class="sub tap">Touche le coffre pour l'ouvrir</p><div class="lcards"></div>`;
+    const stage = el('div', 'chest-stage'), c = CHESTS[kind], TAPS = 3;
+    stage.innerHTML = `<div class="rays"></div><div class="chest">${chestSvg(kind)}<i class="crack"></i></div><p class="sub tap">Touche le coffre !</p><div class="taps">${'<i></i>'.repeat(TAPS)}</div><div class="lcards"></div>`;
     const chest = $('.chest', stage), cards = $('.lcards', stage), tap = $('.tap', stage);
-    let state = 0;
+    let taps = 0, opened = false;
     const done = el('button', 'btn primary', 'Super !'); done.style.visibility = 'hidden';
-    done.onclick = () => { this.closeOverlay(); this.refreshGems(); this.show(this.screen); };
+    done.onclick = () => { this.closeOverlay(); this.refreshGems(); this.show(this.screen, true); };
     stage.append(done);
+    const rar = (l) => (l.kind === 'coins' ? 0 : l.kind === 'gems' ? 1 + (l.n >= 25 ? 1 : 0) : 1 + (BOOSTS[l.id].rarity || 0));
     chest.onclick = () => {
-      if (state) return; state = 1; tap.style.visibility = 'hidden';
-      chest.classList.add('shake'); this.audio.play('sheet'); this.haptics.pulse(1);
-      const rattle = setInterval(() => { this.audio.play('tick'); this.haptics.pulse(0); }, 110);
+      if (opened) return;
+      taps++; $$('.taps i', stage).forEach((d, i) => d.classList.toggle('on', i < taps));
+      stage.style.setProperty('--crack', taps / TAPS);
+      chest.classList.remove('hit1', 'hit2', 'hit3'); void chest.offsetWidth; chest.classList.add('hit' + taps);
+      this.audio.play(taps < TAPS ? 'hit' : 'sheet'); this.audio.play('tick'); this.haptics.pulse(taps < TAPS ? 1 : 2);
+      tap.textContent = taps < TAPS ? `Encore ${TAPS - taps} !` : '';
+      if (taps < TAPS) return;
+      opened = true;
+      chest.classList.add('shake');
+      const rattle = setInterval(() => { this.audio.play('tick'); this.haptics.pulse(0); }, 90);
       setTimeout(() => {
         clearInterval(rattle);
-        const loot = this.save.openChest(kind) || [];
+        const loot = (this.save.openChest(kind) || []).sort((x, y) => rar(x) - rar(y));
         chest.classList.remove('shake'); chest.classList.add('open'); chest.innerHTML = chestSvg(kind, true);
-        stage.classList.add('burst'); this.audio.play('chest'); this.haptics.pulse(2);
+        stage.classList.add('burst'); this.audio.play('chest'); this.audio.play('explosion'); this.haptics.pulse(2);
+        let t = 700;
         loot.forEach((l, i) => {
-          const front = l.kind === 'gems' ? `${gem('big')}<b>+${l.n}</b><small>gemmes</small>` : `${boostArt(l.id)}<b>×${l.n}</b><small>${BOOSTS[l.id].name}</small>`;
-          const card = el('div', 'lcard' + (l.kind === 'boost' && (l.id === 'shield' || l.id === 'revive') ? ' rare' : ''), `<div class="in"><div class="back">${icon('star')}</div><div class="front">${front}</div></div>`);
+          const r = rar(l), front = l.kind === 'coins' ? `<i class="coin-ico big"></i><b>+${l.n}</b><small>pièces</small>` : l.kind === 'gems' ? `${gem('big')}<b>+${l.n}</b><small>gemmes</small>` : `${boostArt(l.id)}<b>×${l.n}</b><small>${BOOSTS[l.id].name}</small>`;
+          const card = el('div', 'lcard r' + Math.min(4, r) + (r >= 3 ? ' rare' : ''), `<div class="in"><div class="back">${icon('star')}</div><div class="front">${front}</div></div>`);
           card.style.setProperty('--i', i); cards.append(card);
-          setTimeout(() => { card.classList.add('flip'); this.audio.play('card'); this.haptics.pulse(1); }, 900 + i * 420);
+          t += r >= 3 ? 900 : 420;   // les cartes rares se font attendre
+          setTimeout(() => {
+            card.classList.add('flip'); this.audio.play(r >= 3 ? 'legendary' : 'card'); this.haptics.pulse(r >= 3 ? 2 : 1);
+            if (r >= 3) { stage.classList.remove('flash'); void stage.offsetWidth; stage.classList.add('flash'); }
+          }, t);
         });
-        setTimeout(() => { done.style.visibility = ''; }, 1100 + loot.length * 420);
-      }, 900);
+        setTimeout(() => { done.style.visibility = ''; }, t + 500);
+      }, 700);
     };
     this.openOverlay(stage);
   },

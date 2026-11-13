@@ -151,6 +151,7 @@ export const End = {
       seq.fast = false;
       const badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.gems ? `+${a.gems}${gem()}` : '' }))];
       if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
+      if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
       if (win && !g.heroic && g.level.n === 12 && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
       for (const t of r.towers || []) badges.push({ ico: 'plus', name: TOWERS[t].name, sub: 'Nouvelle tourelle' });
       if (badges.length) {
@@ -230,7 +231,7 @@ export const End = {
   // Écran final compact : étoiles, score, MVP, 3 stats, boutons
   esFinal(root, stage, r, g, badges) {
     const win = r.victory, s = g.stats, skin = this.save.data.skin;
-    const nextN = g.level.n + 1, canNext = win && !g.endless && !g.heroic && nextN <= LEVELS.length;
+    const nextN = g.level.n + 1, canNext = win && !g.endless && !g.heroic && !g.challenge && nextN <= LEVELS.length;
     const f = el('div', 'es-final');
     f.innerHTML = `<div class="es-banner sm"><b>${win ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'}</b></div>
       <p class="es-sub">${this.levelLabel(g)}</p>

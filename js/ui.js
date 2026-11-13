@@ -9,6 +9,7 @@ import { Talents } from './talents.js';
 import { Collection } from './collection.js';
 import { BoostUI } from './boosts.js';
 import { Music } from './music.js';
+import { Daily } from './daily.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -175,10 +176,10 @@ export class UI {
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
 
   // ------------------------------------------------------------------ partie
-  startGame(n, heroic = false, endless = false, boosts = []) {
+  startGame(n, heroic = false, endless = false, boosts = [], challenge = null) {
     if (this.game) this.game.commit();
-    const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts }));
-    this.lastArgs = [n, heroic, endless];
+    const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts, challenge }));
+    this.lastArgs = [n, heroic, endless, challenge];
     this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
     g.onEvent = (name, data) => this.onGameEvent(name, data);
     Object.defineProperty(g, 'simulating', { get: () => this.simulating });
@@ -188,11 +189,12 @@ export class UI {
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
     if (g.heroic) this.toast('Défi héroïque : ' + g.heroic.name, g.heroic.desc, icon('crown'));
+    if (g.challenge) this.toast('Défi du jour : ' + g.challenge.name, g.challenge.desc, icon('target'));
     window.__game = g; // pratique pour le débogage / l'équilibrage en console
   }
   // Rejouer : on reprend les mêmes boosts s'il en reste
-  replay() { const [n, h, e] = this.lastArgs; this.startGame(n, h, e, this.loadoutFor ? this.loadoutFor(LEVELS[n - 1]) : []); }
-  levelLabel(g = this.game) { return g.endless ? `Mode infini · ${g.world.name}` : `${g.heroic ? 'Héroïque' : 'Niveau'} ${g.level.id} · ${g.world.name}`; }
+  replay() { const [n, h, e, ch] = this.lastArgs; this.startGame(n, h, e, this.loadoutFor ? this.loadoutFor(LEVELS[n - 1]) : [], ch); }
+  levelLabel(g = this.game) { return g.challenge ? `Défi du jour · ${g.challenge.name}` : g.endless ? `Mode infini · ${g.world.name}` : `${g.heroic ? 'Héroïque' : 'Niveau'} ${g.level.id} · ${g.world.name}`; }
   quitGame() {
     if (this.game) { this.game.commit(); this.announce(this.save.checkAchievements()); }
     this.game = null; this.show('world');
@@ -532,4 +534,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily);

@@ -44,11 +44,17 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
 - **8 tourelles** qui changent d'apparence à chaque niveau : niveaux 1 à 3, **2 branches au look distinct** au niveau 4,
   maîtrise dorée au niveau 5. Elles se débloquent au fil de la campagne, avec une carte de présentation.
 - **8 ennemis + 5 boss**, groupes « élite » dans les derniers mondes.
-- **Château** amélioré avec les gemmes : murs, réparation, trésorerie, canon, et 3 capacités actives
+- **Hub** façon jeu mobile : accueil avec le château animé, barre de ressources (niveau, pièces, gemmes), gros bouton
+  JOUER, barre d'onglets Boutique | Château | Jouer | Talents | Collection avec badges de notification.
+- **Château** amélioré avec les pièces : murs, réparation, trésorerie, canon, et 3 capacités actives
   (frappe aérienne, blizzard, pluie d'or). Son apparence évolue : bois → pierre → forteresse → citadelle dorée.
-- **Niveau de joueur** (XP), **arbre de talents** à 3 branches, **coffres** à ouverture animée.
-- **Boosts** consommables (pièces x2, +5 PV, tourelle gratuite, surcharge, bouclier, seconde chance) dans un
-  inventaire persistant ; on en emporte 2 par niveau (4 en niveau de boss).
+- **Niveau de joueur** (XP), **arbre de talents** visuel à 3 branches, **collection** (tourelles, brainrots, boosts, succès).
+- **Boosts** en cartes à collectionner (pièces x2, +5 PV, tourelle gratuite, surcharge, bouclier, seconde chance) :
+  3 emplacements rapides en partie, bulles de boost lâchées par les brainrots, activation au ralenti.
+- **Fin de niveau** en séquence animée (étoiles, score, récompenses, montées de niveau, succès, écran final compact).
+- **Chaque jour** : cadeau du jour (calendrier de 7 jours, coffre doré le 7e, série affichée), 3 quêtes du jour et une
+  quête de la semaine, roue de la chance (1 tour gratuit), défi du jour (un niveau + un modificateur fun),
+  passe de progression gratuit de 30 paliers, coffres à ouvrir en 3 touchers. Tout est gratuit, sans minuteur.
 - **Mode infini** débloqué après le monde 2, classement local des 10 meilleurs scores.
 - **Score** partout (multi-kills, vague parfaite, record par niveau), image de score à partager.
 - **Juice** : éclaboussures aux couleurs de chaque brainrot, « pop » qui monte d'un ton quand on enchaîne les kills,
@@ -56,7 +62,8 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
   chiffres de dégâts qui rebondissent, rayon de lumière quand une tourelle monte de niveau, entrée et mort des boss
   au ralenti, bannière de fin de vague, musique générée qui s'intensifie contre les boss (réglages dans `JUICE` et `MUSIC`).
 - **PWA** : installable sur l'écran d'accueil (« Brainrot TD »), jouable hors ligne.
-- Deux monnaies : pièces (en partie) et gemmes (hors partie). Tout se gagne en jouant, aucun achat réel.
+- Monnaies : pièces de partie (remises à zéro à chaque niveau) ; hors partie, pièces (château, boosts courants)
+  et gemmes, plus rares (coffres, skins, boosts rares). Tout se gagne en jouant, aucun achat réel.
 
 Les anciennes sauvegardes sont converties automatiquement : étoiles et bonus achetés deviennent des gemmes, de l'XP
 et des coffres ; tourelles, skins et succès sont conservés.
@@ -64,7 +71,7 @@ et des coffres ; tourelles, skins et succès sont conservés.
 ## Architecture
 
 ```
-index.html            écrans (menu, campagne, château, talents, inventaire, boutique, paramètres, jeu)
+index.html            écrans (accueil, campagne, boutique, château, talents, collection, paramètres, jeu)
 css/style.css         design system (Fredoka, verre, boutons 3D, safe-areas)
 manifest.webmanifest  PWA
 sw.js                 service worker (hors ligne)
@@ -85,10 +92,15 @@ js/audio.js           sons Web Audio
 js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
 js/save.js            sauvegarde, migration, progression, XP, coffres
-js/ui.js              HUD, menu radial, tutoriel, fin de partie, partage
-js/meta.js            carte du monde, préparation d'un niveau, cartes de présentation, mode infini
-js/hub.js             écran Château, capacités en partie
-js/loot.js            XP, talents, inventaire, coffres, boosts
+js/ui.js              navigation, HUD, menu radial, tutoriel, boutique, paramètres, partage
+js/hub.js             barre de ressources, onglets, accueil animé, écran Château, capacités en partie
+js/meta.js            carte du monde, lancement d'un niveau, cartes de présentation, mode infini
+js/end.js             séquence de fin de niveau
+js/talents.js         arbre de talents
+js/collection.js      collection et fiches
+js/boosts.js          boosts : cartes, emplacements rapides, activation
+js/daily.js           cadeau du jour, quêtes, roue, défi du jour, passe
+js/loot.js            coffres (boutique et ouverture)
 tools/simulate.cjs    robot d'équilibrage (voir plus bas)
 ```
 
@@ -113,8 +125,12 @@ Tout se règle dans **`js/config.js`** (et un multiplicateur par carte dans `js/
 | Difficulté par monde / par niveau / des niveaux de boss | `CAMPAIGN.hpWorld`, `.hpLevel`, `.bossLevelHp`, `.density` |
 | Mini-boss, déblocage des tourelles et du mode infini | `CAMPAIGN.miniBossEvery`, `.towerUnlocks`, `.endlessAfter` |
 | Défis héroïques | `HEROIC` |
-| Château et capacités actives | `CASTLE` |
-| Boosts, emplacements à emporter | `BOOSTS`, `BOOST_SLOTS` |
+| Château et capacités actives (prix en pièces) | `CASTLE` |
+| Boosts, emplacements rapides, bulles de boost | `BOOSTS`, `BOOST_SLOTS`, `DROPS` |
+| Pièces gagnées hors partie | `COINS` |
+| Cadeau du jour, quêtes, roue, défi du jour, passe | `DAILY`, `PASS` |
+| Combos, micro-pauses, musique | `JUICE`, `MUSIC` |
+| Textes et conseils de l'écran de fin | `END` |
 | XP, récompenses de niveau, talents, coffres | `XP`, `TALENTS`, `CHESTS` |
 | Revente, critiques, bonus de vague, bonus « en avance », délais entre vagues | `GAME` |
 | Skins | `SHOP` |
@@ -154,3 +170,6 @@ __ui.startGame(12);          // lancer directement le niveau 12
 ```
 
 Pour repartir de zéro : Paramètres → Réinitialiser.
+
+`tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
+et enregistre des captures en 390 × 844.
