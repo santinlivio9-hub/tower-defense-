@@ -309,7 +309,16 @@ export const BOOSTS = {
   revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40, cur: 'gems', rarity: 4 },
 };
 export const BOOST_ORDER = ['coins2', 'heal', 'free', 'over', 'shield', 'revive'];
-export const BOOST_SLOTS = { normal: 2, boss: 4 };   // emplacements à emporter (+ talent « Sacoche »)
+export const BOOST_SLOTS = { normal: 3, boss: 3 };   // emplacements rapides en partie (+ talent « Sacoche »)
+// Bulles de boost lâchées par les brainrots (à toucher) et mise en scène des activations
+export const DROPS = {
+  chance: 0.012, eliteChance: 0.25,   // par kill (un boss en lâche toujours une)
+  maxPerLevel: 3, minGap: 25,         // au plus 3 par niveau, 25 s d'écart minimum
+  life: 7, tapRadius: 44, maxSlots: 6,
+  pool: ['coins2', 'heal', 'over', 'shield', 'free'],
+  slowMo: 0.25, slowTime: 0.5,        // ralenti à l'activation : vitesse x0,25 pendant 0,5 s
+  crowd: 12,                          // ennemis à l'écran pour que la Surcharge « pulse »
+};
 export const STARTER_BOOSTS = { coins2: 1, heal: 1, free: 1, over: 1, shield: 0, revive: 0 };
 
 // ----------------------------------------------------------------------------

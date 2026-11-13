@@ -11,7 +11,7 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const short = (n) => (n >= 1e4 ? (n / 1000).toFixed(n >= 1e5 ? 0 : 1) + 'k' : fmt(n));
-export const boostCardArt = (id) => `<i class="bico big" style="--bc:${BOOSTS[id].color}">${icon(BOOSTS[id].icon)}</i>`;
+import { boostArt as boostCardArt } from './boosts.js';
 const ENEMY_LIST = () => Object.keys(ENEMIES).filter((k) => k !== 'mini');
 const unlockLabel = (t) => { const n = CAMPAIGN.towerUnlocks[t]; return n ? `Termine le niveau ${LEVELS[n - 1].id}` : ''; };
 

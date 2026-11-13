@@ -71,7 +71,7 @@ export const Meta = {
         b.insertAdjacentHTML('beforeend', unlocked ? `<b>${L.boss ? 'BOSS' : L.id}</b>` : icon('lock'));
         if (done) b.insertAdjacentHTML('beforeend', stars(ld.stars));
         if (ld && ld.heroic) b.insertAdjacentHTML('beforeend', `<i class="crown">${icon('crown')}</i>`);
-        b.onclick = () => { if (!unlocked) { this.audio.play('error'); this.toast('Niveau verrouillé', 'Termine le niveau précédent', icon('lock')); return; } this.openPrep(L.n); };
+        b.onclick = () => { if (!unlocked) { this.audio.play('error'); this.toast('Niveau verrouillé', 'Termine le niveau précédent', icon('lock')); return; } this.playLevel(L.n); };
         if (unlocked && !done) current = b;
         sec.append(b);
       });
@@ -99,7 +99,11 @@ export const Meta = {
     });
   },
 
-  // ------------------------------------------------------------------ préparation d'un niveau
+  // Lancer un niveau : directement s'il n'est pas terminé, sinon petit choix Normal / Héroïque
+  playLevel(n) { if (this.save.levelDone(n)) this.openPrep(n); else this.startGame(n, false, false, this.loadoutFor(LEVELS[n - 1])); },
+  playNext() { this.playLevel(this.nextLevel().n); },
+
+  // ------------------------------------------------------------------ niveau déjà terminé : rejouer ou défi héroïque
   openPrep(n, heroic = false) {
     const sv = this.save, L = LEVELS[n - 1], w = WORLDS[L.world], ld = sv.levelData(n), done = sv.levelDone(n);
     if (!done) heroic = false;
@@ -126,7 +130,6 @@ export const Meta = {
     b2.onclick = () => { if (!done) { this.toast('Défi verrouillé', 'Termine d\'abord le niveau', icon('lock')); return; } this.openPrep(n, true); };
     seg.append(b1, b2); m.append(seg);
     if (heroic) m.append(el('div', 'heroic-box', `${icon('crown')}<span><b>${hm.name}</b>${hm.hp ? `PV des ennemis +${Math.round((HEROIC.hp * hm.hp - 1) * 100)} %` : `${hm.desc} · PV ennemis +${Math.round((HEROIC.hp - 1) * 100)} %`}<em>Gemmes et XP x${HEROIC.gemsMult}${ld.heroic ? '' : ' · coffre à la première victoire'}</em></span>`));
-    if (this.prepBoosts) m.append(this.prepBoosts(L));
     const go = el('button', 'btn primary big', icon('play') + 'Jouer');
     go.onclick = () => this.startGame(n, heroic, false, this.loadoutFor ? this.loadoutFor(L) : []);
     m.append(go);
@@ -178,7 +181,6 @@ export const Meta = {
     if (!list.length) board.append(el('p', 'sub', 'Aucun score pour l\'instant. À toi de jouer !'));
     list.forEach((e, i) => board.append(el('div', 'rank' + (i < 3 ? ' top' + (i + 1) : ''), `<i>${i + 1}</i><b>${fmt(e.score)}</b><span>vague ${e.wave} · ${WORLDS[e.world].name.split(' ')[0]}</span>`)));
     m.append(el('small', 'kicker', 'CLASSEMENT LOCAL'), board);
-    if (this.prepBoosts) m.append(this.prepBoosts(L));
     const go = el('button', 'btn pink big', icon('infinity') + 'Jouer');
     go.onclick = () => this.startGame(L.n, false, true, this.loadoutFor ? this.loadoutFor(L) : []);
     m.append(go);
