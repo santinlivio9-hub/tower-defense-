@@ -2,6 +2,7 @@
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
 import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS } from './config.js';
 import { Meta } from './meta.js';
+import { Hub } from './hub.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -335,13 +336,13 @@ export class UI {
     const n = parseInt(e.key, 10), btns = $$('#radial .rb');
     if (n >= 1 && n <= btns.length) btns[n - 1].click();
     else if (e.code === 'Space') { e.preventDefault(); g.startNextWave(true); }
-    else if (e.code === 'Escape') { if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
+    else if (e.code === 'Escape') { if (this.aiming) this.aiming = null; else if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
   }
   togglePause() {
     const g = this.game; if (!g || g.over || this.introOpen) return;
     g.paused = !g.paused;
     if (!g.paused) { this.closeOverlay(); return; }
-    this.closeMenu();
+    this.closeMenu(); this.aiming = null;
     const m = el('div', 'panel glass', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
       <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
     const btns = el('div', 'btns');
@@ -373,6 +374,7 @@ export class UI {
     const dt = Math.min(0.1, (ts - this.last) / 1000 || 0); this.last = ts;
     const g = this.game;
     if (g && this.screen === 'game' && !this.simulating) { g.frame(dt); this.updateHud(); }
+    else if (this.screen === 'castle') this.tickCastle(ts);
     requestAnimationFrame((t) => this.loop(t));
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
@@ -551,4 +553,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta);
+Object.assign(UI.prototype, Meta, Hub);
