@@ -1,6 +1,7 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
 import { icon } from './icons.js';
-import { DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { enemyFrames } from './sprites.js';
+import { JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -46,6 +47,7 @@ export class Game {
     this.boosts = boosts.map((id) => ({ id, used: false }));
     this.overT = 0; this.blizzT = 0; this.coins2Until = 0; this.shieldUntil = 0; this.flash = null; this.strikes = [];
     this.drops = []; this.dropCount = 0; this.lastDrop = -99; this.slowT = 0; this.bolts = []; this.dome = 0;
+    this.chain = 0; this.chainT = -9; this.chainBest = 0; this.hitStopT = 0; this.lastHitStop = -9; this.cine = null; this.slowK = 0;
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
     this._nextCache = null; this.useSlots = true;
@@ -107,6 +109,7 @@ export class Game {
     this.enemies.push(e);
     if (this.blizzT > 0) e.applySlow(this.blizzSlow, this.blizzT);
     if (e.boss) {
+      if (!e.mini && !this.simulating) this.cine = { t: 0, dur: JUICE.bossIntro, boss: e };
       this.showBanner(e.mini ? 'MINI-BOSS' : 'BOSS', e.cfg.name, '#ff5d6c', e.mini ? 2.4 : 3.4, true, e.cfg.title);
       this.shake(14); this.audio.play('boss'); this.onEvent('haptic', 2);
       this.fx.ring(e.x, e.y, 20, 260, '#ff4d4d', 0.9, 12);
@@ -156,11 +159,20 @@ export class Game {
   }
 
   // --- dégâts ----------------------------------------------------------------
+  // Combo : kills enchaînés (moins de JUICE.chainWindow s entre deux) ; paliers = points bonus
+  chainKill(e) {
+    this.chain = this.time - this.chainT <= JUICE.chainWindow ? this.chain + 1 : 1; this.chainT = this.time;
+    this.chainBest = Math.max(this.chainBest, this.chain);
+    const tier = JUICE.chainTiers.find((t) => t[0] === this.chain);
+    if (tier) { const b = this.addScore(tier[2]); this.onEvent('chainTier', { n: this.chain, label: tier[1], bonus: b }); this.shake(4 + JUICE.chainTiers.indexOf(tier) * 2); }
+    this.onEvent('kill', this.chain);
+  }
+  hitStop(t = JUICE.hitStop) { if (this.simulating || this.time - this.lastHitStop < JUICE.hitStopGap) return; this.lastHitStop = this.time; this.hitStopT = t; }
   dmgText(e, amount, crit) {
     if (!this.save.data.settings.damageNumbers) return;
     const v = Math.max(1, Math.round(amount));
-    if (crit) this.fx.text(e.x, e.y - e.r - 10, v + '!', '#ffb21a', 22, 0.85);
-    else this.fx.text(e.x, e.y - e.r - 6, String(v), '#ffffff', 13, 0.6);
+    if (crit) this.fx.text(e.x, e.y - e.r - 12, v + '!', '#ffd23f', 26, 0.95, { bounce: true, shake: true });
+    else this.fx.text(e.x, e.y - e.r - 6, String(v), '#ffffff', 14, 0.7, { bounce: true });
   }
   damage(e, amount, tower, o = {}) {
     if (e.dead) return;
@@ -173,7 +185,7 @@ export class Game {
     this.stats.damage += real;
     if (tower) { tower.dmg += real; this.stats.dmgByType[tower.type] = (this.stats.dmgByType[tower.type] || 0) + real; }
     if (!o.dot) { e.flash = 1; this.audio.play('hit'); }
-    if (o.crit) { this.dmgText(e, amount, true); this.audio.play('crit'); }
+    if (o.crit) { this.dmgText(e, amount, true); this.audio.play('crit'); if (amount >= e.maxHp * JUICE.bigHit) { this.hitStop(); this.shake(5); } }
     else if (o.dot || o.group || amount < 9) { if (e.pendingText <= 0) e.textT = 0.3; e.pendingText += amount; }
     else this.dmgText(e, amount, false);
     if (e.hp <= 0) this.kill(e, tower);
@@ -186,7 +198,10 @@ export class Game {
     this.stats.kills++; this.stats.cost += e.boss ? 60 : e.cfg.cost; if (tower) tower.kills++;
     const fx = this.fx;
     fx.burst(e.x, e.y, '#ffffff', 6, 160, 5);
-    fx.confetti(e.x, e.y, e.boss ? 90 : 10 + Math.min(10, e.r * 0.4), e.boss ? 480 : 220);
+    fx.slime(e.x, e.y, JUICE.slime[e.boss ? 'boss' : e.type] || JUICE.slime.basic, e.boss ? 40 : 10 + Math.min(10, Math.round(e.r * 0.35)), e.boss ? 520 : 240);
+    fx.confetti(e.x, e.y, e.boss ? 90 : 6, e.boss ? 480 : 200);
+    this.chainKill(e);
+    if (e.elite || e.boss) this.hitStop(e.boss && !e.mini ? 0.09 : JUICE.hitStop);
     fx.ring(e.x, e.y, e.r * 0.5, e.r * 2.2, '#fff', 0.25, 4);
     this.onEvent('coins', { x: e.x, y: e.y, n: e.boss ? 8 : Math.max(1, Math.round(reward / 5)), amount: reward });
     // score : points du kill + bonus de multi-kill
@@ -211,7 +226,9 @@ export class Game {
     if (e.boss) {
       if (!e.mini) this.stats.bossKills++;
       this.shake(18); this.audio.play('explosion');
-      fx.explosion(e.x, e.y, 150, '#ffd23f');
+      fx.explosion(e.x, e.y, 150, '#ffd23f'); fx.explosion(e.x, e.y, 230, '#ff5d8f');
+      if (!e.mini) { this.slowT = JUICE.bossDeathSlow; this.slowK = 0.25; this.flashScreen('255,255,255', 0.6); }
+      for (let k = 0; k < (e.mini ? 30 : 80); k++) fx.add({ k: 'coin', x: e.x + (Math.random() - 0.5) * 60, y: e.y, vx: (Math.random() - 0.5) * 520, vy: -300 - Math.random() * 420, g: 700, life: 1.8, max: 1.8, size: 7 + Math.random() * 4, rot: Math.random() * 6, vr: 8 + Math.random() * 8, drag: 0.6 });
       for (let i = 0; i < 5; i++) this.delayed.push({ t: 0.12 * (i + 1), fn: () => { fx.explosion(e.x + (Math.random() - 0.5) * 140, e.y + (Math.random() - 0.5) * 140, 70); this.audio.play('explosion'); this.shake(8); } });
       this.showBanner(e.mini ? 'MINI-BOSS VAINCU !' : 'BOSS VAINCU !', '+' + reward + ' pièces', '#ffd23f', 2.2);
     }
@@ -268,6 +285,7 @@ export class Game {
     this.fx.ring(t.x, t.y, 10, 80, col, 0.5, 9); this.fx.ring(t.x, t.y, 4, 120, '#ffffff', 0.4, 4);
     this.fx.burst(t.x, t.y, col, 22, 260, 6); this.fx.burst(t.x, t.y, '#ffffff', 10, 180, 4);
     this.fx.add({ k: 'flash', x: t.x, y: t.y, vx: 0, vy: 0, life: 0.18, max: 0.18, size: 46, color: '#ffffff' });
+    this.fx.beam(t.x, t.y + 20, t.level >= 5 ? '#ffe27a' : '#fff6c8'); this.audio.play('beam');
     for (let i = 0; i < 8; i++) this.fx.add({ k: 'dot', x: t.x + (Math.random() - 0.5) * 40, y: t.y + 10, vx: 0, vy: -90 - Math.random() * 80, life: 0.7, max: 0.7, size: 3.5, color: col });
     this.shake(t.level >= 4 ? 5 : 2.5); this.hintT = 0;
     this.fx.text(t.x, t.y - 40, t.level >= 4 ? t.label + ' !' : 'NIVEAU ' + t.level + ' !', col, t.level >= 4 ? 20 : 18, 1.3);
@@ -287,9 +305,11 @@ export class Game {
   }
   // --- boucle ----------------------------------------------------------------
   frame(dtReal) {
+    if (this.hitStopT > 0 && !this.paused) { this.hitStopT -= dtReal; this.render(); return; }   // micro-pause
     let dt = Math.min(0.05, dtReal);
-    if (this.slowT > 0 && !this.paused) { this.slowT -= dtReal; dt *= DROPS.slowMo; }
-    if (!this.paused) for (let i = 0; i < (this.slowT > 0 ? 1 : this.speed); i++) this.update(dt);
+    if (this.cine && !this.paused) { this.cine.t += dtReal; dt *= 0.35; if (this.cine.t >= this.cine.dur) this.cine = null; }   // entrée du boss
+    else if (this.slowT > 0 && !this.paused) { this.slowT -= dtReal; dt *= this.slowK || DROPS.slowMo; if (this.slowT <= 0) this.slowK = 0; }
+    if (!this.paused) for (let i = 0; i < (this.slowT > 0 || this.cine ? 1 : this.speed); i++) this.update(dt);
     this.render();
   }
   update(dt) {
@@ -349,7 +369,8 @@ export class Game {
         if (rep && this.wave % rep === 0 && this.lives < this.maxLives) { this.lives++; this.fx.text(this.base.x, this.base.y - 100, '+1 PV', '#6dff9a', 22, 1.2); }
         this.cleared = this.wave;
         this.addMoney(bonus);
-        this.fx.text(VIEW.W / 2, 210, `VAGUE TERMINÉE !`, '#6dff9a', 30, 1.6);
+        if (!(this.endless ? false : this.wave >= this.totalWaves)) this.showBanner(`VAGUE ${this.wave} TERMINÉE !`, `+${bonus} pièces`, '#6dff9a', 1.8);
+        for (let k = 0; k < 16; k++) this.fx.add({ k: 'coin', x: VIEW.W / 2 + (Math.random() - 0.5) * 220, y: 60 - Math.random() * 120, vx: 0, vy: 260 + Math.random() * 200, life: 1.1, max: 1.1, size: 7 + Math.random() * 3, rot: Math.random() * 6, vr: 9, color: '#ffd23f' });
         this.onEvent('coins', { x: VIEW.W / 2, y: 240, n: 8, amount: bonus });
         if (this.cleanWave) { const b = this.addScore(SCORE.cleanWave + SCORE.cleanWavePerWave * this.wave); this.fx.text(VIEW.W / 2, 262, `VAGUE PARFAITE +${b}`, '#8fe9ff', 22, 1.8); }
         this.cleanWave = true;
@@ -694,17 +715,30 @@ export class Game {
 
     c.setTransform(S, 0, 0, S, ox * S, oy * S);
     // barre de vie du boss
-    const boss = this.enemies.find((e) => e.boss);
+    // cinématique d'entrée du boss : bandes noires + zoom sur le nom
+    if (this.cine) {
+      const q = this.cine.t / this.cine.dur, a = Math.min(1, q * 5, (1 - q) * 5), bh = 90 * a;
+      c.fillStyle = '#0c0614'; c.fillRect(E.l, E.t, E.r - E.l, bh - E.t); c.fillRect(E.l, E.b - bh, E.r - E.l, bh);
+      const e = this.cine.boss; c.strokeStyle = `rgba(255,80,90,${0.8 * a})`; c.lineWidth = 6; c.beginPath(); c.arc(e.x, e.y, e.r * 2.2 + Math.sin(this.cine.t * 12) * 6, 0, TAU); c.stroke();
+    }
+    const boss = this.enemies.find((e) => e.boss && !e.mini) || this.enemies.find((e) => e.boss);
     if (boss) {
-      const bw = W - 120, bx = 60, by = 20, k = Math.max(0, boss.hp / boss.maxHp);
-      c.fillStyle = '#3d2c4e'; c.beginPath(); c.roundRect(bx - 6, by - 6, bw + 12, 36, 18); c.fill();
-      c.fillStyle = '#5b2a3a'; c.beginPath(); c.roundRect(bx, by, bw, 24, 12); c.fill();
-      const g = c.createLinearGradient(0, by, 0, by + 24);
+      const bw = W - 150, bx = 110, by = 26, k = Math.max(0, boss.hp / boss.maxHp);
+      this.bossShown = this.bossShown == null ? k : this.bossShown + (k - this.bossShown) * 0.08;   // barre « fantôme » qui suit
+      c.fillStyle = '#3d2c4e'; c.beginPath(); c.roundRect(bx - 8, by - 8, bw + 16, 46, 23); c.fill();
+      c.fillStyle = '#5b2a3a'; c.beginPath(); c.roundRect(bx, by, bw, 30, 15); c.fill();
+      c.fillStyle = '#fff3c4'; if (this.bossShown > k) { c.beginPath(); c.roundRect(bx, by, Math.max(30, bw * this.bossShown), 30, 15); c.fill(); }
+      // portrait
+      const f = enemyFrames(boss.type).frames[0][0]; c.fillStyle = '#3d2c4e'; c.beginPath(); c.arc(bx - 34, by + 15, 38, 0, TAU); c.fill();
+      c.fillStyle = boss.enraged ? '#e0283c' : '#ff8a5c'; c.beginPath(); c.arc(bx - 34, by + 15, 32, 0, TAU); c.fill();
+      if (f && f.ready) c.drawImage(f.cv, bx - 34 - 34, by + 15 - 34, 68, 68);
+      const g = c.createLinearGradient(0, by, 0, by + 30);
       if (boss.shieldT > 0) { g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#e8e0c8'); } else { g.addColorStop(0, boss.enraged ? '#ff8a8a' : '#ffb347'); g.addColorStop(1, boss.enraged ? '#e0283c' : '#ff5d3c'); }
       c.fillStyle = g;
-      if (k > 0) { c.beginPath(); c.roundRect(bx, by, Math.max(24, bw * k), 24, 12); c.fill(); }
-      c.fillStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.roundRect(bx + 6, by + 3, Math.max(10, bw * k - 12), 6, 3); c.fill();
-      this.label(c, boss.cfg.name, W / 2, by + 13, 17, '#fff', 5);
+      if (k > 0) { c.beginPath(); c.roundRect(bx, by, Math.max(30, bw * k), 30, 15); c.fill(); }
+      c.fillStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.roundRect(bx + 8, by + 4, Math.max(10, bw * k - 16), 7, 3.5); c.fill();
+      this.label(c, (boss.mini ? 'Mini-boss · ' : '') + boss.cfg.name, bx + bw / 2, by + 16, 18, '#fff', 5);
+      this.label(c, Math.ceil(k * 100) + ' %', bx + bw - 30, by + 44, 15, '#ffd23f', 5);
     }
     // bannière (vague / boss)
     const b = this.banner;
