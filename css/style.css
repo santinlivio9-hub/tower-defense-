@@ -871,3 +871,11 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .bp-card .bart { width: 150px; border-radius: 22px; box-shadow: 0 0 0 4px var(--ink), 0 0 40px var(--cc), 0 12px 0 rgba(0, 0, 0, .3); }
 .bp-card b { font-size: 26px; white-space: nowrap; color: #fff; paint-order: stroke fill; -webkit-text-stroke: 6px var(--ink); text-shadow: 0 4px 0 rgba(0, 0, 0, .3); }
 @keyframes bp-card { 0% { transform: scale(.2) rotate(-25deg); opacity: 0; } 22% { transform: scale(1.12) rotate(4deg); opacity: 1; } 32% { transform: scale(1) rotate(0); } 72% { transform: scale(1); opacity: 1; } 100% { transform: translateY(-140px) scale(.5); opacity: 0; } }
+
+/* bouton de vitesse bien visible (x1 / x2 / x3) */
+.speed-btn { flex: none; width: 54px; height: 50px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; cursor: pointer; touch-action: manipulation; color: #fff;
+  background: linear-gradient(180deg, #8e7fb0, #6a5a8f); border: 3px solid var(--ink); box-shadow: 0 4px 0 #3f3460, inset 0 2px 0 rgba(255, 255, 255, .4); transition: transform .15s cubic-bezier(.3, 1.8, .5, 1); }
+.speed-btn b { font-size: 19px; } .speed-btn small { font-size: 9.500px; opacity: .85; }
+.speed-btn[data-s="2"] { background: linear-gradient(180deg, #8fd2ff, #3d9dfc); box-shadow: 0 4px 0 #1b64b3, inset 0 2px 0 rgba(255, 255, 255, .5); }
+.speed-btn[data-s="3"] { background: linear-gradient(180deg, #ff9dbb, #ff5d8f); box-shadow: 0 4px 0 var(--pink-edge), 0 0 14px rgba(255, 93, 143, .6), inset 0 2px 0 rgba(255, 255, 255, .5); animation: pulse 1s ease-in-out infinite; }
+.speed-btn:active { transform: translateY(3px) scale(.94); }

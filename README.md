@@ -34,9 +34,11 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
 ## Contenu
 
 - **Format portrait** plein écran : le terrain (600 × 940) occupe toute la largeur, le décor se prolonge autour.
-- **Campagne** : 5 mondes × 6 niveaux. Niveaux normaux de 15 à 20 vagues (10 à 15 minutes), niveau de boss
-  de 30 à 45 vagues à la fin de chaque monde, avec des mini-boss toutes les 10 vagues. 1 à 3 étoiles selon les PV
-  restants. Chaque niveau terminé débloque un **défi Héroïque** (contrainte spéciale, récompenses doublées).
+- **Campagne** : 5 mondes × 6 niveaux. Niveaux normaux de 10 à 14 vagues (environ 5 minutes), niveau de boss
+  de 20 à 26 vagues à la fin de chaque monde (10 à 16 minutes), avec des mini-boss toutes les 10 vagues. 1 à 3 étoiles
+  selon les PV restants. Chaque niveau terminé débloque un **défi Héroïque** (contrainte spéciale, récompenses doublées).
+- La vague suivante part toute seule 5 s après la fin de la précédente (désactivable dans les paramètres) ;
+  bouton de vitesse x1 / x2 / x3 à côté du bouton de vague (la vitesse choisie est gardée).
 - **Emplacements fixes** (10 à 16 socles par niveau) placés aux virages et croisements, zones de mines sur le chemin.
   Flèche « UP » au-dessus des tourelles qu'on peut améliorer.
 - **8 tourelles** qui changent d'apparence à chaque niveau : niveaux 1 à 3, **2 branches au look distinct** au niveau 4,
@@ -130,10 +132,10 @@ Les socles sont placés automatiquement là où ils couvrent le plus de chemin. 
 
 ### Robot d'équilibrage
 
-`tools/simulate.cjs` joue des niveaux sans affichage avec un robot (qui joue bien, mal, ou bien en utilisant ses boosts)
-et affiche le résultat, la durée et les tourelles posées. Mode d'emploi en tête du fichier. Repères visés :
-un niveau normal dure 10 à 15 minutes, se gagne en jouant correctement et se perd en jouant mal ;
-un niveau de boss se perd sans boosts et se gagne avec.
+`tools/simulate.cjs` joue des niveaux sans affichage avec un robot (`good` joue bien, `mid` joue comme un joueur
+moyen, `bad` joue mal, `boost` joue bien et utilise ses boosts) et affiche le résultat, la durée et les tourelles posées.
+Mode d'emploi en tête du fichier. Repères visés : un niveau normal dure environ 5 minutes et un joueur moyen le gagne
+avec 2 ou 3 étoiles ; un niveau de boss dure 20 minutes au plus et se gagne en jouant bien (plus facilement avec les boosts).
 
 ### Tester rapidement
 
