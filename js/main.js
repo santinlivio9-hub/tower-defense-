@@ -9,3 +9,8 @@ const ui = new UI(save, audio);
 
 window.__bastionLoaded = true;
 window.__ui = ui; // accès console pour le débogage
+
+// PWA : service worker (jeu jouable hors ligne). Ignoré en file:// et sur les navigateurs sans support.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
