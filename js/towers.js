@@ -1,6 +1,6 @@
 // Tourelles : stats, améliorations, ciblage, tir, dessin.
 import { TOWERS, TOWER_VISUAL, GAME, RARITY, SHOP } from './config.js';
-import { drawGun, drawTowerBase, skinPalette } from './draw.js';
+import { drawPad, towerSprite, skinFinish } from './sprites.js';
 import { Rocket } from './projectiles.js';
 
 const TAU = Math.PI * 2;
@@ -67,6 +67,7 @@ export class Tower {
   update(dt, game) {
     this.t += dt;
     this.recoil *= Math.exp(-dt * 16); this.pump *= Math.exp(-dt * 6);
+    if (this.level >= 5 && Math.random() < dt * 5) game.fx.add({ k: 'dot', x: this.x + (Math.random() - 0.5) * 50, y: this.y + (Math.random() - 0.5) * 40, vx: 0, vy: -40, life: 0.7, max: 0.7, size: 3.5, color: '#ffe27a' });
     this.flashT -= dt; this.lvlAnim = Math.max(0, this.lvlAnim - dt * 1.4); this.spawnAnim = Math.max(0, this.spawnAnim - dt * 4);
     if (this.disabledT > 0) {
       this.disabledT -= dt; this.spin = Math.max(0, this.spin - dt);
@@ -144,7 +145,7 @@ export class Tower {
     const s = this.stats, n = s.barrels;
     const big = this.type === 'sniper';
     for (let i = 0; i < n; i++) {
-      const m = this.muzzle((i - (n - 1) / 2) * 7);
+      const m = this.muzzle((i - (n - 1) / 2) * 6.5);
       let hits, ex, ey;
       if (s.pierce) {
         hits = game.lineHits(m.x, m.y, this.angle, s.range + 30, 1 + s.pierce);
@@ -161,7 +162,7 @@ export class Tower {
       game.fx.shell(this.x, this.y, this.angle);
     }
     const m = this.muzzle();
-    this.recoil = big ? 9 : this.type === 'assault' ? 4.5 : 3; this.flashT = 0.05;
+    this.recoil = big ? 12 : this.type === 'assault' ? 6 : 4; this.flashT = 0.05;
     if (big) { game.shake(2.5); game.fx.smoke(m.x, m.y, 7); }
     game.audio.play('shot_' + this.type);
   }
@@ -182,7 +183,7 @@ export class Tower {
       }
       game.fx.tracer(m.x, m.y, m.x + Math.cos(a) * len, m.y + Math.sin(a) * len, s.burn ? '#ff9f1a' : '#ffe9a0', 2, 0.1);
     }
-    this.recoil = 10; this.pump = 1; this.flashT = 0.08;
+    this.recoil = 13; this.pump = 1; this.flashT = 0.08;
     game.fx.shell(this.x, this.y, this.angle); game.fx.smoke(m.x, m.y, 8);
     game.shake(2); game.audio.play('shot_shotgun');
   }
@@ -190,8 +191,8 @@ export class Tower {
   fireRocket(game, tgt) {
     const m = this.muzzle();
     game.projectiles.push(new Rocket(this, m.x, m.y, this.angle, tgt, this.stats));
-    this.recoil = 8; this.flashT = 0.07;
-    for (let i = 0; i < 4; i++) game.fx.smoke(this.x - Math.cos(this.angle) * 24, this.y - Math.sin(this.angle) * 24, 8);
+    this.recoil = 11; this.flashT = 0.07;
+    for (let i = 0; i < 4; i++) game.fx.smoke(this.x - Math.cos(this.angle) * 46, this.y - Math.sin(this.angle) * 46, 9);
     game.audio.play('shot_rocket');
   }
 
@@ -210,44 +211,61 @@ export class Tower {
   }
 
   draw(c, skin) {
-    const game = this.game;
-    const pal = skinPalette(skin), acc = RARITY[this.level - 1].color;
-    const pop = 1 + Math.sin(this.lvlAnim * Math.PI) * 0.3 + this.spawnAnim * 0.3;
+    const game = this.game, acc = RARITY[this.level - 1].color;
+    const sp = towerSprite(this.type, this.level, this.branch, skinFinish(skin));
+    const pop = 1 + Math.sin(this.lvlAnim * Math.PI) * 0.3 + this.spawnAnim * 0.35;
+    const upright = !this.vis.turn;
     c.save(); c.translate(this.x, this.y); c.scale(pop, pop);
-    if (this.type !== 'mine') drawTowerBase(c, this.level);
-    if (pal.glow) { c.shadowColor = pal.glow; c.shadowBlur = 12; }
-    if (this.level >= 5 && !pal.glow) { c.shadowColor = acc; c.shadowBlur = 10; }
-    c.save();
-    if (this.vis.turn) c.rotate(this.angle);
-    if (this.type === 'cryo' && this.recoil > 0.05) c.scale(1 + this.recoil * 0.25, 1 + this.recoil * 0.25);
-    drawGun(c, this.type, { pal, accent: acc, recoil: this.recoil, t: this.t, spin: this.spinAng, barrels: this.stats.barrels, armed: this.armed, pump: this.pump });
-    c.shadowBlur = 0;
-    if (this.flashT > 0 && this.vis.muzzle) { // flash de bouche
-      const n = this.type === 'smg' ? this.stats.barrels : 1, big = this.type === 'sniper' || this.type === 'shotgun' ? 1.6 : 1;
-      for (let i = 0; i < n; i++) {
-        c.save(); c.translate(this.vis.muzzle + 3, (i - (n - 1) / 2) * 7); c.rotate(Math.random() * 0.6 - 0.3); c.scale(big, big);
-        c.fillStyle = '#ffd23f'; c.beginPath();
-        c.moveTo(-2, 0); c.lineTo(3, -7); c.lineTo(6, -2); c.lineTo(16, 0); c.lineTo(6, 2); c.lineTo(3, 7); c.closePath(); c.fill();
-        c.fillStyle = '#fff'; c.beginPath(); c.arc(3, 0, 3, 0, TAU); c.fill();
+    if (this.type !== 'mine') drawPad(c, this.level, game.time);
+    if (sp.ready) {
+      c.save();
+      if (upright) {
+        const k = this.type === 'cryo' ? 1 + this.recoil * 0.12 + Math.sin(this.t * 3) * 0.02 : 1;
+        if (this.type === 'cryo') c.translate(0, -8);
+        c.scale(k, k);
+        c.drawImage(sp.cv, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+        if (this.type === 'mine') { // voyant
+          const on = this.armed && Math.sin(this.t * 8) > 0;
+          c.fillStyle = this.armed ? (on ? '#ff3b3b' : '#8a1f1f') : '#555'; c.beginPath(); c.arc(0, -3, 3.6, 0, TAU); c.fill();
+          if (on) { c.fillStyle = 'rgba(255,60,60,.3)'; c.beginPath(); c.arc(0, -3, 8, 0, TAU); c.fill(); }
+        }
+      } else {
+        c.rotate(this.angle);
+        const flip = Math.cos(this.angle) < 0 ? -1 : 1;      // l'arme n'est jamais tête en bas
+        c.save(); c.scale(1, flip); c.translate(-this.recoil, 0);
+        c.drawImage(sp.cv, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+        if (this.type === 'minigun') { // canons rotatifs
+          c.strokeStyle = 'rgba(61,44,78,.75)'; c.lineWidth = 2.2; c.lineCap = 'round';
+          for (let i = 0; i < 3; i++) { const y = Math.sin(this.spinAng + i * 2.094) * 7.5; c.beginPath(); c.moveTo(5, y); c.lineTo(20, y); c.moveTo(28, y); c.lineTo(42, y); c.stroke(); }
+        }
         c.restore();
+        if (this.flashT > 0) { // flash de bouche
+          const n = this.type === 'smg' ? this.stats.barrels : 1, big = this.type === 'sniper' || this.type === 'shotgun' ? 1.7 : 1.15;
+          for (let i = 0; i < n; i++) {
+            c.save(); c.translate(this.vis.muzzle + 2, (i - (n - 1) / 2) * 6.5); c.rotate(Math.random() * 0.6 - 0.3); c.scale(big, big);
+            c.fillStyle = '#ffb21a'; c.beginPath(); c.moveTo(-2, 0); c.lineTo(4, -9); c.lineTo(7, -3); c.lineTo(20, 0); c.lineTo(7, 3); c.lineTo(4, 9); c.closePath(); c.fill();
+            c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(0, 0); c.lineTo(4, -5); c.lineTo(13, 0); c.lineTo(4, 5); c.closePath(); c.fill();
+            c.restore();
+          }
+        }
       }
+      c.restore();
     }
-    c.restore();
     // pastilles de niveau
     if (this.type !== 'mine') {
-      c.fillStyle = acc; c.strokeStyle = '#1d1a2b'; c.lineWidth = 1.5;
-      for (let i = 0; i < this.level; i++) { c.beginPath(); c.arc((i - (this.level - 1) / 2) * 7, 24, 2.8, 0, TAU); c.fill(); c.stroke(); }
+      c.fillStyle = acc; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2;
+      for (let i = 0; i < this.level; i++) { c.beginPath(); c.arc((i - (this.level - 1) / 2) * 8.5, 30, 3.4, 0, TAU); c.fill(); c.stroke(); }
     }
     if (this.disabledT > 0) {
-      c.fillStyle = 'rgba(95,216,255,0.35)'; c.beginPath(); c.arc(0, 0, 24, 0, TAU); c.fill();
-      c.font = '900 16px sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.strokeStyle = '#1d1a2b'; c.lineWidth = 3;
-      c.strokeText('zZz', 0, -24 - Math.sin(game.time * 4) * 3); c.fillText('zZz', 0, -24 - Math.sin(game.time * 4) * 3);
+      c.fillStyle = 'rgba(95,216,255,0.35)'; c.beginPath(); c.arc(0, 0, 30, 0, TAU); c.fill();
+      c.font = '700 18px Fredoka, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 4; c.lineJoin = 'round';
+      c.strokeText('zZz', 0, -34 - Math.sin(game.time * 4) * 3); c.fillText('zZz', 0, -34 - Math.sin(game.time * 4) * 3);
     }
     c.restore();
-    if (this.lvlAnim > 0) { // rayons de "level up"
+    if (this.lvlAnim > 0) { // rayons de « level up »
       const k = 1 - this.lvlAnim;
-      c.save(); c.translate(this.x, this.y); c.globalAlpha = this.lvlAnim; c.strokeStyle = acc; c.lineWidth = 4; c.lineCap = 'round';
-      for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + k; c.beginPath(); c.moveTo(Math.cos(a) * (26 + k * 30), Math.sin(a) * (26 + k * 30)); c.lineTo(Math.cos(a) * (36 + k * 55), Math.sin(a) * (36 + k * 55)); c.stroke(); }
+      c.save(); c.translate(this.x, this.y); c.globalAlpha = this.lvlAnim; c.strokeStyle = acc; c.lineWidth = 5; c.lineCap = 'round';
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + k; c.beginPath(); c.moveTo(Math.cos(a) * (32 + k * 34), Math.sin(a) * (32 + k * 34)); c.lineTo(Math.cos(a) * (44 + k * 62), Math.sin(a) * (44 + k * 62)); c.stroke(); }
       c.restore(); c.globalAlpha = 1;
     }
   }
