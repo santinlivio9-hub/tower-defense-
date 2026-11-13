@@ -503,7 +503,7 @@ export class UI {
     for (const u of r.levelUps || []) lines.push(`${icon('up')}<span><b>Niveau de joueur ${u.level}</b>${u.text}</span>`);
     if (r.firstClear && !g.heroic) lines.push(`${icon('crown')}<span><b>Défi Héroïque débloqué</b>Plus dur, récompenses doublées</span>`);
     if (r.victory && !g.heroic && g.level.n === 12 && r.firstClear) lines.push(`${icon('infinity')}<span><b>Mode infini débloqué</b>Avec classement local</span>`);
-    for (const a of r.achievements || []) lines.push(`${icon('medal')}<span><b>Succès : ${a.name}</b>${a.desc}</span><span>+${a.gems}${gem()}</span>`);
+    for (const a of r.achievements || []) lines.push(`${icon('medal')}<span><b>Succès : ${a.name}</b>${a.desc}</span><span class="val">+${a.gems}${gem()}</span>`);
     if (lines.length) m.append(el('div', 'unlocks', lines.map((l) => `<div>${l}</div>`).join('')));
     const btns = el('div', 'btns');
     const nextN = g.level.n + 1, canNext = r.victory && !g.endless && !g.heroic && nextN <= LEVELS.length;
