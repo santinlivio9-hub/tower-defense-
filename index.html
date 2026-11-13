@@ -86,6 +86,7 @@
 
   <!-- ================= JEU ================= -->
   <section id="screen-game" class="screen">
+    <main id="stage"><canvas id="game" aria-label="Terrain de jeu"></canvas></main>
     <header id="hud">
       <div class="stat" id="hud-lives"><i data-ico="heart"></i><b>20</b></div>
       <div class="stat" id="hud-money"><i class="coin-ico"></i><b>0</b></div>
@@ -97,7 +98,7 @@
         <button class="icon-btn" id="btn-mute" aria-label="Son"></button>
       </div>
     </header>
-    <main id="stage"><canvas id="game" aria-label="Terrain de jeu"></canvas></main>
+    <div id="tutorial" hidden></div>
     <footer id="dock">
       <div class="wave-row">
         <div id="wave-preview"></div>
@@ -106,7 +107,6 @@
       <div id="towerbar"></div>
     </footer>
     <div id="sheet" class="glass" aria-hidden="true"></div>
-    <div id="tutorial" hidden></div>
   </section>
 
   <div id="overlay" class="overlay"></div>

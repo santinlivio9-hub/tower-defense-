@@ -1,11 +1,12 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
 import { VIEW, GAME, DIFFICULTIES, TOWERS, ENEMIES, RARITY, SHOP, STARS, SCORE, BOSS_ORDER } from './config.js';
-import { Path, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
+import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
 import { drawPad, towerSprite, skinFinish } from './sprites.js';
+import { drawCastle } from './castle.js';
 
 const TAU = Math.PI * 2;
 
@@ -14,9 +15,9 @@ export class Game {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.map = map; this.diffId = difficulty; this.diff = DIFFICULTIES[difficulty]; this.endless = endless;
     this.save = save; this.audio = audio;
-    this.paths = map.paths.map((p) => new Path(p));
-    this.base = this.paths[0].end;
-    this.flowers = mapFlowers(map, this.paths);
+    this.theme = THEMES[map.theme]; this.field = buildField(map.layout, !!map.mirror, map.slots);
+    this.paths = this.field.paths; this.base = this.field.base;
+    this.flowers = [];
     this.score = 0; this.comboN = 0; this.comboT = -9; this.cleanWave = true;
     const perks = save.data.perks, perk = (id) => SHOP.perks.find((p) => p.id === id).per * (perks[id] || 0);
     this.money = this.diff.money + perk('money');
@@ -30,17 +31,21 @@ export class Game {
     this.placing = null; this.hover = { x: 0, y: 0, active: false }; this.selected = null; this.hoverTower = null;
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
-    this._nextCache = null;
-    this.setScale(1);
+    this._nextCache = null; this.useSlots = false;
+    this.setView(1, 0, 0, VIEW.W, VIEW.H);
   }
 
   // --- affichage -------------------------------------------------------------
-  setScale(s) {
-    this.scale = s;
+  // S = pixels par unité ; (ox, oy) = position de la zone jouable dans le canvas, en unités ; cw x ch = taille du canvas.
+  // Le décor est dessiné sur tout le canvas : il dépasse de la zone jouable pour remplir l'écran.
+  setView(S, ox, oy, cw, ch) {
+    this.scale = S; this.ox = ox; this.oy = oy;
+    this.ext = { l: -ox, t: -oy, r: cw / S - ox, b: ch / S - oy };
+    this.flowers = mapFlowers(this.field, this.ext);
     this.bg = document.createElement('canvas');
-    this.bg.width = Math.round(VIEW.W * s); this.bg.height = Math.round(VIEW.H * s);
-    const c = this.bg.getContext('2d'); c.scale(s, s);
-    drawMapBackground(c, this.map, this.paths);
+    this.bg.width = cw; this.bg.height = ch;
+    const c = this.bg.getContext('2d'); c.setTransform(S, 0, 0, S, ox * S, oy * S);
+    drawMapBackground(c, this.theme, this.field, this.ext, { slots: this.useSlots });
   }
   shake(m) { if (this.save.data.settings.shake) this.shakeMag = Math.min(18, Math.max(this.shakeMag, m)); }
   showBanner(title, sub, color = '#fff', dur = 2.2, big = false, sub2 = '') { this.banner = { title, sub, sub2, color, t: 0, dur, big }; }
@@ -222,7 +227,7 @@ export class Game {
     let ok = x > R && x < VIEW.W - R && y > R && y < VIEW.H - R;
     ok = ok && !this.paths.some((p) => p.nearest(x, y).dist < GAME.pathWidth / 2 + R - 2);
     ok = ok && !this.towers.some((t) => t.type !== 'mine' && Math.hypot(t.x - x, t.y - y) < R * 2 + 2);
-    ok = ok && Math.hypot(x - this.base.x, y - this.base.y) > 96;
+    ok = ok && (Math.abs(x - this.base.x) > 110 || y < this.base.y - 90);
     return { ok, x, y };
   }
   placeTower(type, x, y) {
@@ -390,16 +395,18 @@ export class Game {
   render() {
     const c = this.ctx, S = this.scale, { W, H } = VIEW;
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = '#2a2140'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    const E = this.ext, ox = this.ox, oy = this.oy;
     let sx = 0, sy = 0;
-    if (this.shakeMag > 0.3) { sx = (Math.random() - 0.5) * 2 * this.shakeMag; sy = (Math.random() - 0.5) * 2 * this.shakeMag; }
-    c.setTransform(S, 0, 0, S, sx * S, sy * S);
-    c.drawImage(this.bg, 0, 0, W, H);
+    if (this.shakeMag > 0.3) { sx = (Math.random() - 0.5) * 2 * this.shakeMag; sy = (Math.random() - 0.5) * 2 * this.shakeMag; c.fillStyle = this.theme.g2; c.fillRect(0, 0, this.canvas.width, this.canvas.height); }
+    c.drawImage(this.bg, Math.round(sx * S), Math.round(sy * S));
+    c.setTransform(S, 0, 0, S, (ox + sx) * S, (oy + sy) * S);
     c.lineJoin = 'round'; c.lineCap = 'round';
-    drawMapAnimated(c, this.map, this.paths, this.flowers, this.time);
-    if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,60,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x, this.base.y - 10, 100, 0, TAU); c.fill(); }
+    drawMapAnimated(c, this.theme, this.field, this.flowers, this.time);
+    if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,60,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x, this.base.y, 105, 0, TAU); c.fill(); }
 
     const skin = this.save.data.skin;
+    c.save(); c.translate(this.base.x, this.base.y); drawCastle(c, this.castleTier || 1, { time: this.time }); c.restore();
+    c.lineWidth = 1; c.lineJoin = 'round'; c.lineCap = 'round';
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
     const ground = this.enemies.filter((e) => !e.flying).sort((a, b) => a.gy - b.gy);
     for (const e of ground) e.draw(c);
@@ -408,7 +415,7 @@ export class Game {
     this.fx.drawTracers(c);
     for (const p of this.projectiles) p.draw(c);
     this.fx.draw(c);
-    drawClouds(c, this.map, this.time);
+    drawClouds(c, this.theme, this.time, E);
 
     // portées
     const sel = this.selected, hov = this.hoverTower;
@@ -436,11 +443,11 @@ export class Game {
     }
     this.fx.drawTexts(c);
 
-    c.setTransform(S, 0, 0, S, 0, 0);
+    c.setTransform(S, 0, 0, S, ox * S, oy * S);
     // barre de vie du boss
     const boss = this.enemies.find((e) => e.boss);
     if (boss) {
-      const bw = W - 120, bx = 60, by = 46, k = Math.max(0, boss.hp / boss.maxHp);
+      const bw = W - 120, bx = 60, by = 20, k = Math.max(0, boss.hp / boss.maxHp);
       c.fillStyle = '#3d2c4e'; c.beginPath(); c.roundRect(bx - 6, by - 6, bw + 12, 36, 18); c.fill();
       c.fillStyle = '#5b2a3a'; c.beginPath(); c.roundRect(bx, by, bw, 24, 12); c.fill();
       const g = c.createLinearGradient(0, by, 0, by + 24);
@@ -454,11 +461,11 @@ export class Game {
     const b = this.banner;
     if (b) {
       const inn = Math.min(1, b.t / 0.25), out = Math.min(1, (b.dur - b.t) / 0.3), a = Math.min(inn, out);
-      const y = b.big ? H * 0.42 : 150;
+      const y = b.big ? H * 0.42 : 120;
       c.globalAlpha = a;
       if (b.big) {
-        c.fillStyle = 'rgba(30,14,40,0.72)'; c.fillRect(0, y - 110, W, 220);
-        c.fillStyle = b.color; c.fillRect(0, y - 116, W, 7); c.fillRect(0, y + 109, W, 7);
+        c.fillStyle = 'rgba(30,14,40,0.72)'; c.fillRect(E.l, y - 110, E.r - E.l, 220);
+        c.fillStyle = b.color; c.fillRect(E.l, y - 116, E.r - E.l, 7); c.fillRect(E.l, y + 109, E.r - E.l, 7);
         c.fillStyle = '#ffd23f'; for (let i = -1; i < 16; i++) { const x0 = i * 44 + ((this.time * 60) % 44); c.beginPath(); c.moveTo(x0, y - 109); c.lineTo(x0 + 22, y - 109); c.lineTo(x0 + 10, y - 97); c.lineTo(x0 - 12, y - 97); c.closePath(); c.fill(); }
       }
       const slide = (1 - inn) * -260 + (1 - out) * 260;
@@ -469,6 +476,6 @@ export class Game {
       if (b.sub2) this.label(c, b.sub2, W / 2 + slide, y + 74, 20, '#ffd23f', 6);
       c.globalAlpha = 1;
     }
-    if (this.paused && !this.over) { c.fillStyle = 'rgba(30,14,40,0.35)'; c.fillRect(0, 0, W, H); }
+    if (this.paused && !this.over) { c.fillStyle = 'rgba(30,14,40,0.35)'; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
   }
 }
