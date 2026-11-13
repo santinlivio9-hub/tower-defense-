@@ -1,5 +1,5 @@
 // Tourelles : stats, améliorations, ciblage, tir, dessin.
-import { TOWERS, TOWER_VISUAL, GAME, RARITY, SHOP } from './config.js';
+import { TOWERS, TOWER_VISUAL, GAME, RARITY, BOOSTS } from './config.js';
 import { towerSprite, skinFinish } from './sprites.js';
 import { Rocket } from './projectiles.js';
 
@@ -15,8 +15,8 @@ function applyMods(s, mods) {
   }
 }
 
-// Stats finales d'une tourelle pour un niveau / une branche donnés
-export function computeStats(type, level, branch, perks = {}) {
+// Stats finales d'une tourelle pour un niveau / une branche donnés. m = effets des talents (save.mods()).
+export function computeStats(type, level, branch, m = {}) {
   const cfg = TOWERS[type];
   const s = { crit: GAME.critChance, critMult: GAME.critMult, barrels: 1, ...cfg.base };
   for (let l = 2; l <= Math.min(level, 3); l++) applyMods(s, cfg.upgrades[l - 2]);
@@ -24,9 +24,10 @@ export function computeStats(type, level, branch, perks = {}) {
     applyMods(s, cfg.branches[branch].mods);
     if (level >= 5) applyMods(s, cfg.branches[branch].master.mods);
   }
-  const perk = SHOP.perks.find((p) => p.id === 'damage');
-  s.damage *= 1 + (perks.damage || 0) * perk.per;
-  if (s.burn) s.burn *= 1 + (perks.damage || 0) * perk.per;
+  s.damage *= m.damage || 1; if (s.burn) s.burn *= m.damage || 1;
+  s.rate *= m.rate || 1; if (s.minRate) s.minRate *= m.rate || 1;
+  if (type !== 'mine') s.range *= m.range || 1;
+  s.crit += m.crit || 0;
   return s;
 }
 
@@ -47,7 +48,7 @@ export class Tower {
     this.armed = true; this.t = Math.random() * 10;
     this.refresh();
   }
-  refresh() { this.stats = computeStats(this.type, this.level, this.branch, this.game.save.data.perks); }
+  refresh() { this.stats = computeStats(this.type, this.level, this.branch, this.game.mods); }
   get sellValue() { return Math.floor(this.invested * GAME.sellRatio); }
   get rangeShown() { return this.type === 'mine' ? this.stats.splash : this.stats.range; }
   get label() {
@@ -75,7 +76,7 @@ export class Tower {
       return;
     }
     const s = this.stats, kind = this.cfg.kind;
-    this.cooldown -= dt;
+    this.cooldown -= dt * (game.overT > 0 ? BOOSTS.over.rate : 1);   // boost Surcharge
 
     if (kind === 'cryo') {
       if (this.cooldown <= 0) {

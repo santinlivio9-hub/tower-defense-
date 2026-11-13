@@ -1,5 +1,5 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
-import { VIEW, GAME, DIFFICULTIES, TOWERS, TOWER_ORDER, ENEMIES, RARITY, SHOP, STARS, SCORE, BOSS_ORDER } from './config.js';
+import { VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -10,26 +10,38 @@ import { drawCastle } from './castle.js';
 const TAU = Math.PI * 2;
 
 export class Game {
-  constructor({ canvas, map, difficulty, endless, save, audio }) {
+  // level = entrée de LEVELS ; heroic = défi héroïque ; endless = mode infini ; boosts = identifiants des boosts emportés
+  constructor({ canvas, level, heroic = false, endless = false, save, audio, boosts = [] }) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
-    this.map = map; this.diffId = difficulty; this.diff = DIFFICULTIES[difficulty]; this.endless = endless;
+    this.level = endless ? { ...level, endless: true } : level; this.endless = endless;
+    this.world = WORLDS[level.world]; this.heroic = heroic && !endless ? heroicMod(level.n) : null;
     this.save = save; this.audio = audio;
-    this.theme = THEMES[map.theme]; this.field = buildField(map.layout, !!map.mirror, map.slots);
+    this.theme = THEMES[this.world.theme]; this.field = buildField(level.layout, level.mirror, level.slots, CAMPAIGN.mines);
     this.paths = this.field.paths; this.base = this.field.base;
     this.flowers = [];
     this.score = 0; this.comboN = 0; this.comboT = -9; this.cleanWave = true;
-    const perks = save.data.perks, perk = (id) => SHOP.perks.find((p) => p.id === id).per * (perks[id] || 0);
-    this.money = this.diff.money + perk('money');
-    this.maxLives = this.diff.lives + perk('lives'); this.lives = this.maxLives;
-    this.totalWaves = GAME.totalWaves;
+    const H = this.heroic || {}, cs = save.data.castle, U = CASTLE.upgrades, m = (this.mods = save.mods());
+    this.hpMult = level.hp * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1); this.speedMult = level.speed * (H.speed || 1);
+    this.scoreMult = this.heroic ? HEROIC.scoreMult : 1;
+    this.banned = H.ban || []; this.towerLimit = H.towerLimit || 0;
+    this.money = Math.round(level.money * (H.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
+    this.maxLives = (H.lives || CAMPAIGN.lives + cs.walls * U.walls.per) + m.lives; this.lives = this.maxLives;
+    this.totalWaves = level.waves;
     this.wave = 0; this.cleared = 0; this.queue = []; this.spawnClock = 0; this.countdown = null;
     this.enemies = []; this.towers = []; this.projectiles = []; this.delayed = [];
     this.fx = new Fx();
     this.time = 0; this.speed = 1; this.paused = false; this.over = false; this.result = null;
-    this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, early: 0, legendaries: 0 };
+    this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, early: 0, legendaries: 0, cost: 0 };
     this.slots = [...this.field.slots, ...this.field.mines].map((s) => ({ ...s, tower: null }));
     this.selected = null; this.hoverTower = null; this.menuSlot = null; this.preview = null; this.freeNext = false;
     this.hintT = 0; this.canBuy = false;
+    // château : apparence, canon, capacités actives
+    this.castleTier = save.castleTier();
+    this.cannon = { lvl: cs.cannon, cd: 0, aim: -Math.PI / 2, recoil: 0 };
+    this.abilities = Object.keys(CASTLE.abilities).filter((id) => cs[id] > 0).map((id) => { const max = CASTLE.abilities[id].cd[cs[id]] * m.cdMult; return { id, lvl: cs[id], cd: Math.min(15, max), max }; });
+    // boosts emportés et effets en cours
+    this.boosts = boosts.map((id) => ({ id, used: false }));
+    this.overT = 0; this.blizzT = 0; this.coins2Until = 0; this.shieldUntil = 0; this.flash = null; this.strikes = [];
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
     this._nextCache = null; this.useSlots = true;
@@ -55,7 +67,7 @@ export class Game {
   get nextWave() {
     const n = this.wave + 1;
     if (!this.endless && n > this.totalWaves) return null;
-    if (!this._nextCache || this._nextCache.n !== n) this._nextCache = buildWave(n, this.map.id, this.paths.length);
+    if (!this._nextCache || this._nextCache.n !== n) this._nextCache = buildWave(n, this.level, this.paths.length);
     return this._nextCache;
   }
   get canStartNext() { return !this.over && this.queue.length === 0 && this.nextWave !== null; }
@@ -75,19 +87,23 @@ export class Game {
       this.onEvent('coins', { x: VIEW.W / 2, y: 170, n: 6 });
     }
     const w = this.nextWave;
+    // cartes de présentation : types d'ennemis jamais rencontrés
+    const seen = this.save.data.seen.enemies, fresh = [...new Set(w.groups.map((g) => g.type))].filter((t) => !seen.includes(t));
+    if (fresh.length) { seen.push(...fresh); this.save.persist(); this.onEvent('intro', fresh); }
     this.wave = w.n; this._nextCache = null; this.countdown = null;
     for (const q of spawnQueue(w, this.paths.length)) { q.t += this.spawnClock; this.queue.push(q); }
     this.queue.sort((a, b) => a.t - b.t);
-    if (!w.boss) this.showBanner('Vague ' + w.n, this.endless ? 'Mode infini' : `sur ${this.totalWaves}`, '#fff', 1.5);
+    if (!w.boss) this.showBanner(!this.endless && w.n === this.totalWaves ? 'Vague finale' : 'Vague ' + w.n, this.endless ? 'Mode infini' : `sur ${this.totalWaves}`, '#fff', 1.5);
     this.audio.play('wave_start');
     this.onEvent('wave', w.n);
     return true;
   }
-  spawnEnemy(type, pathIdx, d, hpScale, bossMul = 1) {
-    const e = new Enemy(this, type, pathIdx, d, hpScale, bossMul);
+  spawnEnemy(type, pathIdx, d, hpScale, bossMul = 1, o = {}) {
+    const e = new Enemy(this, type, pathIdx, d, hpScale, bossMul, o);
     this.enemies.push(e);
+    if (this.blizzT > 0) e.applySlow(this.blizzSlow, this.blizzT);
     if (e.boss) {
-      this.showBanner('BOSS', e.cfg.name, '#ff5d6c', 3.4, true, e.cfg.title);
+      this.showBanner(e.mini ? 'MINI-BOSS' : 'BOSS', e.cfg.name, '#ff5d6c', e.mini ? 2.4 : 3.4, true, e.cfg.title);
       this.shake(14); this.audio.play('boss'); this.onEvent('haptic', 2);
       this.fx.ring(e.x, e.y, 20, 260, '#ff4d4d', 0.9, 12);
     }
@@ -96,7 +112,9 @@ export class Game {
 
   // --- économie et score -----------------------------------------------------
   addMoney(n) { this.money += n; this.stats.earned += n; }
-  addScore(n) { n = Math.round(n * SCORE.diffMult[this.diffId]); this.score += n; return n; }
+  addScore(n) { n = Math.round(n * this.scoreMult); this.score += n; return n; }
+  get coins2() { return this.coins2Until > this.cleared; }
+  get shielded() { return this.shieldUntil > this.cleared; }
 
   // --- ciblage ---------------------------------------------------------------
   canTarget(t, e) {
@@ -159,16 +177,16 @@ export class Game {
   kill(e, tower) {
     e.dead = true;
     if (e.pendingText > 0) this.dmgText(e, e.pendingText, false);
-    const reward = Math.round(e.cfg.reward * GAME.rewardMult);
+    const reward = Math.round(e.reward * GAME.rewardMult * this.mods.coinMult * (this.coins2 ? 2 : 1));
     this.addMoney(reward);
-    this.stats.kills++; if (tower) tower.kills++;
+    this.stats.kills++; this.stats.cost += e.boss ? 60 : e.cfg.cost; if (tower) tower.kills++;
     const fx = this.fx;
     fx.burst(e.x, e.y, '#ffffff', 6, 160, 5);
     fx.confetti(e.x, e.y, e.boss ? 90 : 10 + Math.min(10, e.r * 0.4), e.boss ? 480 : 220);
     fx.ring(e.x, e.y, e.r * 0.5, e.r * 2.2, '#fff', 0.25, 4);
     this.onEvent('coins', { x: e.x, y: e.y, n: e.boss ? 8 : Math.max(1, Math.round(reward / 5)), amount: reward });
     // score : points du kill + bonus de multi-kill
-    const pts = this.addScore(e.boss ? SCORE.boss * (BOSS_ORDER.indexOf(e.type) + 1) : e.cfg.cost * SCORE.perCost);
+    const pts = this.addScore(e.boss ? SCORE.boss * (BOSS_ORDER.indexOf(e.type) + 1) * (e.mini ? 0.3 : 1) : e.cfg.cost * SCORE.perCost * (e.elite ? 3 : 1));
     fx.text(e.x, e.y - e.r - 24, '+' + pts, '#8fe9ff', e.boss ? 28 : 14, 0.9);
     this.comboN = this.time - this.comboT <= SCORE.multiWindow ? this.comboN + 1 : 1; this.comboT = this.time;
     if (this.comboN >= 2) {
@@ -186,11 +204,11 @@ export class Game {
       }
     }
     if (e.boss) {
-      this.stats.bossKills++;
+      if (!e.mini) this.stats.bossKills++;
       this.shake(18); this.audio.play('explosion');
       fx.explosion(e.x, e.y, 150, '#ffd23f');
       for (let i = 0; i < 5; i++) this.delayed.push({ t: 0.12 * (i + 1), fn: () => { fx.explosion(e.x + (Math.random() - 0.5) * 140, e.y + (Math.random() - 0.5) * 140, 70); this.audio.play('explosion'); this.shake(8); } });
-      this.showBanner('BOSS VAINCU !', '+' + reward + ' pièces', '#ffd23f', 2.2);
+      this.showBanner(e.mini ? 'MINI-BOSS VAINCU !' : 'BOSS VAINCU !', '+' + reward + ' pièces', '#ffd23f', 2.2);
     }
   }
   explode(x, y, radius, damage, tower, o = {}) {
@@ -222,11 +240,12 @@ export class Game {
   buildable(slot) {
     return TOWER_ORDER.filter((t) => this.save.towerUnlocked(t) && (t === 'mine') === (slot.kind === 'mine') && !(this.banned || []).includes(t));
   }
+  get limitReached() { return !!this.towerLimit && this.towers.filter((t) => t.type !== 'mine').length >= this.towerLimit; }
   costOf(type) { return this.freeNext ? 0 : TOWERS[type].cost; }
   placeTower(type, slot) {
     if (this.over || !slot || slot.tower || !this.buildable(slot).includes(type)) { this.audio.play('error'); return null; }
     const cost = this.costOf(type);
-    if (this.money < cost || (this.towerLimit && this.towers.length >= this.towerLimit)) { this.audio.play('error'); return null; }
+    if (this.money < cost || (type !== 'mine' && this.limitReached)) { this.audio.play('error'); return null; }
     this.money -= cost; if (cost === 0) this.freeNext = false;
     const t = new Tower(this, type, slot.x, slot.y);
     t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
@@ -280,7 +299,7 @@ export class Game {
     this.spawnClock += dt;
     while (this.queue.length && this.queue[0].t <= this.spawnClock) {
       const q = this.queue.shift();
-      this.spawnEnemy(q.type, q.path, 0, q.hpScale, q.bossMul);
+      this.spawnEnemy(q.type, q.path, 0, q.hpScale, q.bossMul, q);
     }
     // révélation des invisibles par les tourelles "detect"
     for (const t of this.towers) {
@@ -294,12 +313,13 @@ export class Game {
       if (e.reached) this.leak(e);
     }
     for (const t of this.towers) t.update(dt, this);
+    this.updateCastle(dt);
     this.hintT -= dt;
     if (this.hintT <= 0) { // indicateurs « UP » et socles achetables
       this.hintT = 0.3;
       for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => u.cost <= this.money); }
       let min = Infinity; for (const k of TOWER_ORDER) if (k !== 'mine' && this.save.towerUnlocked(k)) min = Math.min(min, this.costOf(k));
-      this.canBuy = this.money >= min && !(this.towerLimit && this.towers.length >= this.towerLimit);
+      this.canBuy = this.money >= min && !this.limitReached;
     }
     for (const p of this.projectiles) p.update(dt, this);
     for (let i = this.delayed.length - 1; i >= 0; i--) { const d = this.delayed[i]; d.t -= dt; if (d.t <= 0) { this.delayed.splice(i, 1); d.fn(); } }
@@ -312,7 +332,12 @@ export class Game {
     if (this.wave > 0 && this.queue.length === 0 && this.enemies.length === 0) {
       if (this.cleared < this.wave) {
         let bonus = 0;
-        for (let n = this.cleared + 1; n <= this.wave; n++) bonus += GAME.waveBonusBase + GAME.waveBonusPerWave * n;
+        const tr = this.save.data.castle.treasury * CASTLE.upgrades.treasury.perWave;
+        for (let n = this.cleared + 1; n <= this.wave; n++) bonus += (this.heroic && this.heroic.noWaveBonus ? 0 : (GAME.waveBonusBase + GAME.waveBonusPerWave * n) * this.mods.waveBonus) + tr;
+        bonus = Math.round(bonus);
+        // réparation du château entre les vagues
+        const rep = CASTLE.upgrades.repair.every[this.save.data.castle.repair];
+        if (rep && this.wave % rep === 0 && this.lives < this.maxLives) { this.lives++; this.fx.text(this.base.x, this.base.y - 100, '+1 PV', '#6dff9a', 22, 1.2); }
         this.cleared = this.wave;
         this.addMoney(bonus);
         this.fx.text(VIEW.W / 2, 210, `VAGUE TERMINÉE !`, '#6dff9a', 30, 1.6);
@@ -330,51 +355,153 @@ export class Game {
     }
   }
   leak(e) {
-    this.lives -= e.cfg.leak; this.stats.leaks++; this.cleanWave = false; this.onEvent('haptic', 2);
+    this.stats.leaks++;
+    if (this.shielded) { // boost Bouclier : la fuite est bloquée
+      this.fx.ring(this.base.x, this.base.y - 10, 30, 110, '#8fd2ff', 0.4, 8); this.fx.text(this.base.x, this.base.y - 96, 'BLOQUÉ !', '#8fd2ff', 24, 1); this.audio.play('zap');
+      return;
+    }
+    this.lives -= e.leakDmg; this.cleanWave = false; this.onEvent('haptic', 2);
     this.baseFlash = 1; this.shake(e.boss ? 16 : 6); this.audio.play('leak');
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);
-    this.fx.text(this.base.x, this.base.y - 96, '-' + e.cfg.leak + ' PV', '#ff5d6c', 26, 1);
-    if (this.lives <= 0) { this.lives = 0; this.end(false); }
+    this.fx.text(this.base.x, this.base.y - 96, e.leakDmg >= 99 ? 'CHÂTEAU DÉTRUIT' : '-' + e.leakDmg + ' PV', '#ff5d6c', 26, 1);
+    if (this.lives <= 0) {
+      const rv = this.boosts.find((b) => b.id === 'revive' && !b.used);
+      if (rv) { this.revive(rv); return; }
+      this.lives = 0; this.end(false);
+    }
+  }
+
+  // --- château : canon, capacités actives, boosts ------------------------------
+  updateCastle(dt) {
+    for (const a of this.abilities) a.cd = Math.max(0, a.cd - dt);
+    this.overT = Math.max(0, this.overT - dt); this.blizzT = Math.max(0, this.blizzT - dt);
+    if (this.flash) { this.flash.t -= dt; if (this.flash.t <= 0) this.flash = null; }
+    for (let i = this.strikes.length - 1; i >= 0; i--) { const s = this.strikes[i]; s.t -= dt; if (s.t <= 0) { this.strikes.splice(i, 1); this.airImpact(s); } }
+    if (this.blizzT > 0 && Math.random() < dt * 60) this.fx.add({ k: 'dot', x: this.ext.l + Math.random() * (this.ext.r - this.ext.l), y: this.ext.t, vx: -30, vy: 260 + Math.random() * 160, life: 3, max: 3, size: 2.5 + Math.random() * 2, color: '#ffffff' });
+    const c = this.cannon; c.recoil *= Math.exp(-dt * 14);
+    if (!c.lvl) return;
+    const U = CASTLE.upgrades.cannon, cx = this.base.x, cy = this.base.y - 34;
+    c.cd -= dt;
+    const e = this.nearestEnemy(cx, cy, U.range[c.lvl]);
+    if (!e) { if (c.cd < 0) c.cd = 0; return; }
+    c.aim = Math.atan2(e.y - cy, e.x - cx);
+    if (c.cd <= 0) {
+      c.cd = 1 / U.rate[c.lvl]; c.recoil = 7;
+      this.damage(e, U.damage[c.lvl] * this.level.hp, null, { ignoreArmor: true });
+      this.fx.tracer(cx + Math.cos(c.aim) * 30, cy + Math.sin(c.aim) * 30, e.x, e.y, '#ffe9a0', 4, 0.12); this.fx.sparks(e.x, e.y, c.aim, '#fff3b0', 4);
+      this.audio.play('shot_shotgun');
+    }
+  }
+  flashScreen(color, dur = 0.5) { this.flash = { color, t: dur, max: dur }; }
+  // Capacité active du château. (x, y) = cible pour la frappe aérienne.
+  useAbility(id, x, y) {
+    const a = this.abilities.find((k) => k.id === id);
+    if (!a || a.cd > 0 || this.over) { this.audio.play('error'); return false; }
+    const C = CASTLE.abilities[id]; a.cd = a.max;
+    if (id === 'air') {
+      this.strikes.push({ x, y, t: 0.55, r: C.radius[a.lvl], lvl: a.lvl });
+      this.audio.play('shot_rocket'); this.showBanner('FRAPPE AÉRIENNE', '', C.color, 1.1);
+    } else if (id === 'blizzard') {
+      const dur = C.dur[a.lvl] * this.mods.durMult; this.blizzT = dur; this.blizzSlow = C.slow[a.lvl];
+      for (const e of this.enemies) { e.applySlow(C.slow[a.lvl], dur); this.fx.burst(e.x, e.y, '#d6f6ff', 5, 90, 4); }
+      this.flashScreen('200,240,255', 0.7); this.audio.play('cryo'); this.audio.play('zap'); this.shake(5); this.showBanner('BLIZZARD', '', C.color, 1.2);
+    } else if (id === 'gold') {
+      const n = C.coins[a.lvl] + C.perWave[a.lvl] * this.wave;
+      this.addMoney(n); this.flashScreen('255,220,90', 0.6); this.audio.play('buy'); this.audio.play('coin');
+      for (let i = 0; i < 40; i++) this.fx.add({ k: 'dot', x: 40 + Math.random() * (VIEW.W - 80), y: -20 - Math.random() * 200, vx: 0, vy: 420 + Math.random() * 200, life: 1.6, max: 1.6, size: 6, color: i % 3 ? '#ffd23f' : '#fff6c8' });
+      this.fx.text(VIEW.W / 2, 300, `PLUIE D'OR +${n}`, '#ffd23f', 30, 1.8);
+      this.onEvent('coins', { x: VIEW.W / 2, y: 320, n: 12, amount: n });
+    }
+    this.onEvent('haptic', 2); this.onEvent('ability', id);
+    return true;
+  }
+  airImpact(s) {
+    const C = CASTLE.abilities.air;
+    this.fx.explosion(s.x, s.y, s.r, '#ff7a3c'); this.fx.explosion(s.x - 30, s.y + 20, s.r * 0.6, '#ffd23f'); this.fx.explosion(s.x + 34, s.y - 16, s.r * 0.6, '#ff5d3c');
+    this.flashScreen('255,200,120', 0.35); this.shake(14); this.audio.play('explosion'); this.onEvent('haptic', 2);
+    for (const e of this.enemies) {
+      if (e.dead || Math.hypot(e.x - s.x, e.y - s.y) > s.r + e.r * 0.6) continue;
+      this.damage(e, C.damage[s.lvl] * this.level.hp + e.maxHp * (e.boss ? C.bossPct : C.pct), null, { splash: true, ignoreArmor: true });
+    }
+  }
+  // Boost emporté (index dans this.boosts). La « Seconde chance » se déclenche toute seule à la défaite.
+  useBoost(i) {
+    const b = this.boosts[i];
+    if (!b || b.used || this.over || b.id === 'revive') { this.audio.play('error'); return false; }
+    const C = BOOSTS[b.id], next = this.queue.length || this.enemies.length ? this.wave : this.wave + 1;
+    if (b.id === 'coins2') this.coins2Until = next;
+    else if (b.id === 'shield') { this.shieldUntil = next; this.fx.ring(this.base.x, this.base.y - 10, 20, 120, '#8fd2ff', 0.6, 10); }
+    else if (b.id === 'heal') { this.lives += C.amount; this.fx.text(this.base.x, this.base.y - 100, `+${C.amount} PV`, '#6dff9a', 28, 1.4); this.fx.burst(this.base.x, this.base.y - 20, '#6dff9a', 20, 200, 6); }
+    else if (b.id === 'free') { this.freeNext = true; this.hintT = 0; }
+    else if (b.id === 'over') { this.overT = C.dur * this.mods.durMult; for (const t of this.towers) this.fx.ring(t.x, t.y, 8, 44, '#ff9f1a', 0.5, 6); }
+    this.consume(b, C);
+    return true;
+  }
+  consume(b, C) {
+    b.used = true;
+    const inv = this.save.data.boosts; inv[b.id] = Math.max(0, (inv[b.id] || 0) - 1); this.save.persist();
+    const rgb = { coins2: '255,220,90', heal: '255,120,140', free: '120,255,160', over: '255,170,60', shield: '140,200,255', revive: '200,140,255' }[b.id];
+    this.flashScreen(rgb, 0.55); this.audio.play('boost'); this.shake(4); this.onEvent('haptic', 2);
+    this.showBanner(C.name.toUpperCase(), '', C.color, 1.3);
+    this.onEvent('boost', b.id);
+  }
+  revive(b) {
+    this.lives = Math.max(1, Math.ceil(this.maxLives / 2));
+    for (const e of this.enemies) {
+      if (e.boss) { e.d = Math.max(0, e.d - 420); e.place(); }
+      else { e.dead = true; this.fx.burst(e.x, e.y, '#c9a6ff', 8, 180, 5); }
+    }
+    this.fx.ring(this.base.x, this.base.y, 30, 520, '#c9a6ff', 0.9, 14); this.fx.ring(this.base.x, this.base.y, 10, 320, '#ffffff', 0.7, 8);
+    this.consume(b, BOOSTS.revive);
   }
 
   // --- fin de partie ---------------------------------------------------------
   end(victory) {
     if (this.over) return;
     this.over = true; this.selected = null; this.menuSlot = null; this.preview = null;
-    const ratio = this.lives / this.maxLives;
+    const ratio = Math.min(1, this.lives / this.maxLives);
     const stars = victory ? (ratio >= STARS.three ? 3 : ratio >= STARS.two ? 2 : 1) : 0;
     const wavesDone = victory ? this.wave : Math.max(0, this.cleared);
-    let gems;
-    if (this.endless) gems = wavesDone * SHOP.gemsPerWaveEndless;
-    else if (victory) gems = SHOP.gemsWinBase + stars * SHOP.gemsPerStar;
-    else gems = wavesDone * SHOP.gemsPerWaveLost;
-    gems = Math.round(gems * this.diff.gems);
     let best = null;
     for (const t of this.towers) if (!best || t.dmg > best.dmg) best = t;
     const lifeBonus = victory ? this.addScore(this.lives * SCORE.lifeBonus) : 0;
-    const md = this.save.mapData(this.map.id), key = this.endless ? 'endless' : this.diffId;
-    const previous = md.best[key] || 0, record = this.score > previous && this.score > 0;
-    this.result = { victory, stars, gems, wavesDone, best, endless: this.endless, score: this.score, lifeBonus, previous, record };
-    this.commit(victory, stars, gems, wavesDone);
+    this.result = { victory, stars, wavesDone, best, endless: this.endless, heroic: !!this.heroic, score: this.score, lifeBonus };
+    this.commit(victory, stars, wavesDone);
     this.audio.play(victory ? 'victory' : 'defeat');
     if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
     this.onEvent('end', this.result);
   }
-  // Écrit la progression dans la sauvegarde (appelé aussi si on abandonne)
-  commit(victory = false, stars = 0, gems = 0, wavesDone = this.cleared) {
+  // Écrit la progression dans la sauvegarde (appelé aussi si on abandonne) et complète this.result
+  commit(victory = false, stars = 0, wavesDone = this.cleared) {
     if (this._committed) return; this._committed = true;
-    const d = this.save.data, s = d.stats, g = this.stats;
+    const sv = this.save, d = sv.data, s = d.stats, g = this.stats, L = this.level, r = this.result || {};
     s.kills += g.kills; s.bossKills += g.bossKills; s.towersBuilt += g.built; s.legendaries += g.legendaries; s.earlyStarts += g.early; s.games++;
-    d.gems += gems;
-    const md = this.save.mapData(this.map.id), key = this.endless ? 'endless' : this.diffId;
-    md.best[key] = Math.max(md.best[key] || 0, this.score); s.bestScore = Math.max(s.bestScore || 0, this.score);
-    if (this.endless) { md.bestEndless = Math.max(md.bestEndless || 0, wavesDone); s.bestEndless = Math.max(s.bestEndless, wavesDone); }
-    else if (victory) {
-      s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (this.diffId === 'hard') s.hardWins++;
-      md.stars[this.diffId] = Math.max(md.stars[this.diffId] || 0, stars);
-    }
-    if (this.result) this.result.achievements = this.save.checkAchievements(); else this.save.checkAchievements();
-    this.save.persist();
+    s.bestScore = Math.max(s.bestScore || 0, this.score);
+    const ld = sv.levelData(L.n), hero = !!this.heroic;
+    let gems = 0, newStars = 0;
+    r.firstClear = false; r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;
+    r.rewards = [];
+    if (this.endless) {
+      gems = wavesDone * CAMPAIGN.gemsPerWaveEndless;
+      s.bestEndless = Math.max(s.bestEndless, wavesDone);
+      if (this.score > 0 && this.result) r.rank = sv.addEndless({ score: this.score, wave: wavesDone, world: L.world, t: Date.now() });
+    } else if (victory) {
+      r.firstClear = hero ? !ld.heroic : ld.stars === 0;
+      gems = (CAMPAIGN.gemsWin + stars * CAMPAIGN.gemsPerStar) * (L.boss ? CAMPAIGN.gemsBossMult : 1) + (r.firstClear ? CAMPAIGN.gemsFirstClear : 0);
+      if (hero) gems *= HEROIC.gemsMult;
+      s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (hero) s.heroicWins++;
+      if (!hero) { newStars = Math.max(0, stars - ld.stars); ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
+      else { ld.heroic = 1; ld.heroicBest = Math.max(ld.heroicBest, this.score); }
+      if (r.firstClear && (L.boss || hero)) { const kind = L.boss && !hero ? 'gold' : 'wood'; r.rewards.push(sv.grant({ chest: kind })); }
+      r.towers = sv.grantTowers();
+    } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
+    r.record = this.score > r.previous && this.score > 0;
+    r.gems = Math.round(gems * this.mods.gemMult); d.gems += r.gems;
+    r.xp = Math.round((g.cost * XP.perCost + wavesDone * XP.perWave + (victory ? XP.win + newStars * XP.perStar : 0)) * (hero ? HEROIC.xpMult : 1));
+    r.xpBefore = { level: d.level, xp: d.xp };
+    r.levelUps = sv.addXp(r.xp);
+    r.achievements = sv.checkAchievements();
+    sv.persist();
   }
 
   // --- rendu -----------------------------------------------------------------
@@ -402,7 +529,7 @@ export class Game {
     if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,60,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x, this.base.y, 105, 0, TAU); c.fill(); }
 
     const skin = this.save.data.skin;
-    c.save(); c.translate(this.base.x, this.base.y); drawCastle(c, this.castleTier || 1, { time: this.time }); c.restore();
+    c.save(); c.translate(this.base.x, this.base.y); drawCastle(c, this.castleTier, { time: this.time, cannon: this.cannon.lvl > 0, aim: this.cannon.aim, recoil: this.cannon.recoil }); c.restore();
     c.lineWidth = 1; c.lineJoin = 'round'; c.lineCap = 'round';
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
     const ground = this.enemies.filter((e) => !e.flying).sort((a, b) => a.gy - b.gy);
@@ -439,7 +566,22 @@ export class Game {
       else if (t) this.rangeCircle(c, t.x, t.y, t.rangeShown);
       c.strokeStyle = '#fff'; c.lineWidth = 3.5; c.beginPath(); c.arc(ms.x, ms.y, 33 + Math.sin(this.time * 6) * 2, 0, TAU); c.stroke();
     }
+    // frappes aériennes en approche
+    for (const s of this.strikes) {
+      const k = 1 - s.t / 0.55;
+      c.strokeStyle = `rgba(255,90,60,${0.5 + k * 0.5})`; c.lineWidth = 5; c.setLineDash([12, 8]); c.beginPath(); c.arc(s.x, s.y, s.r, 0, TAU); c.stroke(); c.setLineDash([]);
+      c.fillStyle = `rgba(255,90,60,${0.15 + k * 0.2})`; c.beginPath(); c.arc(s.x, s.y, s.r * k, 0, TAU); c.fill();
+      c.fillStyle = '#3d2c4e'; c.beginPath(); c.ellipse(s.x - 150 * (1 - k), s.y - 420 * (1 - k), 9, 20, 0.35, 0, TAU); c.fill();
+    }
+    // bouclier du château
+    if (this.shielded) {
+      const k = Math.sin(this.time * 3) * 0.15;
+      c.fillStyle = `rgba(140,200,255,${0.16 + k * 0.4})`; c.strokeStyle = 'rgba(200,235,255,.9)'; c.lineWidth = 4;
+      c.beginPath(); c.arc(this.base.x, this.base.y - 6, 104, 0, TAU); c.fill(); c.stroke();
+    }
+    if (this.blizzT > 0) { c.fillStyle = `rgba(200,235,255,${Math.min(0.22, this.blizzT * 0.2)})`; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
     this.fx.drawTexts(c);
+    if (this.flash) { c.fillStyle = `rgba(${this.flash.color},${(this.flash.t / this.flash.max) * 0.55})`; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
 
     c.setTransform(S, 0, 0, S, ox * S, oy * S);
     // barre de vie du boss

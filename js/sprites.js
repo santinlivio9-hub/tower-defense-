@@ -233,6 +233,36 @@ const ENEMY_ART = {
     <ellipse cx="-9" cy="-26" rx="3" ry="4" fill="${INK}"/><ellipse cx="9" cy="-26" rx="3" ry="4" fill="${INK}"/>
     ${e === 2 ? `<ellipse cx="0" cy="-14" rx="8" ry="6" fill="#c2405b" stroke="${INK}" stroke-width="3"/>` : `<path d="M-16 -16 q16 8 32 0" ${line(3.2, INK)}/><path d="M-12 -14 l4 9 l4 -8 M4 -13 l4 8 l4 -9" fill="#fff" stroke="${INK}" stroke-width="2.2"/>`}
     <circle cx="-14" cy="-36" r="3" fill="#fff" opacity=".0"/>`,
+  // BOSS 4 : Pinguino Frigorifero — manchot-réfrigérateur
+  boss4: (e, s) => `
+    ${[-1, 1].map((k) => `<ellipse cx="${k * 24}" cy="${60 - ((k < 0) === !s ? 6 : 0)}" rx="18" ry="9" ${st('#FF9F1A', 4.5)}/>`).join('')}
+    ${[-1, 1].map((k) => `<path d="M${k * 50} -8 Q${k * (84 + (s ? 6 : 0))} ${6 + (k < 0 === !s ? -14 : 6)} ${k * 70} 40 Q${k * 56} 30 ${k * 50} 16 Z" ${st('#2B2F45')}/>`).join('')}
+    <rect x="-52" y="-30" width="104" height="88" rx="14" ${st('#EAF4FF', 6)}/>
+    <path d="M-52 6 H52" ${line(4, 'rgba(61,44,78,.55)')}/>
+    <rect x="30" y="-20" width="9" height="20" rx="4" ${st('#98A6B6', 3.5)}/><rect x="30" y="14" width="9" height="30" rx="4" ${st('#98A6B6', 3.5)}/>
+    <path d="M-40 16 l8 8 l8 -8 l8 8 l8 -8" ${line(3, '#8FD8FF')}/><circle cx="-32" cy="-14" r="5" fill="#4CD137" stroke="${INK}" stroke-width="2.5"/><circle cx="-18" cy="-14" r="5" fill="#5fd8ff" stroke="${INK}" stroke-width="2.5"/>
+    ${[-36, -12, 12, 36].map((x) => `<path d="M${x} 56 l4 12 l4 -12 z" ${st('#BDF3FF', 3)}/>`).join('')}
+    ${shine(-38, 34, 4, 14, 4, 0.7)}
+    <ellipse cx="0" cy="-52" rx="40" ry="34" ${st('#2B2F45', 6)}/>
+    <path d="M-28 -44 C-28 -68 -4 -66 0 -52 C4 -66 28 -68 28 -44 C28 -26 12 -22 0 -22 C-12 -22 -28 -26 -28 -44 Z" fill="#fff" stroke="${INK}" stroke-width="4"/>
+    ${brows(0, -46, 0.95, 12)}${face(0, -46, 0.95, e, 'none', 12)}
+    <path d="M-10 -36 L0 -24 L10 -36 Q0 -42 -10 -36 Z" ${st('#FF9F1A', 4)}/>
+    <path d="M-8 -84 l8 -10 l8 10 z" ${st('#5fd8ff', 3.5)}/>`,
+  // BOSS 5 : Leone Lasagna — lion à crinière de lasagnes
+  boss5: (e, s) => `
+    ${limb(`M52 30 q34 6 30 -22`, 9, '#E8A23B')}<circle cx="82" cy="4" r="10" ${st('#C2402B', 4.5)}/>
+    ${[-1, 1].map((k) => { const dy = (k < 0) === !s ? -7 : 0; return `<rect x="${k * 30 - 14}" y="${38 + dy}" width="28" height="24" rx="10" ${st('#E8A23B', 4.5)}/><path d="M${k * 30 - 7} ${62 + dy} v-6 M${k * 30 + 5} ${62 + dy} v-6" ${line(2.6, INK)}/>`; }).join('')}
+    <ellipse cx="0" cy="28" rx="48" ry="30" ${st('#F0B44C', 6)}/><ellipse cx="0" cy="36" rx="26" ry="16" fill="#FFE2A6" opacity=".8"/>
+    ${[0, 1, 2].map((i) => { const r = 62 - i * 9, col = ['#F7D774', '#D9482B', '#FFE9A8'][i]; let d = ''; for (let k = 0; k <= 16; k++) { const a = (k / 16) * TAU - Math.PI / 2, q = r + (k % 2 ? 6 : -2) + (s && k % 2 ? 2 : 0); d += `${k ? 'L' : 'M'}${(Math.cos(a) * q).toFixed(1)} ${(-34 + Math.sin(a) * q * 0.92).toFixed(1)} `; } return `<path d="${d}Z" ${st(col, i ? 4 : 6)}/>`; }).join('')}
+    ${[[-44, -62], [40, -70], [52, -20], [-54, -14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.2" fill="#3FA82A"/>`).join('')}
+    <circle cx="-30" cy="-66" r="11" ${st('#F0B44C', 4.5)}/><circle cx="30" cy="-66" r="11" ${st('#F0B44C', 4.5)}/><circle cx="-30" cy="-66" r="5" fill="#ff9fbf"/><circle cx="30" cy="-66" r="5" fill="#ff9fbf"/>
+    <ellipse cx="0" cy="-34" rx="38" ry="34" ${st('#F0B44C', 5)}/>
+    ${shine(-20, -52, 6, 12, 28, 0.4)}
+    ${brows(0, -42, 1.05, 14)}${face(0, -42, 1.05, e, 'none', 14)}
+    <ellipse cx="-11" cy="-20" rx="13" ry="10" ${st('#FFE9BD', 4)}/><ellipse cx="11" cy="-20" rx="13" ry="10" ${st('#FFE9BD', 4)}/>
+    <path d="M-7 -30 L7 -30 L0 -22 Z" ${st('#7A3B2A', 3.5)}/>
+    ${e === 2 ? `<ellipse cx="0" cy="-10" rx="8" ry="7" fill="#c2405b" stroke="${INK}" stroke-width="3"/>` : `<path d="M-10 -12 q10 10 20 0" ${line(3.2, INK)}/><path d="M-7 -11 l3 7 l3 -7 M1 -11 l3 7 l3 -7" fill="#fff" stroke="${INK}" stroke-width="2"/>`}
+    <path d="M-24 -72 L-18 -96 L-8 -80 L0 -100 L8 -80 L18 -96 L24 -72 Z" ${st('#FFD23F', 4.5)}/><circle cx="0" cy="-84" r="4" fill="#E0393E" stroke="${INK}" stroke-width="2.4"/>`,
 };
 
 // Œil sur tige (escargot)

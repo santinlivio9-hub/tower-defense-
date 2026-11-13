@@ -9,17 +9,15 @@ export const GAME = {
   sellRatio: 0.7,          // revente : 70 % de l'investissement
   critChance: 0.08,        // chance de critique de base
   critMult: 2,             // multiplicateur de critique de base
-  interWaveTime: 18,       // secondes avant le lancement auto de la vague suivante
+  interWaveTime: 12,       // secondes avant le lancement auto de la vague suivante
   earlyBonusPerSec: 2,     // pièces par seconde restante si on lance en avance
   earlyBonusAlive: 15,     // bonus si on lance alors que des ennemis sont encore en vie
   waveBonusBase: 30,       // pièces de fin de vague = base + parVague * n
   waveBonusPerWave: 5,
   pathWidth: 64,
   towerRadius: 26,
-  totalWaves: 30,
-  bossEvery: 10,
+  bossEvery: 10,           // mode infini : un boss toutes les 10 vagues
   rewardMult: 1,           // multiplicateur global des pièces par kill
-  maxMines: 6,             // nombre maximum de mines posées en même temps
   stealthRevealRange: 85,  // toute tourelle révèle les invisibles à bout portant (px)
   stealthRevealOnHit: 1.5, // secondes de révélation après un dégât (zone, brûlure, cryo)
 };
@@ -32,12 +30,6 @@ export const RARITY = [
   { name: 'Épique', color: '#b05cff' },
   { name: 'Légendaire', color: '#ffc531' },
 ];
-
-export const DIFFICULTIES = {
-  easy:   { name: 'Facile',    hp: 0.8,  speed: 1,    lives: 25, money: 300, gems: 0.75 },
-  normal: { name: 'Normal',    hp: 1,    speed: 1,    lives: 20, money: 250, gems: 1 },
-  hard:   { name: 'Difficile', hp: 1.3,  speed: 1.08, lives: 15, money: 230, gems: 1.6 },
-};
 
 // ----------------------------------------------------------------------------
 //  TOURELLES
@@ -147,7 +139,7 @@ export const TOWERS = {
     ],
   },
   mine: {
-    name: 'Mine', desc: 'Piège posé sur le chemin (6 max). Explose puis se réarme. Inefficace contre les volants.', cost: 70, kind: 'mine', targeting: null,
+    name: 'Mine', desc: 'Piège posé sur une zone marquée du chemin. Explose puis se réarme. Inefficace contre les volants.', cost: 70, kind: 'mine', targeting: null,
     // rate = réarmements par seconde ; range = rayon de déclenchement ; splash = rayon d'explosion
     base: { damage: 75, rate: 0.15, range: 24, splash: 62 },
     upgrades: [
@@ -163,6 +155,7 @@ export const TOWERS = {
   },
 };
 
+export const BOSS_ORDER = ['boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
 export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'mine'];
 
 // Vitesse de rotation (rad/s) et distance de la bouche du canon (px) par tourelle
@@ -174,40 +167,180 @@ export const TOWER_VISUAL = {
 
 // ----------------------------------------------------------------------------
 //  ENNEMIS (brainrots originaux)
-//  hp, speed (px/s), reward (pièces), leak (PV retirés à la base), r (rayon),
-//  cost = coût dans le budget de vague, unlock = première vague d'apparition
+//  hp, speed (px/s), reward (pièces), leak (PV retirés au château), r (rayon),
+//  cost = coût dans le budget de vague,
+//  unlock = premier niveau de campagne (1 à 30) où il apparaît, from = vague minimale dans un niveau
 // ----------------------------------------------------------------------------
 export const ENEMIES = {
-  basic:    { name: 'Lumaca Pizzetta',      tag: 'Basique',  hp: 30,  speed: 58,  reward: 5,  leak: 1, r: 22, cost: 5,  unlock: 1,  interval: 0.7 },
-  fast:     { name: 'Peperoncino Rollerino', hint: "Rapide mais fragile : mitraillette et cryo conseillées.", tag: 'Rapide',   hp: 18,  speed: 122, reward: 5,  leak: 1, r: 20, cost: 6,  unlock: 2,  interval: 0.4 },
-  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 32, cost: 22, unlock: 4,  interval: 1.6 },
-  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 21, cost: 10, unlock: 6,  interval: 0.7, flying: true },
-  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 25, cost: 16, unlock: 8,  interval: 1.1, armor: 5 },
-  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 27, cost: 16, unlock: 9,  interval: 1.2, split: { type: 'mini', count: 3 } },
-  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 24, cost: 18, unlock: 12, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
-  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, interval: 0.8, stealth: true },
+  basic:    { name: 'Lumaca Pizzetta', hint: "Lent et peu résistant. Il arrive en nombre.", tag: 'Basique',  hp: 30,  speed: 58,  reward: 5,  leak: 1, r: 22, cost: 5,  unlock: 1,  from: 1, interval: 0.7 },
+  fast:     { name: 'Peperoncino Rollerino', hint: "Rapide mais fragile : mitraillette et cryo conseillées.", tag: 'Rapide',   hp: 18,  speed: 122, reward: 5,  leak: 1, r: 20, cost: 6,  unlock: 1,  from: 3, interval: 0.4 },
+  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 32, cost: 22, unlock: 2,  from: 4, interval: 1.6 },
+  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 21, cost: 10, unlock: 4,  from: 4, interval: 0.7, flying: true },
+  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 25, cost: 16, unlock: 7,  from: 4, interval: 1.1, armor: 5 },
+  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 27, cost: 16, unlock: 9,  from: 4, interval: 1.2, split: { type: 'mini', count: 3 } },
+  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 24, cost: 18, unlock: 11, from: 5, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
+  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, from: 5, interval: 0.8, stealth: true },
   mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
-  // Boss (hp non multipliés par la vague, voir WAVES.bossHpGrowth pour le mode infini)
-  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 4000,  speed: 24, reward: 250, leak: 10, r: 46, boss: true, unlock: 999,
+  // Boss de monde. Leurs PV sont multipliés par le niveau (CAMPAIGN.hpWorld), pas par la vague.
+  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 9000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
            ability: { kind: 'summon', every: 6, type: 'fast', count: 3 }, title: 'Il souffle des sbires !' },
-  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 14000, speed: 22, reward: 500, leak: 12, r: 50, boss: true, armor: 4, unlock: 999,
+  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 11000, speed: 22, reward: 400, leak: 99, r: 50, boss: true, armor: 4, unlock: 999,
            ability: { kind: 'emp', every: 8, radius: 190, dur: 2.5 }, title: 'Son essorage coupe tes tourelles !' },
-  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 36000, speed: 20, reward: 900, leak: 99, r: 56, boss: true, unlock: 999,
+  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 13000, speed: 20, reward: 500, leak: 99, r: 56, boss: true, unlock: 999,
            ability: { kind: 'rage', every: 10, dur: 3, heal: 0.03 }, title: 'Bouclier de crème et rage finale !' },
+  boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 15000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
+           ability: { kind: 'combo', every: 7, list: [{ kind: 'emp', radius: 220, dur: 3 }, { kind: 'summon', type: 'armored', count: 3 }] }, title: 'Il gèle tes tourelles et appelle ses crabes !' },
+  boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 18000, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
+           ability: { kind: 'combo', every: 6, rage: true, list: [{ kind: 'summon', type: 'tank', count: 2 }, { kind: 'rage', dur: 3, heal: 0.025 }, { kind: 'emp', radius: 200, dur: 2.5 }] }, title: 'Le roi des brainrots : sbires, bouclier et rugissement !' },
 };
-
-export const BOSS_ORDER = ['boss1', 'boss2', 'boss3'];
 
 // ----------------------------------------------------------------------------
 //  VAGUES (générées procéduralement, voir js/waves.js)
+//  « m » = vague équivalente : n dans un niveau normal, étirée dans un niveau de boss.
 // ----------------------------------------------------------------------------
 export const WAVES = {
-  budget: (n) => 30 + 18 * n + 0.4 * n * n,                       // "points" d'ennemis par vague
-  hpScale: (n) => 1 + 0.16 * (n - 1) + 0.02 * (n - 1) * (n - 1),  // multiplicateur de PV par vague
+  budget: (m) => 34 + 20 * m + 0.5 * m * m,                       // « points » d'ennemis par vague
+  hpScale: (m) => 1 + 0.16 * (m - 1) + 0.02 * (m - 1) * (m - 1),  // multiplicateur de PV par vague
   maxGroups: 5,
   maxPerGroup: 28,
-  bossEscortBudget: 0.45,   // part du budget normal qui accompagne un boss
-  bossHpGrowth: 1.8,        // mode infini : PV des boss x1.8 à chaque cycle de 30 vagues
+  bossEscortBudget: 0.5,    // part du budget normal qui accompagne un boss ou un mini-boss
+  finalWaveBudget: 1.4,     // dernière vague d'un niveau normal
+  bossHpGrowth: 1.6,        // mode infini : PV des boss x1,6 à chaque boss
+  eliteFrom: 19,            // niveau de campagne à partir duquel des groupes « élite » apparaissent
+  eliteChance: 0.22, eliteHp: 3, eliteReward: 3,
+};
+
+// ----------------------------------------------------------------------------
+//  CAMPAGNE : 5 mondes x 6 niveaux. Le 6e niveau de chaque monde est un niveau de boss, plus long.
+// ----------------------------------------------------------------------------
+export const WORLDS = [
+  { id: 'prairie', name: 'Prairie Pesto',          theme: 'prairie', boss: 'boss1', color: '#5fb53c' },
+  { id: 'desert',  name: 'Désert Tiramisu',        theme: 'desert',  boss: 'boss2', color: '#e2a03c' },
+  { id: 'volcano', name: 'Volcan Gelato',          theme: 'volcano', boss: 'boss3', color: '#8a5fb0' },
+  { id: 'ice',     name: 'Banquise Stracciatella', theme: 'ice',     boss: 'boss4', color: '#5aa9e0' },
+  { id: 'candy',   name: 'Cité Meringue',          theme: 'candy',   boss: 'boss5', color: '#f070a8' },
+];
+export const CAMPAIGN = {
+  waves:     [15, 16, 17, 18, 20],        // niveaux 1 à 5 d'un monde
+  bossWaves: [30, 33, 36, 40, 45],        // niveau 6 (boss) du monde 1 à 5
+  bossPaceTo: 24,                         // un niveau de boss finit à la difficulté d'une « vague 24 »
+  money:     [200, 200, 190, 190, 180, 260],   // pièces de départ par niveau du monde
+  lives: 20,
+  slots:     [10, 11, 12, 12, 13, 16],    // emplacements de tourelles par niveau du monde
+  mines: 5,
+  layouts: [                              // tracé de chaque niveau ('!' = en miroir), voir LAYOUTS dans js/maps.js
+    ['lacets', 'escalier', 'boucle', 'detour', 'zigzag', 'fourche'],
+    ['detour!', 'serpent', 'lacets!', 'croix', 'escalier!', 'ygrec'],
+    ['boucle!', 'tour', 'fourche', 'serpent!', 'detour', 'croix!'],
+    ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'serpent'],
+    ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
+  ],
+  hpWorld:    [1, 1.3, 1.65, 2.05, 2.5],  // PV des ennemis par monde...
+  hpLevel:    0.05,                       // ...puis +5 % par niveau dans le monde
+  density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
+  speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
+  miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
+  miniBossHp: [0.12, 0.3, 0.5, 0.7],      // PV des mini-boss successifs (part des PV du boss)
+  endlessAfter: 12,                       // le mode infini se débloque après ce niveau (fin du monde 2)
+  towerUnlocks: { mine: 2, sniper: 4, cryo: 6, rocket: 9, minigun: 13 },   // tourelle offerte en terminant ce niveau
+  // gemmes
+  gemsWin: 6, gemsPerStar: 3, gemsFirstClear: 10, gemsBossMult: 2, gemsPerWaveLost: 0.3, gemsPerWaveEndless: 0.8,
+};
+// Liste à plat des 30 niveaux
+export const LEVELS = [];
+WORLDS.forEach((w, wi) => {
+  for (let i = 0; i < 6; i++) {
+    const boss = i === 5, waves = boss ? CAMPAIGN.bossWaves[wi] : CAMPAIGN.waves[i], lay = CAMPAIGN.layouts[wi][i];
+    LEVELS.push({
+      n: wi * 6 + i + 1, id: `${wi + 1}-${i + 1}`, world: wi, idx: i, boss, waves,
+      layout: lay.replace('!', ''), mirror: lay.endsWith('!'), slots: CAMPAIGN.slots[i], money: CAMPAIGN.money[i],
+      hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
+      pace: boss ? (CAMPAIGN.bossPaceTo - 1) / (waves - 1) : 1,
+    });
+  }
+});
+
+// Défi « Héroïque » : débloqué en terminant un niveau. Une contrainte par niveau (à tour de rôle) + ennemis plus résistants.
+export const HEROIC = {
+  hp: 1.25, gemsMult: 2, xpMult: 2, scoreMult: 1.5,
+  mods: [
+    { id: 'limit', name: 'Effectif réduit',    desc: '6 tourelles maximum (hors mines)', towerLimit: 6 },
+    { id: 'fast',  name: 'Ruée',               desc: 'Ennemis 25 % plus rapides', speed: 1.25 },
+    { id: 'frail', name: 'Château fragile',    desc: '5 PV seulement', lives: 5 },
+    { id: 'ban',   name: 'Arsenal restreint',  desc: "Fusil d'assaut et pompe interdits", ban: ['assault', 'shotgun'] },
+    { id: 'poor',  name: 'Caisses vides',      desc: 'Moitié moins de pièces au départ, aucun bonus de vague', money: 0.5, noWaveBonus: true },
+    { id: 'tough', name: 'Peaux dures',        desc: 'PV des ennemis +40 %', hp: 1.4 },
+  ],
+};
+export const heroicMod = (n) => HEROIC.mods[(n - 1) % HEROIC.mods.length];
+
+// ----------------------------------------------------------------------------
+//  CHÂTEAU (amélioré avec les gemmes entre les niveaux)
+// ----------------------------------------------------------------------------
+export const CASTLE = {
+  upgrades: {
+    walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: [10, 20, 35, 55, 80] },
+    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: [15, 30, 50, 75, 110] },   // every[niveau] = toutes les N vagues
+    treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: [10, 20, 35, 55, 80] },
+    cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: [20, 35, 55, 80, 120] },
+  },
+  // capacités actives : niveau 0 = verrouillée. cd en secondes.
+  abilities: {
+    air:      { name: 'Frappe aérienne', desc: 'Bombarde une zone ciblée', icon: 'bomb', color: '#ff7a3c', cd: [0, 50, 45, 40], damage: [0, 220, 380, 600], pct: 0.25, bossPct: 0.04, radius: [0, 90, 100, 115], costs: [25, 45, 80] },
+    blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: [35, 55, 90] },
+    gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: [40, 60, 100] },
+  },
+  tiers: [0, 5, 12, 20],      // total de niveaux d'amélioration pour : bois, pierre, forteresse, citadelle dorée
+};
+
+// ----------------------------------------------------------------------------
+//  BOOSTS (consommables, inventaire persistant)
+// ----------------------------------------------------------------------------
+export const BOOSTS = {
+  coins2: { name: 'Pièces x2',        desc: 'Double les pièces des kills pendant 1 vague', icon: 'coins',  color: '#ffd23f', cost: 12 },
+  heal:   { name: '+5 PV',            desc: 'Répare 5 PV du château (peut dépasser le maximum)', icon: 'heart', color: '#ff5d6c', cost: 10, amount: 5 },
+  free:   { name: 'Tourelle gratuite', desc: 'La prochaine tourelle posée ne coûte rien', icon: 'gift', color: '#3fd873', cost: 15 },
+  over:   { name: 'Surcharge',        desc: 'Cadence de toutes les tourelles +50 % pendant 20 s', icon: 'bolt', color: '#ff9f1a', cost: 15, rate: 1.5, dur: 20 },
+  shield: { name: 'Bouclier',         desc: 'Bloque toutes les fuites pendant 1 vague', icon: 'shield', color: '#5c9df2', cost: 25 },
+  revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40 },
+};
+export const BOOST_ORDER = ['coins2', 'heal', 'free', 'over', 'shield', 'revive'];
+export const BOOST_SLOTS = { normal: 2, boss: 4 };   // emplacements à emporter (+ talent « Sacoche »)
+export const STARTER_BOOSTS = { coins2: 1, heal: 1, free: 1, over: 1, shield: 0, revive: 0 };
+
+// ----------------------------------------------------------------------------
+//  NIVEAU DE JOUEUR, TALENTS, COFFRES
+// ----------------------------------------------------------------------------
+export const XP = {
+  perCost: 0.5,                 // XP par point de « coût » d'ennemi éliminé
+  perWave: 5, perStar: 30, win: 40,
+  need: (lvl) => 220 + 90 * (lvl - 1),      // XP pour passer du niveau lvl au suivant
+  // récompense de chaque niveau gagné (cycle), + un coffre doré tous les 10 niveaux
+  rewards: [{ talent: 1 }, { gems: 15 }, { talent: 1 }, { chest: 'wood' }, { talent: 1 }, { boosts: 2 }],
+};
+export const TALENTS = {
+  attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
+    { id: 'dmg',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02 },
+    { id: 'rate',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02 },
+    { id: 'range', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02 },
+    { id: 'crit',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01 },
+  ] },
+  economy: { name: 'Économie', color: '#ffd23f', icon: 'coins', nodes: [
+    { id: 'start', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15 },
+    { id: 'kill',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03 },
+    { id: 'wave',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1 },
+    { id: 'gems',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05 },
+  ] },
+  castle: { name: 'Château', color: '#5c9df2', icon: 'shield', nodes: [
+    { id: 'lives', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1 },
+    { id: 'cd',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04 },
+    { id: 'dur',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1 },
+    { id: 'slot',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6 },   // need = points déjà placés dans la branche
+  ] },
+};
+export const CHESTS = {
+  wood: { name: 'Coffre en bois', cost: 30, cards: 3, gems: [6, 14], boostChance: 0.6, rare: 0.15 },
+  gold: { name: 'Coffre doré',    cost: 75, cards: 5, gems: [15, 35], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
 };
 
 // ----------------------------------------------------------------------------
@@ -215,12 +348,6 @@ export const WAVES = {
 // ----------------------------------------------------------------------------
 export const SHOP = {
   starterTowers: ['assault', 'smg', 'shotgun'],
-  towerUnlocks: { mine: 15, sniper: 25, cryo: 30, rocket: 45, minigun: 70 },
-  perks: [
-    { id: 'damage', name: 'Poudre premium', desc: '+5 % de dégâts par niveau', per: 0.05, max: 5, costs: [15, 25, 40, 60, 90] },
-    { id: 'money',  name: 'Tirelire',       desc: '+30 pièces de départ par niveau', per: 30, max: 5, costs: [10, 20, 30, 45, 65] },
-    { id: 'lives',  name: 'Murs renforcés', desc: '+2 PV de base par niveau', per: 2, max: 5, costs: [10, 20, 30, 45, 65] },
-  ],
   skins: [   // finish = rendu appliqué aux sprites d'armes (voir js/sprites.js)
     { id: 'default', name: 'Standard',   cost: 0,   finish: 'classic' },
     { id: 'camo',    name: 'Camouflage', cost: 20,  finish: 'camo' },
@@ -229,8 +356,6 @@ export const SHOP = {
     { id: 'candy',   name: 'Bonbon',     cost: 45,  finish: 'candy' },
     { id: 'gold',    name: 'Or massif',  cost: 100, finish: 'gold' },
   ],
-  // Gemmes de fin de partie
-  gemsWinBase: 20, gemsPerStar: 10, gemsPerWaveLost: 0.6, gemsPerWaveEndless: 1.2,
 };
 
 // ----------------------------------------------------------------------------
@@ -245,7 +370,6 @@ export const SCORE = {
   cleanWavePerWave: 15,
   earlyPerCoin: 4,          // points par pièce de bonus « en avance »
   lifeBonus: 120,           // points par PV restant en cas de victoire
-  diffMult: { easy: 0.8, normal: 1, hard: 1.5 },
 };
 
 // Étoiles : part des PV restants nécessaire
@@ -265,8 +389,11 @@ export const ACHIEVEMENTS = [
   { id: 'win1',      name: 'Première victoire',  desc: 'Gagner une partie',              stat: 'wins', goal: 1, gems: 10 },
   { id: 'win10',     name: 'Vétéran',            desc: 'Gagner 10 parties',              stat: 'wins', goal: 10, gems: 30 },
   { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 20 },
-  { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner en Difficile',            stat: 'hardWins', goal: 1, gems: 25 },
+  { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 25 },
+  { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 20 },
+  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 30, gems: 100 },
   { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 30 },
+  { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 60 },
   { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 30 },
   { id: 'early20',   name: 'Pressé',             desc: 'Lancer 20 vagues en avance',     stat: 'earlyStarts', goal: 20, gems: 10 },
 ];
