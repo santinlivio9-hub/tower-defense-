@@ -40,6 +40,8 @@ export function buildWave(n, level, pathCount) {
     groups.push({ type, count, interval, delay: t, path, elite });
     t += count * interval * 0.55 + 1;
   });
+  const span = Math.max(...groups.map((g) => g.delay + g.count * g.interval), 1);
+  if (span > WAVES.maxSpan) { const k = WAVES.maxSpan / span; for (const g of groups) { g.delay *= k; g.interval *= k; } }
   if (boss) groups.push({ type: boss, count: 1, interval: 0, delay: 2.5, path: 0, mini });
   return { n, boss, mini, bossMul, groups, hpScale: WAVES.hpScale(m) };
 }

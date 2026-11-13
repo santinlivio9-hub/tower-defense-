@@ -103,7 +103,7 @@ function makeSlots(paths, n) {
       if (v > bv) { bv = v; best = c; }
     }
     if (!best) break;
-    out.push({ x: best.x, y: best.y, kind: 'tower' });
+    out.push({ x: best.x, y: best.y, kind: 'tower', rank: out.length });   // rank 0 = meilleure couverture
     for (const s of best.near) covered.add(s);
   }
   return out.sort((a, b) => a.y - b.y || a.x - b.x);
