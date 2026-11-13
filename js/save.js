@@ -12,7 +12,7 @@ const defaults = () => ({
   maps: {},            // id -> { stars: {easy,normal,hard}, bestEndless }
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, hardWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0 },
-  settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true, haptics: true },
+  settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true },
 });
 
 export class Save {

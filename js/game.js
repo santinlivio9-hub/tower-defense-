@@ -1,5 +1,5 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
-import { VIEW, GAME, DIFFICULTIES, TOWERS, ENEMIES, RARITY, SHOP, STARS, SCORE, BOSS_ORDER } from './config.js';
+import { VIEW, GAME, DIFFICULTIES, TOWERS, TOWER_ORDER, ENEMIES, RARITY, SHOP, STARS, SCORE, BOSS_ORDER } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -28,10 +28,12 @@ export class Game {
     this.fx = new Fx();
     this.time = 0; this.speed = 1; this.paused = false; this.over = false; this.result = null;
     this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, early: 0, legendaries: 0 };
-    this.placing = null; this.hover = { x: 0, y: 0, active: false }; this.selected = null; this.hoverTower = null;
+    this.slots = [...this.field.slots, ...this.field.mines].map((s) => ({ ...s, tower: null }));
+    this.selected = null; this.hoverTower = null; this.menuSlot = null; this.preview = null; this.freeNext = false;
+    this.hintT = 0; this.canBuy = false;
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
-    this._nextCache = null; this.useSlots = false;
+    this._nextCache = null; this.useSlots = true;
     this.setView(1, 0, 0, VIEW.W, VIEW.H);
   }
 
@@ -211,34 +213,26 @@ export class Game {
   }
 
   // --- tourelles -------------------------------------------------------------
-  // Renvoie { ok, x, y } (la mine est aimantée au chemin)
-  canPlace(type, x, y) {
-    const R = GAME.towerRadius;
-    if (type === 'mine') {
-      let best = null;
-      for (const p of this.paths) { const n = p.nearest(x, y); if (!best || n.dist < best.dist) best = n; }
-      if (best.dist > GAME.pathWidth / 2 + 14) return { ok: false, x, y };
-      const ok = best.x > 30 && best.x < VIEW.W - 30 && best.y > 30 && best.y < VIEW.H - 30
-        && Math.hypot(best.x - this.base.x, best.y - this.base.y) > 70
-        && !this.towers.some((t) => t.type === 'mine' && Math.hypot(t.x - best.x, t.y - best.y) < 36)
-        && this.towers.filter((t) => t.type === 'mine').length < GAME.maxMines;
-      return { ok, x: best.x, y: best.y };
-    }
-    let ok = x > R && x < VIEW.W - R && y > R && y < VIEW.H - R;
-    ok = ok && !this.paths.some((p) => p.nearest(x, y).dist < GAME.pathWidth / 2 + R - 2);
-    ok = ok && !this.towers.some((t) => t.type !== 'mine' && Math.hypot(t.x - x, t.y - y) < R * 2 + 2);
-    ok = ok && (Math.abs(x - this.base.x) > 110 || y < this.base.y - 90);
-    return { ok, x, y };
+  // Emplacement (socle ou zone de mine) sous un point du terrain
+  slotAt(x, y) {
+    let best = null, bd = 40;
+    for (const sl of this.slots) { const d = Math.hypot(sl.x - x, sl.y - y); if (d < bd) { bd = d; best = sl; } }
+    return best;
   }
-  placeTower(type, x, y) {
-    const cfg = TOWERS[type];
-    if (this.over || !this.save.towerUnlocked(type)) return null;
-    const p = this.canPlace(type, x, y);
-    if (!p.ok || this.money < cfg.cost) { this.audio.play('error'); return null; }
-    this.money -= cfg.cost;
-    const t = new Tower(this, type, p.x, p.y);
-    this.towers.push(t); this.stats.built++;
-    this.fx.ring(t.x, t.y, 6, 40, '#ffffff', 0.3, 5); this.fx.burst(t.x, t.y, '#d9c7a0', 10, 130, 5);
+  // Tourelles proposées sur un emplacement vide
+  buildable(slot) {
+    return TOWER_ORDER.filter((t) => this.save.towerUnlocked(t) && (t === 'mine') === (slot.kind === 'mine') && !(this.banned || []).includes(t));
+  }
+  costOf(type) { return this.freeNext ? 0 : TOWERS[type].cost; }
+  placeTower(type, slot) {
+    if (this.over || !slot || slot.tower || !this.buildable(slot).includes(type)) { this.audio.play('error'); return null; }
+    const cost = this.costOf(type);
+    if (this.money < cost || (this.towerLimit && this.towers.length >= this.towerLimit)) { this.audio.play('error'); return null; }
+    this.money -= cost; if (cost === 0) this.freeNext = false;
+    const t = new Tower(this, type, slot.x, slot.y);
+    t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
+    this.towers.push(t); this.stats.built++; this.hintT = 0;
+    this.fx.ring(t.x, t.y, 6, 46, '#ffffff', 0.3, 5); this.fx.burst(t.x, t.y, '#d9c7a0', 12, 150, 5);
     this.audio.play('place');
     this.onEvent('placed', t);
     return t;
@@ -248,8 +242,11 @@ export class Game {
     this.money -= opt.cost; t.invested += opt.cost;
     t.level = opt.level; t.branch = opt.branch; t.refresh(); t.lvlAnim = 1;
     const col = RARITY[t.level - 1].color;
-    this.fx.ring(t.x, t.y, 10, 70, col, 0.5, 8);
-    this.fx.burst(t.x, t.y, col, 16, 200, 6);
+    this.fx.ring(t.x, t.y, 10, 80, col, 0.5, 9); this.fx.ring(t.x, t.y, 4, 120, '#ffffff', 0.4, 4);
+    this.fx.burst(t.x, t.y, col, 22, 260, 6); this.fx.burst(t.x, t.y, '#ffffff', 10, 180, 4);
+    this.fx.add({ k: 'flash', x: t.x, y: t.y, vx: 0, vy: 0, life: 0.18, max: 0.18, size: 46, color: '#ffffff' });
+    for (let i = 0; i < 8; i++) this.fx.add({ k: 'dot', x: t.x + (Math.random() - 0.5) * 40, y: t.y + 10, vx: 0, vy: -90 - Math.random() * 80, life: 0.7, max: 0.7, size: 3.5, color: col });
+    this.shake(t.level >= 4 ? 5 : 2.5); this.hintT = 0;
     this.fx.text(t.x, t.y - 40, t.level >= 4 ? t.label + ' !' : 'NIVEAU ' + t.level + ' !', col, t.level >= 4 ? 20 : 18, 1.3);
     if (t.level >= 5) { this.stats.legendaries++; this.fx.confetti(t.x, t.y, 40, 300); this.audio.play('legendary'); }
     else this.audio.play('upgrade');
@@ -258,19 +255,13 @@ export class Game {
   }
   sellTower(t) {
     const i = this.towers.indexOf(t); if (i < 0) return;
-    this.towers.splice(i, 1);
+    this.towers.splice(i, 1); if (t.slot) t.slot.tower = null;
     this.money += t.sellValue;
     this.onEvent('coins', { x: t.x, y: t.y, n: 5 }); this.fx.burst(t.x, t.y, '#aab', 10, 140, 5);
     this.fx.text(t.x, t.y - 30, '+' + t.sellValue, '#ffd23f', 16, 0.9);
     this.audio.play('sell');
     if (this.selected === t) this.selected = null;
   }
-  towerAt(x, y) {
-    let best = null, bd = 38;
-    for (const t of this.towers) { const d = Math.hypot(t.x - x, t.y - y); if (d < bd) { bd = d; best = t; } }
-    return best;
-  }
-
   // --- boucle ----------------------------------------------------------------
   frame(dtReal) {
     const dt = Math.min(0.05, dtReal);
@@ -304,6 +295,13 @@ export class Game {
       if (e.reached) this.leak(e);
     }
     for (const t of this.towers) t.update(dt, this);
+    this.hintT -= dt;
+    if (this.hintT <= 0) { // indicateurs « UP » et socles achetables
+      this.hintT = 0.3;
+      for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => u.cost <= this.money); }
+      let min = Infinity; for (const k of TOWER_ORDER) if (k !== 'mine' && this.save.towerUnlocked(k)) min = Math.min(min, this.costOf(k));
+      this.canBuy = this.money >= min && !(this.towerLimit && this.towers.length >= this.towerLimit);
+    }
     for (const p of this.projectiles) p.update(dt, this);
     for (let i = this.delayed.length - 1; i >= 0; i--) { const d = this.delayed[i]; d.t -= dt; if (d.t <= 0) { this.delayed.splice(i, 1); d.fn(); } }
     this.fx.update(dt);
@@ -343,7 +341,7 @@ export class Game {
   // --- fin de partie ---------------------------------------------------------
   end(victory) {
     if (this.over) return;
-    this.over = true; this.selected = null; this.placing = null;
+    this.over = true; this.selected = null; this.menuSlot = null; this.preview = null;
     const ratio = this.lives / this.maxLives;
     const stars = victory ? (ratio >= STARS.three ? 3 : ratio >= STARS.two ? 2 : 1) : 0;
     const wavesDone = victory ? this.wave : Math.max(0, this.cleared);
@@ -417,29 +415,30 @@ export class Game {
     this.fx.draw(c);
     drawClouds(c, this.theme, this.time, E);
 
-    // portées
-    const sel = this.selected, hov = this.hoverTower;
-    if (hov && hov !== sel && !this.placing) this.rangeCircle(c, hov.x, hov.y, hov.rangeShown);
-    if (sel) {
-      this.rangeCircle(c, sel.x, sel.y, sel.rangeShown);
-      c.strokeStyle = '#fff'; c.lineWidth = 3.5; c.beginPath(); c.arc(sel.x, sel.y, 33 + Math.sin(this.time * 6) * 2, 0, TAU); c.stroke();
+    const hints = this.save.data.settings.hints !== false && !this.over;
+    // socles libres : léger pulse quand on peut acheter
+    if (hints && this.canBuy) {
+      const k = (Math.sin(this.time * 4) + 1) / 2;
+      c.lineWidth = 3 + k * 2; c.strokeStyle = `rgba(120,255,160,${0.35 + k * 0.45})`;
+      for (const sl of this.slots) if (!sl.tower && sl.kind === 'tower' && sl !== this.menuSlot) { c.beginPath(); c.arc(sl.x, sl.y, GAME.towerRadius + 4 + k * 3, 0, TAU); c.stroke(); }
     }
-    // fantôme de placement : vert si valide, rouge sinon
-    if (this.placing && this.hover.active) {
-      const type = this.placing, p = this.canPlace(type, this.hover.x, this.hover.y);
-      const ok = p.ok && this.money >= TOWERS[type].cost;
-      const st = TOWERS[type].base;
-      this.rangeCircle(c, p.x, p.y, type === 'mine' ? st.splash : st.range, ok ? 'ok' : 'bad');
-      const sp = towerSprite(type, 1, null, skinFinish(skin));
-      c.save(); c.translate(p.x, p.y); c.globalAlpha = 0.8;
-      if (type !== 'mine') drawPad(c, 1, this.time);
-      if (sp.ready) { if (TOWERS[type].kind !== 'cryo' && type !== 'mine') c.rotate(-Math.PI / 2); c.drawImage(sp.cv, -sp.half, -sp.half, sp.half * 2, sp.half * 2); }
-      c.restore(); c.globalAlpha = 1;
-      if (!ok) {
-        c.strokeStyle = '#3d2c4e'; c.lineWidth = 11;
-        c.beginPath(); c.moveTo(p.x - 15, p.y - 15); c.lineTo(p.x + 15, p.y + 15); c.moveTo(p.x + 15, p.y - 15); c.lineTo(p.x - 15, p.y + 15); c.stroke();
-        c.strokeStyle = '#ff5d6c'; c.lineWidth = 6; c.stroke();
-      }
+    // flèche UP au-dessus des tourelles améliorables
+    if (hints) for (const t of this.towers) if (t.canUp && t.slot !== this.menuSlot) {
+      const by = t.y - 46 - Math.abs(Math.sin(this.time * 4 + t.x)) * 6;
+      c.save(); c.translate(t.x, by);
+      c.fillStyle = '#3d2c4e'; c.beginPath(); c.arc(0, 0, 12.5, 0, TAU); c.fill();
+      c.fillStyle = '#3fd873'; c.beginPath(); c.arc(0, 0, 10, 0, TAU); c.fill();
+      c.strokeStyle = '#fff'; c.lineWidth = 3.2; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(0, 5.5); c.lineTo(0, -5); c.moveTo(-4.5, -0.5); c.lineTo(0, -5.5); c.lineTo(4.5, -0.5); c.stroke();
+      c.restore();
+    }
+    // emplacement ouvert + portée
+    const ms = this.menuSlot, pv = this.preview;
+    if (ms) {
+      const t = ms.tower;
+      if (pv) this.rangeCircle(c, ms.x, ms.y, pv.r, pv.mode || 'ok');
+      else if (t) this.rangeCircle(c, t.x, t.y, t.rangeShown);
+      c.strokeStyle = '#fff'; c.lineWidth = 3.5; c.beginPath(); c.arc(ms.x, ms.y, 33 + Math.sin(this.time * 6) * 2, 0, TAU); c.stroke();
     }
     this.fx.drawTexts(c);
 
