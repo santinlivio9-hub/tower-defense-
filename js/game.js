@@ -33,7 +33,7 @@ export class Game {
     this.enemies = []; this.towers = []; this.projectiles = []; this.delayed = [];
     this.fx = new Fx();
     this.time = 0; this.speed = 1; this.paused = false; this.over = false; this.result = null;
-    this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, early: 0, legendaries: 0, cost: 0 };
+    this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, leakBy: {}, early: 0, legendaries: 0, cost: 0 };
     this.slots = [...this.field.slots, ...this.field.mines].map((s) => ({ ...s, tower: null }));
     this.selected = null; this.hoverTower = null; this.menuSlot = null; this.preview = null; this.freeNext = false;
     this.hintT = 0; this.canBuy = false;
@@ -367,6 +367,7 @@ export class Game {
       this.fx.ring(this.base.x, this.base.y - 10, 30, 110, '#8fd2ff', 0.4, 8); this.fx.text(this.base.x, this.base.y - 96, 'BLOQUÉ !', '#8fd2ff', 24, 1); this.audio.play('zap');
       return;
     }
+    const lk = e.boss ? 'boss' : e.type === 'mini' ? 'splitter' : e.type; this.stats.leakBy[lk] = (this.stats.leakBy[lk] || 0) + e.leakDmg;
     this.lives -= e.leakDmg; this.cleanWave = false; this.onEvent('haptic', 2);
     this.baseFlash = 1; this.shake(e.boss ? 16 : 6); this.audio.play('leak');
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);

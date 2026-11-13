@@ -4,6 +4,7 @@ import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS } fro
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
+import { End } from './end.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -80,7 +81,7 @@ export class UI {
     box.append(t); setTimeout(() => t.remove(), 3900);
   }
   announce(list) { for (const a of list || []) this.toast('Succès : ' + a.name, `${a.desc} · +${a.gems} gemmes`); this.refreshGems(); }
-  openOverlay(node) { const ov = $('#overlay'); ov.innerHTML = ''; ov.append(node); ov.classList.add('show'); }
+  openOverlay(node, cls = '') { const ov = $('#overlay'); ov.innerHTML = ''; ov.append(node); ov.className = 'overlay show ' + cls; }
   closeOverlay() { $('#overlay').classList.remove('show'); }
 
   renderShop() {
@@ -466,60 +467,6 @@ export class UI {
     };
     requestAnimationFrame(f);
   }
-  showEnd(r) {
-    const g = this.game; if (!g || g.result !== r) return;
-    this.closeMenu(); this.aiming = null;
-    if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.showIntro(r.towers.map((id) => ({ kind: 'tower', id })), () => this.showEnd(r)); return; }
-    const m = el('div', 'panel glass');
-    m.append(el('h2', r.victory ? 'win' : 'lose', r.victory ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'));
-    m.append(el('p', 'sub', `${this.levelLabel(g)} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`));
-    if (r.victory) {
-      m.append(el('div', 'big-stars', [0, 1, 2].map((i) => icon('star', i < r.stars ? 'on' : '').replace('<svg', `<svg style="animation-delay:${0.5 + i * 0.4}s"`)).join('')));
-      for (let i = 0; i < r.stars; i++) setTimeout(() => { this.audio.play('star'); this.haptics.pulse(1); }, 650 + i * 400);
-    }
-    const sb = el('div', 'score-big', '<span>Score</span><b>0</b>'); m.append(sb);
-    setTimeout(() => this.countUp($('b', sb), r.score), 400);
-    if (r.record) { const rec = el('div', 'record', icon('trophy') + 'NOUVEAU RECORD !'); rec.style.visibility = 'hidden'; m.append(rec); setTimeout(() => { rec.style.visibility = ''; this.audio.play('record'); this.haptics.pulse(2); }, 1900); }
-    else if (r.previous) m.append(el('p', 'sub', `Record : ${fmt(r.previous)}`));
-    if (r.endless && r.rank != null && r.rank >= 0) m.append(el('p', 'sub', `Classement local : <b>n° ${r.rank + 1}</b>`));
-    m.append(el('div', 'earned', `<span>+${r.gems}${gem()}</span><span class="xp">+${r.xp} XP</span>`));
-    if (this.xpBlock) m.append(this.xpBlock(r));
-    const s = g.stats;
-    m.append(el('div', 'end-stats', [['Kills', fmt(s.kills)], ['Dégâts', short(s.damage)], ['Pièces', short(s.earned)], ['PV restants', `${g.lives}/${g.maxLives}`], ['Tourelles', s.built], ['Boss vaincus', s.bossKills]].map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('')));
-    const by = Object.entries(s.dmgByType).sort((a, b) => b[1] - a[1]).slice(0, 4);
-    if (by.length) {
-      const bars = el('div', 'bars');
-      for (const [type, v] of by) { const row = el('div', 'bar', `<div><i data-w="${(v / by[0][1]) * 100}"></i></div><span>${short(v)}</span>`); row.prepend(towerImg(type, 26, this.save.data.skin)); bars.append(row); }
-      m.append(bars);
-      setTimeout(() => $$('i[data-w]', bars).forEach((i) => (i.style.width = i.dataset.w + '%')), 60);
-    }
-    if (r.best && r.best.dmg > 0) {
-      const mvp = el('div', 'mvp', `<div><b>MVP · ${r.best.label}</b>${short(r.best.dmg)} dégâts · ${r.best.kills} kills</div>`);
-      mvp.prepend(towerImg(r.best.type, 48, this.save.data.skin, r.best.level, r.best.branch)); m.append(mvp);
-    }
-    const lines = [];
-    for (const t of r.rewards || []) lines.push(`${icon('gift')}<span><b>${t}</b>Récompense de première victoire</span>`);
-    for (const t of r.towers || []) lines.push(`${icon('plus')}<span><b>${TOWERS[t].name}</b>Nouvelle tourelle débloquée</span>`);
-    for (const u of r.levelUps || []) lines.push(`${icon('up')}<span><b>Niveau de joueur ${u.level}</b>${u.text}</span>`);
-    if (r.firstClear && !g.heroic) lines.push(`${icon('crown')}<span><b>Défi Héroïque débloqué</b>Plus dur, récompenses doublées</span>`);
-    if (r.victory && !g.heroic && g.level.n === 12 && r.firstClear) lines.push(`${icon('infinity')}<span><b>Mode infini débloqué</b>Avec classement local</span>`);
-    for (const a of r.achievements || []) lines.push(`${icon('medal')}<span><b>Succès : ${a.name}</b>${a.desc}</span><span class="val">+${a.gems}${gem()}</span>`);
-    if (lines.length) m.append(el('div', 'unlocks', lines.map((l) => `<div>${l}</div>`).join('')));
-    const btns = el('div', 'btns');
-    const nextN = g.level.n + 1, canNext = r.victory && !g.endless && !g.heroic && nextN <= LEVELS.length;
-    if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.show('world'); this.openPrep(nextN); }; btns.append(nx); }
-    const again = el('button', 'btn ' + (canNext ? 'ghost' : 'primary big'), icon('restart') + 'Rejouer'); again.onclick = () => this.replay();
-    const share = el('button', 'btn pink', icon('share') + 'Partager mon score'); share.onclick = () => this.shareScore(r);
-    const row = el('div', 'btn-row');
-    const maps = el('button', 'btn ghost', icon('map') + 'Carte'); maps.onclick = () => { this.game = null; this.show('world'); };
-    const home = el('button', 'btn ghost', icon('home') + 'Menu'); home.onclick = () => { this.game = null; this.show('menu'); };
-    row.append(maps, home); btns.append(again, share, row); m.append(btns);
-    this.openOverlay(m);
-    this.refreshGems();
-    this.prepareShare(r);
-    if (this.afterEnd) this.afterEnd(r);
-  }
-
   // Image de score générée à l'avance (navigator.share doit partir directement du toucher)
   prepareShare(r) {
     const g = this.game, c = document.createElement('canvas'); c.width = 1080; c.height = 1350;
@@ -554,4 +501,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot);
+Object.assign(UI.prototype, Meta, Hub, Loot, End);
