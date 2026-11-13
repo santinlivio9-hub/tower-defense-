@@ -11,8 +11,8 @@ const defaults = () => ({
   skins: ['default'], skin: 'default',
   maps: {},            // id -> { stars: {easy,normal,hard}, bestEndless }
   achievements: [],
-  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, hardWins: 0, bestEndless: 0, earlyStarts: 0, games: 0 },
-  settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true },
+  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, hardWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0 },
+  settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true, haptics: true },
 });
 
 export class Save {
@@ -32,7 +32,8 @@ export class Save {
   persist() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) { /* stockage indisponible */ } }
   reset() { this.data = defaults(); this.persist(); }
 
-  mapData(id) { return (this.data.maps[id] ||= { stars: {}, bestEndless: 0 }); }
+  mapData(id) { const m = (this.data.maps[id] ||= { stars: {}, bestEndless: 0 }); m.best ||= {}; return m; }   // best = meilleur score par difficulté (+ 'endless')
+  bestScore() { return this.data.stats.bestScore || 0; }
   bestStars(id) { return Math.max(0, ...Object.values(this.mapData(id).stars)); }
   mapBeaten(id) { return this.bestStars(id) > 0; }
   mapUnlocked(map) { return !map.unlock || this.mapBeaten(map.unlock); }
