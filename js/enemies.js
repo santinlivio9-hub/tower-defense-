@@ -1,6 +1,6 @@
 // Ennemis : déplacement, états (ralenti, gel, brûlure), capacités, dessin.
 import { ENEMIES } from './config.js';
-import { enemySprite } from './draw.js';
+import { enemyFrames } from './sprites.js';
 
 const TAU = Math.PI * 2;
 
@@ -24,6 +24,7 @@ export class Enemy {
     this.healT = cfg.heal ? cfg.heal.every : 0;
     this.pendingText = 0; this.textT = 0;
     this.dead = false; this.reached = false; this.enraged = false;
+    this.blinkT = 1 + Math.random() * 3; this.enterT = cfg.boss ? 1 : 0;
     this.x = 0; this.y = 0; this.gy = 0;
     this.place();
   }
@@ -34,7 +35,7 @@ export class Enemy {
     const p = this.path.pointAt(this.d);
     this.x = p.x - Math.sin(p.ang) * this.off;
     this.gy = p.y + Math.cos(p.ang) * this.off;
-    this.y = this.gy - (this.flying ? 30 + Math.sin(this.walk * 0.05 + this.phase) * 5 : 0);
+    this.y = this.gy - (this.flying ? 34 + Math.sin(this.walk * 0.05 + this.phase) * 5 : 0);
     const cx = Math.cos(p.ang);
     if (cx > 0.3) this.dir = 1; else if (cx < -0.3) this.dir = -1;
   }
@@ -48,7 +49,9 @@ export class Enemy {
   knock(k) { if (this.boss) return; this.d = Math.max(0, this.d - (this.type === 'tank' ? k * 0.4 : k)); }
 
   update(dt, game) {
-    this.flash = Math.max(0, this.flash - dt * 6);
+    this.flash = Math.max(0, this.flash - dt * 5);
+    this.blinkT -= dt; if (this.blinkT < -0.13) this.blinkT = 1.5 + Math.random() * 3.5;
+    this.enterT = Math.max(0, this.enterT - dt * 0.9);
     this.slowT -= dt; this.stunT -= dt; this.vulnT -= dt; this.shieldT -= dt; this.revealT -= dt;
     let sp = this.speed;
     if (this.stunT > 0) sp = 0; else if (this.slowT > 0) sp *= 1 - this.slowF;
@@ -110,45 +113,52 @@ export class Enemy {
   }
 
   draw(c) {
-    const s = enemySprite(this.type), r = this.r;
-    const w = this.walk * (this.boss ? 0.08 : 0.13) + this.phase;
+    const f = enemyFrames(this.type), r = this.r;
+    const w = this.walk * (this.boss ? 0.07 : 0.11) + this.phase;
     const bounce = Math.abs(Math.sin(w));
-    const hop = this.flying ? 0 : bounce * (this.boss ? 5 : 4.5);
-    const sq = (0.5 - bounce) * 0.16 + this.flash * 0.12;
+    const hop = this.flying ? 0 : bounce * (this.boss ? 6 : 5);
+    const sq = (0.5 - bounce) * 0.14 + this.flash * 0.14;
     const hidden = this.hidden;
-    // ombre
-    c.fillStyle = 'rgba(0,0,0,0.22)';
-    c.beginPath(); c.ellipse(this.x, this.gy + r * 0.9, r * (0.85 - bounce * 0.12) * (this.flying ? 0.7 : 1), r * 0.3, 0, 0, TAU); c.fill();
-    if (hidden) c.globalAlpha = 0.25; else if (this.cfg.stealth) c.globalAlpha = 0.8;
-    c.save();
-    c.translate(this.x, this.y - hop + r * sq * 0.5);
-    c.rotate(Math.sin(w) * (this.boss ? 0.04 : 0.08));
-    c.scale(this.dir * (1 + sq), this.flying ? (1 - sq) * (0.85 + 0.15 * Math.sin(this.walk * 0.25)) : 1 - sq);
-    c.drawImage(s.cv, -s.half, -s.half, s.half * 2, s.half * 2);
-    if (this.flash > 0.02) { c.globalAlpha = Math.min(1, this.flash); c.drawImage(s.white, -s.half, -s.half, s.half * 2, s.half * 2); }
-    c.restore();
-    c.globalAlpha = 1;
-    const top = this.y - hop - r * 1.25;
+    const zoom = 1 + this.enterT * this.enterT * 1.6;               // entrée de boss : zoom
+    const expr = this.flash > 0.2 || this.stunT > 0 ? 2 : this.blinkT < 0 ? 1 : 0;
+    const step = Math.floor(w / Math.PI) & 1;
+    const fr = f.frames[expr][step];
+    // ombre portée au sol
+    c.fillStyle = 'rgba(30,10,50,0.25)';
+    c.beginPath(); c.ellipse(this.x, this.gy + r * 1.02, r * (0.9 - bounce * 0.12) * (this.flying ? 0.7 : 1), r * 0.28, 0, 0, TAU); c.fill();
+    if (fr.ready) {
+      if (hidden) c.globalAlpha = 0.25; else if (this.cfg.stealth) c.globalAlpha = 0.85;
+      c.save();
+      c.translate(this.x + (this.enterT > 0 ? (Math.random() - 0.5) * 6 * this.enterT : 0), this.y - hop + r * sq * 0.5);
+      c.rotate(Math.sin(w) * (this.boss ? 0.035 : 0.07));
+      c.scale(this.dir * (1 + sq) * zoom, (1 - sq) * zoom);
+      const h = f.half;
+      c.drawImage(fr.cv, -h, -h, h * 2, h * 2);
+      if (this.flash > 0.02 && fr.white) { c.globalAlpha = Math.min(1, this.flash) * 0.85; c.drawImage(fr.white, -h, -h, h * 2, h * 2); }
+      c.restore();
+      c.globalAlpha = 1;
+    }
+    const top = this.y - hop - r * 1.35;
     if (this.slowT > 0 || this.stunT > 0) {
-      c.fillStyle = this.stunT > 0 ? 'rgba(180,240,255,0.55)' : 'rgba(120,210,255,0.3)';
-      c.beginPath(); c.arc(this.x, this.y - hop, r * 1.05, 0, TAU); c.fill();
+      c.fillStyle = this.stunT > 0 ? 'rgba(180,240,255,0.5)' : 'rgba(120,210,255,0.28)';
+      c.beginPath(); c.arc(this.x, this.y - hop, r * 1.1, 0, TAU); c.fill();
     }
     if (this.shieldT > 0) {
-      c.strokeStyle = '#fffbe8'; c.lineWidth = 5; c.globalAlpha = 0.6 + Math.sin(this.walk) * 0.2;
-      c.beginPath(); c.arc(this.x, this.y - hop, r * 1.25, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.strokeStyle = '#fffbe8'; c.lineWidth = 6; c.globalAlpha = 0.6 + Math.sin(this.walk) * 0.2;
+      c.beginPath(); c.arc(this.x, this.y - hop, r * 1.3, 0, TAU); c.stroke(); c.globalAlpha = 1;
     }
     if (this.cfg.stealth && !hidden) { // œil = révélé
-      c.fillStyle = '#fff'; c.strokeStyle = '#1d1a2b'; c.lineWidth = 2;
-      c.beginPath(); c.ellipse(this.x, top - 12, 7, 4.5, 0, 0, TAU); c.fill(); c.stroke();
-      c.fillStyle = '#1d1a2b'; c.beginPath(); c.arc(this.x, top - 12, 2.2, 0, TAU); c.fill();
+      c.fillStyle = '#fff'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.5;
+      c.beginPath(); c.ellipse(this.x, top - 14, 9, 5.5, 0, 0, TAU); c.fill(); c.stroke();
+      c.fillStyle = '#3d2c4e'; c.beginPath(); c.arc(this.x, top - 14, 2.8, 0, TAU); c.fill();
     }
-    if (hidden) return;
-    // barre de vie
-    const bw = Math.max(26, r * 2), bh = this.boss ? 7 : 5, bx = this.x - bw / 2, by = top - 4;
-    c.fillStyle = '#1d1a2b'; c.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+    if (hidden || this.boss) return;   // le boss a sa grande barre en haut de l'écran
+    // barre de vie arrondie
+    const bw = Math.max(34, r * 1.9), bh = 6, bx = this.x - bw / 2, by = top - 4;
     const k = Math.max(0, this.hp / this.maxHp);
-    c.fillStyle = '#4a1d1d'; c.fillRect(bx, by, bw, bh);
-    c.fillStyle = k > 0.5 ? '#5dff6e' : k > 0.25 ? '#ffd23f' : '#ff4d4d'; c.fillRect(bx, by, bw * k, bh);
-    if (this.armor) { c.fillStyle = '#c3ccd6'; c.fillRect(bx - 2, by - 2, 4, bh + 4); c.fillRect(bx + bw - 2, by - 2, 4, bh + 4); }
+    c.fillStyle = '#3d2c4e'; c.beginPath(); c.roundRect(bx - 2.5, by - 2.5, bw + 5, bh + 5, 5); c.fill();
+    c.fillStyle = '#5b2a3a'; c.beginPath(); c.roundRect(bx, by, bw, bh, 3); c.fill();
+    if (k > 0) { c.fillStyle = k > 0.5 ? '#6dff7a' : k > 0.25 ? '#ffd23f' : '#ff5d6c'; c.beginPath(); c.roundRect(bx, by, Math.max(4, bw * k), bh, 3); c.fill(); }
+    if (this.armor) { c.fillStyle = '#c9d3de'; c.beginPath(); c.roundRect(bx - 5, by - 3.5, 7, bh + 7, 3); c.fill(); c.strokeStyle = '#3d2c4e'; c.lineWidth = 2; c.stroke(); }
   }
 }

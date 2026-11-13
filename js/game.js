@@ -1,11 +1,11 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
-import { VIEW, GAME, DIFFICULTIES, TOWERS, ENEMIES, RARITY, SHOP, STARS } from './config.js';
-import { Path, drawMapBackground } from './maps.js';
+import { VIEW, GAME, DIFFICULTIES, TOWERS, ENEMIES, RARITY, SHOP, STARS, SCORE, BOSS_ORDER } from './config.js';
+import { Path, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
-import { drawGun, drawTowerBase, skinPalette } from './draw.js';
+import { drawPad, towerSprite, skinFinish } from './sprites.js';
 
 const TAU = Math.PI * 2;
 
@@ -16,6 +16,8 @@ export class Game {
     this.save = save; this.audio = audio;
     this.paths = map.paths.map((p) => new Path(p));
     this.base = this.paths[0].end;
+    this.flowers = mapFlowers(map, this.paths);
+    this.score = 0; this.comboN = 0; this.comboT = -9; this.cleanWave = true;
     const perks = save.data.perks, perk = (id) => SHOP.perks.find((p) => p.id === id).per * (perks[id] || 0);
     this.money = this.diff.money + perk('money');
     this.maxLives = this.diff.lives + perk('lives'); this.lives = this.maxLives;
@@ -41,7 +43,7 @@ export class Game {
     drawMapBackground(c, this.map, this.paths);
   }
   shake(m) { if (this.save.data.settings.shake) this.shakeMag = Math.min(18, Math.max(this.shakeMag, m)); }
-  showBanner(title, sub, color = '#fff', dur = 2.2, big = false) { this.banner = { title, sub, color, t: 0, dur, big }; }
+  showBanner(title, sub, color = '#fff', dur = 2.2, big = false, sub2 = '') { this.banner = { title, sub, sub2, color, t: 0, dur, big }; }
 
   // --- vagues ----------------------------------------------------------------
   get nextWave() {
@@ -62,14 +64,15 @@ export class Game {
     const bonus = manual ? this.earlyBonus : 0;
     if (bonus > 0) {
       this.addMoney(bonus); this.stats.early++;
-      this.fx.text(VIEW.W / 2, 120, `En avance ! +${bonus}`, '#ffd23f', 24, 1.4);
-      this.fx.coinBurst(VIEW.W / 2, 130, 6);
+      this.addScore(bonus * SCORE.earlyPerCoin);
+      this.fx.text(VIEW.W / 2, 150, `EN AVANCE ! +${bonus}`, '#ffd23f', 26, 1.4);
+      this.onEvent('coins', { x: VIEW.W / 2, y: 170, n: 6 });
     }
     const w = this.nextWave;
     this.wave = w.n; this._nextCache = null; this.countdown = null;
     for (const q of spawnQueue(w, this.paths.length)) { q.t += this.spawnClock; this.queue.push(q); }
     this.queue.sort((a, b) => a.t - b.t);
-    if (!w.boss) this.showBanner('Vague ' + w.n, this.endless ? 'Mode infini' : `sur ${this.totalWaves}`, '#fff', 1.6);
+    if (!w.boss) this.showBanner('Vague ' + w.n, this.endless ? 'Mode infini' : `sur ${this.totalWaves}`, '#fff', 1.5);
     this.audio.play('wave_start');
     this.onEvent('wave', w.n);
     return true;
@@ -78,15 +81,16 @@ export class Game {
     const e = new Enemy(this, type, pathIdx, d, hpScale, bossMul);
     this.enemies.push(e);
     if (e.boss) {
-      this.showBanner('⚠ BOSS ⚠', `${e.cfg.name} — ${e.cfg.title}`, '#ff4d4d', 3.4, true);
-      this.shake(14); this.audio.play('boss');
+      this.showBanner('BOSS', e.cfg.name, '#ff5d6c', 3.4, true, e.cfg.title);
+      this.shake(14); this.audio.play('boss'); this.onEvent('haptic', 2);
       this.fx.ring(e.x, e.y, 20, 260, '#ff4d4d', 0.9, 12);
     }
     return e;
   }
 
-  // --- économie --------------------------------------------------------------
+  // --- économie et score -----------------------------------------------------
   addMoney(n) { this.money += n; this.stats.earned += n; }
+  addScore(n) { n = Math.round(n * SCORE.diffMult[this.diffId]); this.score += n; return n; }
 
   // --- ciblage ---------------------------------------------------------------
   canTarget(t, e) {
@@ -156,8 +160,18 @@ export class Game {
     fx.burst(e.x, e.y, '#ffffff', 6, 160, 5);
     fx.confetti(e.x, e.y, e.boss ? 90 : 10 + Math.min(10, e.r * 0.4), e.boss ? 480 : 220);
     fx.ring(e.x, e.y, e.r * 0.5, e.r * 2.2, '#fff', 0.25, 4);
-    fx.coinBurst(e.x, e.y, e.boss ? 8 : Math.max(1, Math.round(reward / 4)));
-    fx.text(e.x, e.y - e.r - 22, '+' + reward, '#ffd23f', e.boss ? 26 : 13, 0.9);
+    this.onEvent('coins', { x: e.x, y: e.y, n: e.boss ? 8 : Math.max(1, Math.round(reward / 5)), amount: reward });
+    // score : points du kill + bonus de multi-kill
+    const pts = this.addScore(e.boss ? SCORE.boss * (BOSS_ORDER.indexOf(e.type) + 1) : e.cfg.cost * SCORE.perCost);
+    fx.text(e.x, e.y - e.r - 24, '+' + pts, '#8fe9ff', e.boss ? 28 : 14, 0.9);
+    this.comboN = this.time - this.comboT <= SCORE.multiWindow ? this.comboN + 1 : 1; this.comboT = this.time;
+    if (this.comboN >= 2) {
+      const [label, bonus] = SCORE.multi[Math.min(5, this.comboN)], b = this.addScore(bonus);
+      if (this.comboText) this.comboText.life = 0;
+      fx.text(e.x, e.y - e.r - 50, `${label} +${b}`, ['#fff', '#fff', '#ffd23f', '#ff9f1a', '#ff5d8f', '#ff3b6b'][Math.min(5, this.comboN)], 16 + Math.min(5, this.comboN) * 3, 1.1);
+      this.comboText = fx.texts[fx.texts.length - 1];
+      this.onEvent('combo', this.comboN);
+    }
     this.audio.play('death');
     if (e.cfg.split) {
       for (let i = 0; i < e.cfg.split.count; i++) {
@@ -176,7 +190,7 @@ export class Game {
   explode(x, y, radius, damage, tower, o = {}) {
     this.fx.explosion(x, y, radius, o.mini ? '#ffd23f' : '#ff9f1a');
     this.shake(o.mini ? 2 : Math.min(8, radius / 14));
-    this.audio.play('explosion');
+    this.audio.play('explosion'); if (!o.mini) this.onEvent('haptic', 1);
     for (const e of this.enemies) {
       if (e.dead || (o.groundOnly && e.flying)) continue;
       const d = Math.hypot(e.x - x, e.y - y);
@@ -200,7 +214,7 @@ export class Game {
       for (const p of this.paths) { const n = p.nearest(x, y); if (!best || n.dist < best.dist) best = n; }
       if (best.dist > GAME.pathWidth / 2 + 14) return { ok: false, x, y };
       const ok = best.x > 30 && best.x < VIEW.W - 30 && best.y > 30 && best.y < VIEW.H - 30
-        && Math.hypot(best.x - this.base.x, best.y - this.base.y) > 50
+        && Math.hypot(best.x - this.base.x, best.y - this.base.y) > 70
         && !this.towers.some((t) => t.type === 'mine' && Math.hypot(t.x - best.x, t.y - best.y) < 36)
         && this.towers.filter((t) => t.type === 'mine').length < GAME.maxMines;
       return { ok, x: best.x, y: best.y };
@@ -208,7 +222,7 @@ export class Game {
     let ok = x > R && x < VIEW.W - R && y > R && y < VIEW.H - R;
     ok = ok && !this.paths.some((p) => p.nearest(x, y).dist < GAME.pathWidth / 2 + R - 2);
     ok = ok && !this.towers.some((t) => t.type !== 'mine' && Math.hypot(t.x - x, t.y - y) < R * 2 + 2);
-    ok = ok && Math.hypot(x - (this.base.x + 30), y - this.base.y) > 80;
+    ok = ok && Math.hypot(x - this.base.x, y - this.base.y) > 96;
     return { ok, x, y };
   }
   placeTower(type, x, y) {
@@ -241,13 +255,13 @@ export class Game {
     const i = this.towers.indexOf(t); if (i < 0) return;
     this.towers.splice(i, 1);
     this.money += t.sellValue;
-    this.fx.coinBurst(t.x, t.y, 6); this.fx.burst(t.x, t.y, '#aab', 10, 140, 5);
+    this.onEvent('coins', { x: t.x, y: t.y, n: 5 }); this.fx.burst(t.x, t.y, '#aab', 10, 140, 5);
     this.fx.text(t.x, t.y - 30, '+' + t.sellValue, '#ffd23f', 16, 0.9);
     this.audio.play('sell');
     if (this.selected === t) this.selected = null;
   }
   towerAt(x, y) {
-    let best = null, bd = 30;
+    let best = null, bd = 38;
     for (const t of this.towers) { const d = Math.hypot(t.x - x, t.y - y); if (d < bd) { bd = d; best = t; } }
     return best;
   }
@@ -299,8 +313,10 @@ export class Game {
         for (let n = this.cleared + 1; n <= this.wave; n++) bonus += GAME.waveBonusBase + GAME.waveBonusPerWave * n;
         this.cleared = this.wave;
         this.addMoney(bonus);
-        this.fx.text(VIEW.W / 2, 150, `Vague terminée ! +${bonus}`, '#5dff8f', 26, 1.6);
-        this.fx.coinBurst(VIEW.W / 2, 160, 8);
+        this.fx.text(VIEW.W / 2, 210, `VAGUE TERMINÉE !`, '#6dff9a', 30, 1.6);
+        this.onEvent('coins', { x: VIEW.W / 2, y: 240, n: 8, amount: bonus });
+        if (this.cleanWave) { const b = this.addScore(SCORE.cleanWave + SCORE.cleanWavePerWave * this.wave); this.fx.text(VIEW.W / 2, 262, `VAGUE PARFAITE +${b}`, '#8fe9ff', 22, 1.8); }
+        this.cleanWave = true;
         this.audio.play('wave_clear');
         this.onEvent('cleared', this.wave);
         if (!this.endless && this.wave >= this.totalWaves) { this.end(true); return; }
@@ -312,10 +328,10 @@ export class Game {
     }
   }
   leak(e) {
-    this.lives -= e.cfg.leak; this.stats.leaks++;
+    this.lives -= e.cfg.leak; this.stats.leaks++; this.cleanWave = false; this.onEvent('haptic', 2);
     this.baseFlash = 1; this.shake(e.boss ? 16 : 6); this.audio.play('leak');
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);
-    this.fx.text(this.base.x, this.base.y - 70, '-' + e.cfg.leak + ' ❤', '#ff4d4d', 22, 1);
+    this.fx.text(this.base.x, this.base.y - 96, '-' + e.cfg.leak + ' PV', '#ff5d6c', 26, 1);
     if (this.lives <= 0) { this.lives = 0; this.end(false); }
   }
 
@@ -333,7 +349,10 @@ export class Game {
     gems = Math.round(gems * this.diff.gems);
     let best = null;
     for (const t of this.towers) if (!best || t.dmg > best.dmg) best = t;
-    this.result = { victory, stars, gems, wavesDone, best, endless: this.endless };
+    const lifeBonus = victory ? this.addScore(this.lives * SCORE.lifeBonus) : 0;
+    const md = this.save.mapData(this.map.id), key = this.endless ? 'endless' : this.diffId;
+    const previous = md.best[key] || 0, record = this.score > previous && this.score > 0;
+    this.result = { victory, stars, gems, wavesDone, best, endless: this.endless, score: this.score, lifeBonus, previous, record };
     this.commit(victory, stars, gems, wavesDone);
     this.audio.play(victory ? 'victory' : 'defeat');
     if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
@@ -345,7 +364,8 @@ export class Game {
     const d = this.save.data, s = d.stats, g = this.stats;
     s.kills += g.kills; s.bossKills += g.bossKills; s.towersBuilt += g.built; s.legendaries += g.legendaries; s.earlyStarts += g.early; s.games++;
     d.gems += gems;
-    const md = this.save.mapData(this.map.id);
+    const md = this.save.mapData(this.map.id), key = this.endless ? 'endless' : this.diffId;
+    md.best[key] = Math.max(md.best[key] || 0, this.score); s.bestScore = Math.max(s.bestScore || 0, this.score);
     if (this.endless) { md.bestEndless = Math.max(md.bestEndless || 0, wavesDone); s.bestEndless = Math.max(s.bestEndless, wavesDone); }
     else if (victory) {
       s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (this.diffId === 'hard') s.hardWins++;
@@ -356,22 +376,28 @@ export class Game {
   }
 
   // --- rendu -----------------------------------------------------------------
-  rangeCircle(c, x, y, r, ok = true) {
+  rangeCircle(c, x, y, r, mode = 'info') {
+    const col = mode === 'ok' ? '80,255,140' : mode === 'bad' ? '255,70,90' : '255,255,255';
     c.beginPath(); c.arc(x, y, r, 0, TAU);
-    c.fillStyle = ok ? 'rgba(255,255,255,0.12)' : 'rgba(255,60,60,0.18)'; c.fill();
-    c.setLineDash([8, 6]); c.lineDashOffset = -this.time * 20; c.lineWidth = 2.5;
-    c.strokeStyle = ok ? 'rgba(255,255,255,0.85)' : 'rgba(255,70,70,0.95)'; c.stroke(); c.setLineDash([]);
+    c.fillStyle = `rgba(${col},${mode === 'info' ? 0.12 : 0.2})`; c.fill();
+    c.setLineDash([10, 7]); c.lineDashOffset = -this.time * 24; c.lineWidth = 3;
+    c.strokeStyle = `rgba(${col},0.95)`; c.stroke(); c.setLineDash([]);
+  }
+  label(c, text, x, y, size, color, lw = 6) {
+    c.font = `700 ${size}px Fredoka, ui-rounded, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    c.lineWidth = lw; c.strokeStyle = '#3d2c4e'; c.strokeText(text, x, y); c.fillStyle = color; c.fillText(text, x, y);
   }
   render() {
     const c = this.ctx, S = this.scale, { W, H } = VIEW;
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = '#1d1a2b'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    c.fillStyle = '#2a2140'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     let sx = 0, sy = 0;
     if (this.shakeMag > 0.3) { sx = (Math.random() - 0.5) * 2 * this.shakeMag; sy = (Math.random() - 0.5) * 2 * this.shakeMag; }
     c.setTransform(S, 0, 0, S, sx * S, sy * S);
     c.drawImage(this.bg, 0, 0, W, H);
     c.lineJoin = 'round'; c.lineCap = 'round';
-    if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,40,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x + 30, this.base.y - 10, 90, 0, TAU); c.fill(); }
+    drawMapAnimated(c, this.map, this.paths, this.flowers, this.time);
+    if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,60,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x, this.base.y - 10, 100, 0, TAU); c.fill(); }
 
     const skin = this.save.data.skin;
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
@@ -382,28 +408,30 @@ export class Game {
     this.fx.drawTracers(c);
     for (const p of this.projectiles) p.draw(c);
     this.fx.draw(c);
+    drawClouds(c, this.map, this.time);
 
     // portées
     const sel = this.selected, hov = this.hoverTower;
     if (hov && hov !== sel && !this.placing) this.rangeCircle(c, hov.x, hov.y, hov.rangeShown);
     if (sel) {
       this.rangeCircle(c, sel.x, sel.y, sel.rangeShown);
-      c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.arc(sel.x, sel.y, 27 + Math.sin(this.time * 6) * 1.5, 0, TAU); c.stroke();
+      c.strokeStyle = '#fff'; c.lineWidth = 3.5; c.beginPath(); c.arc(sel.x, sel.y, 33 + Math.sin(this.time * 6) * 2, 0, TAU); c.stroke();
     }
-    // fantôme de placement
+    // fantôme de placement : vert si valide, rouge sinon
     if (this.placing && this.hover.active) {
       const type = this.placing, p = this.canPlace(type, this.hover.x, this.hover.y);
       const ok = p.ok && this.money >= TOWERS[type].cost;
       const st = TOWERS[type].base;
-      this.rangeCircle(c, p.x, p.y, type === 'mine' ? st.splash : st.range, ok);
-      c.save(); c.translate(p.x, p.y); c.globalAlpha = 0.75;
-      if (type !== 'mine') drawTowerBase(c, 1);
-      c.rotate(type === 'cryo' || type === 'mine' ? 0 : -Math.PI / 2);
-      drawGun(c, type, { pal: skinPalette(skin), accent: RARITY[0].color, t: this.time, armed: true, spin: 0 });
+      this.rangeCircle(c, p.x, p.y, type === 'mine' ? st.splash : st.range, ok ? 'ok' : 'bad');
+      const sp = towerSprite(type, 1, null, skinFinish(skin));
+      c.save(); c.translate(p.x, p.y); c.globalAlpha = 0.8;
+      if (type !== 'mine') drawPad(c, 1, this.time);
+      if (sp.ready) { if (TOWERS[type].kind !== 'cryo' && type !== 'mine') c.rotate(-Math.PI / 2); c.drawImage(sp.cv, -sp.half, -sp.half, sp.half * 2, sp.half * 2); }
       c.restore(); c.globalAlpha = 1;
       if (!ok) {
-        c.strokeStyle = '#ff3b3b'; c.lineWidth = 6;
-        c.beginPath(); c.moveTo(p.x - 14, p.y - 14); c.lineTo(p.x + 14, p.y + 14); c.moveTo(p.x + 14, p.y - 14); c.lineTo(p.x - 14, p.y + 14); c.stroke();
+        c.strokeStyle = '#3d2c4e'; c.lineWidth = 11;
+        c.beginPath(); c.moveTo(p.x - 15, p.y - 15); c.lineTo(p.x + 15, p.y + 15); c.moveTo(p.x + 15, p.y - 15); c.lineTo(p.x - 15, p.y + 15); c.stroke();
+        c.strokeStyle = '#ff5d6c'; c.lineWidth = 6; c.stroke();
       }
     }
     this.fx.drawTexts(c);
@@ -412,34 +440,35 @@ export class Game {
     // barre de vie du boss
     const boss = this.enemies.find((e) => e.boss);
     if (boss) {
-      const bw = 520, bx = (W - bw) / 2, by = 20, k = Math.max(0, boss.hp / boss.maxHp);
-      c.fillStyle = '#1d1a2b'; c.beginPath(); c.roundRect(bx - 5, by - 5, bw + 10, 32, 10); c.fill();
-      c.fillStyle = '#4a1d1d'; c.beginPath(); c.roundRect(bx, by, bw, 22, 6); c.fill();
-      c.fillStyle = boss.shieldT > 0 ? '#fffbe8' : boss.enraged ? '#ff3b3b' : '#ff7a3c';
-      if (k > 0) { c.beginPath(); c.roundRect(bx, by, Math.max(8, bw * k), 22, 6); c.fill(); }
-      c.font = '900 15px "Trebuchet MS", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.lineWidth = 4; c.strokeStyle = '#1d1a2b'; c.strokeText(`${boss.cfg.name}  ${Math.ceil(boss.hp)} / ${boss.maxHp}`, W / 2, by + 12);
-      c.fillStyle = '#fff'; c.fillText(`${boss.cfg.name}  ${Math.ceil(boss.hp)} / ${boss.maxHp}`, W / 2, by + 12);
+      const bw = W - 120, bx = 60, by = 46, k = Math.max(0, boss.hp / boss.maxHp);
+      c.fillStyle = '#3d2c4e'; c.beginPath(); c.roundRect(bx - 6, by - 6, bw + 12, 36, 18); c.fill();
+      c.fillStyle = '#5b2a3a'; c.beginPath(); c.roundRect(bx, by, bw, 24, 12); c.fill();
+      const g = c.createLinearGradient(0, by, 0, by + 24);
+      if (boss.shieldT > 0) { g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#e8e0c8'); } else { g.addColorStop(0, boss.enraged ? '#ff8a8a' : '#ffb347'); g.addColorStop(1, boss.enraged ? '#e0283c' : '#ff5d3c'); }
+      c.fillStyle = g;
+      if (k > 0) { c.beginPath(); c.roundRect(bx, by, Math.max(24, bw * k), 24, 12); c.fill(); }
+      c.fillStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.roundRect(bx + 6, by + 3, Math.max(10, bw * k - 12), 6, 3); c.fill();
+      this.label(c, boss.cfg.name, W / 2, by + 13, 17, '#fff', 5);
     }
     // bannière (vague / boss)
     const b = this.banner;
     if (b) {
       const inn = Math.min(1, b.t / 0.25), out = Math.min(1, (b.dur - b.t) / 0.3), a = Math.min(inn, out);
-      const y = b.big ? H / 2 : 190;
+      const y = b.big ? H * 0.42 : 150;
       c.globalAlpha = a;
-      if (b.big) { c.fillStyle = 'rgba(20,10,20,0.6)'; c.fillRect(0, y - 80, W, 160); c.fillStyle = b.color; c.fillRect(0, y - 84, W, 6); c.fillRect(0, y + 78, W, 6); }
-      const slide = (1 - inn) * -200 + (1 - out) * 200;
-      const size = b.big ? 78 : 46, jit = b.big ? Math.sin(b.t * 40) * 2 : 0;
-      c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
-      c.font = `900 ${size}px "Trebuchet MS", system-ui, sans-serif`;
-      c.lineWidth = 10; c.strokeStyle = '#1d1a2b'; c.strokeText(b.title, W / 2 + slide + jit, y - (b.sub ? 14 : 0));
-      c.fillStyle = b.color; c.fillText(b.title, W / 2 + slide + jit, y - (b.sub ? 14 : 0));
-      if (b.sub) {
-        c.font = `900 ${b.big ? 24 : 20}px "Trebuchet MS", system-ui, sans-serif`;
-        c.lineWidth = 6; c.strokeText(b.sub, W / 2 - slide, y + size * 0.55); c.fillStyle = '#fff'; c.fillText(b.sub, W / 2 - slide, y + size * 0.55);
+      if (b.big) {
+        c.fillStyle = 'rgba(30,14,40,0.72)'; c.fillRect(0, y - 110, W, 220);
+        c.fillStyle = b.color; c.fillRect(0, y - 116, W, 7); c.fillRect(0, y + 109, W, 7);
+        c.fillStyle = '#ffd23f'; for (let i = -1; i < 16; i++) { const x0 = i * 44 + ((this.time * 60) % 44); c.beginPath(); c.moveTo(x0, y - 109); c.lineTo(x0 + 22, y - 109); c.lineTo(x0 + 10, y - 97); c.lineTo(x0 - 12, y - 97); c.closePath(); c.fill(); }
       }
+      const slide = (1 - inn) * -260 + (1 - out) * 260;
+      const zoom = b.big ? 1 + (1 - inn) * 1.4 : 1, jit = b.big ? Math.sin(b.t * 40) * 2.5 : 0;
+      c.save(); c.translate(W / 2 + (b.big ? jit : slide), y - (b.big ? 46 : b.sub ? 10 : 0)); c.scale(zoom, zoom);
+      this.label(c, b.title, 0, 0, b.big ? 92 : 48, b.color, 12); c.restore();
+      if (b.sub) this.label(c, b.sub, W / 2 - (b.big ? slide : 0), y + (b.big ? 30 : 32), b.big ? 36 : 20, '#fff', 7);
+      if (b.sub2) this.label(c, b.sub2, W / 2 + slide, y + 74, 20, '#ffd23f', 6);
       c.globalAlpha = 1;
     }
-    if (this.paused && !this.over) { c.fillStyle = 'rgba(20,16,35,0.35)'; c.fillRect(0, 0, W, H); }
+    if (this.paused && !this.over) { c.fillStyle = 'rgba(30,14,40,0.35)'; c.fillRect(0, 0, W, H); }
   }
 }

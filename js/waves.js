@@ -21,7 +21,7 @@ export function buildWave(n, mapId, pathCount) {
   picks.forEach((type, i) => {
     const cfg = ENEMIES[type];
     const count = Math.max(1, Math.min(WAVES.maxPerGroup, Math.round((budget * weights[i]) / wSum / cfg.cost)));
-    const interval = cfg.interval * Math.max(0.5, 1 - n * 0.012);
+    const interval = cfg.interval * 1.35 * Math.max(0.5, 1 - n * 0.012);
     const path = pathCount > 1 ? (rnd() < 0.5 ? 'alt' : Math.floor(rnd() * pathCount)) : 0;
     groups.push({ type, count, interval, delay: t, path });
     t += count * interval * 0.55 + 1;

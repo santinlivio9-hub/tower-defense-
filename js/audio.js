@@ -40,6 +40,11 @@ export class AudioSys {
     s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + dur + 0.02);
   }
 
+  // Impulsion sub-basse (fait vibrer le châssis du téléphone)
+  thump(strength = 1) {
+    if (!this.ctx || this.settings.muted || this.ctx.state !== 'running') return;
+    this.tone({ type: 'sine', f0: 42, f1: 30, dur: 0.09, gain: 0.5 * strength });
+  }
   play(name) {
     if (!this.ctx || this.settings.muted || this.ctx.state !== 'running') return;
     const def = SOUNDS[name]; if (!def) return;
@@ -70,7 +75,7 @@ const SOUNDS = {
   legendary:    { fn: (a) => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.16, gain: 0.1, delay: i * 0.07 })) },
   sell:         { fn: (a) => { a.tone({ type: 'triangle', f0: 800, f1: 300, dur: 0.15, gain: 0.14 }); a.tone({ type: 'square', f0: 1500, dur: 0.06, gain: 0.05, delay: 0.1 }); } },
   buy:          { fn: (a) => [660, 880, 1320].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.1, gain: 0.09, delay: i * 0.07 })) },
-  click:        { gap: 30, fn: (a) => a.tone({ type: 'square', f0: 700, f1: 500, dur: 0.04, gain: 0.07 }) },
+  click:        { gap: 30, fn: (a) => { a.tone({ type: 'sine', f0: 520, f1: 760, dur: 0.06, gain: 0.12 }); a.noise({ dur: 0.025, gain: 0.05, f0: 3000, type: 'highpass' }); } },
   error:        { gap: 150, fn: (a) => { a.tone({ type: 'sawtooth', f0: 160, f1: 110, dur: 0.16, gain: 0.14 }); } },
   wave_start:   { fn: (a) => { a.tone({ type: 'sawtooth', f0: 220, f1: 440, dur: 0.25, gain: 0.12 }); a.tone({ type: 'sawtooth', f0: 330, f1: 660, dur: 0.3, gain: 0.1, delay: 0.12 }); } },
   wave_clear:   { fn: (a) => [659, 784, 988, 1319].forEach((f, i) => a.tone({ type: 'triangle', f0: f, dur: 0.18, gain: 0.14, delay: i * 0.09 })) },
@@ -78,5 +83,9 @@ const SOUNDS = {
   leak:         { gap: 120, fn: (a) => { a.tone({ type: 'sawtooth', f0: 300, f1: 80, dur: 0.3, gain: 0.22 }); a.noise({ dur: 0.2, gain: 0.25, f0: 500 }); } },
   victory:      { fn: (a) => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.22, gain: 0.12, delay: i * 0.13 })) },
   defeat:       { fn: (a) => [392, 349, 311, 196].forEach((f, i) => a.tone({ type: 'sawtooth', f0: f, dur: 0.4, gain: 0.14, delay: i * 0.28 })) },
+  combo:        { gap: 60, fn: (a) => [880, 1175, 1568].forEach((f, i) => a.tone({ type: 'triangle', f0: f, dur: 0.09, gain: 0.1, delay: i * 0.045 })) },
+  sheet:        { gap: 80, fn: (a) => { a.noise({ dur: 0.12, gain: 0.08, f0: 800, f1: 3000, type: 'bandpass' }); a.tone({ type: 'sine', f0: 300, f1: 520, dur: 0.1, gain: 0.07 }); } },
+  tick:         { gap: 35, fn: (a) => a.tone({ type: 'square', f0: 1500, dur: 0.02, gain: 0.03 }) },
+  record:       { fn: (a) => [784, 988, 1175, 1568, 1976].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.18, gain: 0.1, delay: i * 0.08 })) },
   star:         { gap: 10, fn: (a) => a.tone({ type: 'triangle', f0: 1200, f1: 2000, dur: 0.2, gain: 0.14 }) },
 };

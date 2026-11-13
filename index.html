@@ -1,98 +1,119 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#1d1a2b">
   <title>Brainrot Bastion — Tower Defense</title>
+  <meta name="description" content="Tower defense : repousse l'invasion des brainrots avec ton arsenal d'armes cartoon.">
+  <meta name="theme-color" content="#2a2140">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Brainrot TD">
+  <meta name="application-name" content="Brainrot TD">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<div id="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 <div id="app">
 
-  <!-- MENU PRINCIPAL -->
+  <!-- ================= MENU ================= -->
   <section id="screen-menu" class="screen active">
-    <div class="menu-inner">
-      <div id="menu-parade"></div>
-      <h1 class="logo"><span>BRAINROT</span><span>BASTION</span></h1>
-      <p class="tagline">Tower defense — repousse l'invasion des créatures absurdes !</p>
-      <div class="menu-buttons">
-        <button class="btn big primary" data-go="maps">▶ Jouer</button>
-        <button class="btn big" data-go="shop">🛒 Boutique</button>
-        <button class="btn big" data-go="settings">⚙ Paramètres</button>
+    <div class="menu">
+      <div class="chips">
+        <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
+        <span class="chip"><i data-ico="trophy" class="gold"></i><b id="menu-best">0</b></span>
       </div>
-      <div class="gem-chip">💎 <span class="gems">0</span></div>
+      <h1 class="logo" aria-label="Brainrot Bastion">
+        <span class="l1">BRAINROT</span>
+        <span class="l2">BASTION</span>
+        <small>TOWER DEFENSE</small>
+      </h1>
+      <div id="menu-parade" aria-hidden="true"></div>
+      <div class="menu-buttons">
+        <button class="btn primary big" data-go="maps"><i data-ico="play"></i>Jouer</button>
+        <button class="btn pink" data-go="shop"><i data-ico="cart"></i>Boutique</button>
+        <button class="btn ghost" data-go="settings"><i data-ico="gear"></i>Paramètres</button>
+      </div>
     </div>
   </section>
 
-  <!-- SÉLECTION DE CARTE -->
+  <!-- ================= CARTES ================= -->
   <section id="screen-maps" class="screen">
     <header class="topbar">
-      <button class="btn" data-go="menu">← Retour</button>
+      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
       <h2>Choisis ta carte</h2>
-      <div class="gem-chip">💎 <span class="gems">0</span></div>
+      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
     </header>
     <div class="scroll">
-      <div class="diff-row" id="diff-row"></div>
-      <div class="map-grid" id="map-grid"></div>
+      <div class="seg" id="diff-row"></div>
+      <div class="list" id="map-grid"></div>
     </div>
   </section>
 
-  <!-- BOUTIQUE -->
+  <!-- ================= BOUTIQUE ================= -->
   <section id="screen-shop" class="screen">
     <header class="topbar">
-      <button class="btn" data-go="menu">← Retour</button>
+      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
       <h2>Boutique</h2>
-      <div class="gem-chip">💎 <span class="gems">0</span></div>
+      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
     </header>
-    <nav class="tabs" id="shop-tabs">
-      <button class="btn sm" data-tab="towers">Tourelles</button>
-      <button class="btn sm" data-tab="perks">Bonus</button>
-      <button class="btn sm" data-tab="skins">Skins</button>
-      <button class="btn sm" data-tab="achievements">Succès</button>
+    <nav class="seg" id="shop-tabs">
+      <button data-tab="towers">Armes</button>
+      <button data-tab="perks">Bonus</button>
+      <button data-tab="skins">Skins</button>
+      <button data-tab="achievements">Succès</button>
     </nav>
-    <div class="scroll"><div class="shop-grid" id="shop-content"></div></div>
+    <div class="scroll"><div class="list" id="shop-content"></div></div>
   </section>
 
-  <!-- PARAMÈTRES -->
+  <!-- ================= PARAMÈTRES ================= -->
   <section id="screen-settings" class="screen">
     <header class="topbar">
-      <button class="btn" data-go="menu">← Retour</button>
+      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
       <h2>Paramètres</h2>
-      <span></span>
+      <span style="width:42px"></span>
     </header>
-    <div class="scroll"><div class="settings" id="settings-content"></div></div>
+    <div class="scroll"><div class="list" id="settings-content"></div></div>
   </section>
 
-  <!-- JEU -->
+  <!-- ================= JEU ================= -->
   <section id="screen-game" class="screen">
-    <div id="hud">
-      <div class="stat" id="hud-lives" title="PV de la base">❤ <b>20</b></div>
-      <div class="stat" id="hud-money" title="Pièces">🪙 <b>0</b></div>
-      <div class="stat" id="hud-wave" title="Vague">🌊 <b>0/30</b></div>
-      <div class="spacer"></div>
-      <button class="btn sm" id="btn-speed" title="Vitesse du jeu">x1</button>
-      <button class="btn sm" id="btn-pause" title="Pause (P)">⏸</button>
-      <button class="btn sm" id="btn-mute" title="Couper le son">🔊</button>
-    </div>
-    <div id="stage">
-      <canvas id="game"></canvas>
-      <div id="wave-box">
+    <header id="hud">
+      <div class="stat" id="hud-lives"><i data-ico="heart"></i><b>20</b></div>
+      <div class="stat" id="hud-money"><i class="coin-ico"></i><b>0</b></div>
+      <div class="stat" id="hud-wave"><i data-ico="wave"></i><b>0/30</b></div>
+      <div class="stat score" id="hud-score"><i data-ico="trophy"></i><b>0</b></div>
+      <div class="hud-btns">
+        <button class="icon-btn" id="btn-speed" aria-label="Vitesse du jeu"><b>x1</b></button>
+        <button class="icon-btn" id="btn-pause" aria-label="Pause"><i data-ico="pause"></i></button>
+        <button class="icon-btn" id="btn-mute" aria-label="Son"></button>
+      </div>
+    </header>
+    <main id="stage"><canvas id="game" aria-label="Terrain de jeu"></canvas></main>
+    <footer id="dock">
+      <div class="wave-row">
         <div id="wave-preview"></div>
         <button class="btn primary" id="btn-wave"></button>
       </div>
-      <div id="panel" hidden></div>
-      <div id="tutorial" hidden></div>
-      <div id="overlay" hidden></div>
-    </div>
-    <div id="towerbar"></div>
+      <div id="towerbar"></div>
+    </footer>
+    <div id="sheet" class="glass" aria-hidden="true"></div>
+    <div id="tutorial" hidden></div>
   </section>
 
+  <div id="overlay" class="overlay"></div>
   <div id="toasts"></div>
   <div id="load-error" hidden>
     <b>Le jeu n'a pas pu démarrer.</b>
-    <p>Les modules JavaScript ne se chargent pas depuis <code>file://</code> dans la plupart des navigateurs.<br>
-    Lance un petit serveur local dans ce dossier, par exemple :</p>
+    <p>Les modules JavaScript ne se chargent pas depuis <code>file://</code>.<br>Lance un petit serveur local dans ce dossier :</p>
     <pre>python3 -m http.server 8000</pre>
     <p>puis ouvre <code>http://localhost:8000</code></p>
   </div>
@@ -100,7 +121,7 @@
 <script type="module" src="js/main.js"></script>
 <script>
   // Message d'aide si les modules ES n'ont pas pu se charger (ouverture en file://)
-  setTimeout(function () { if (!window.__bastionLoaded) document.getElementById('load-error').hidden = false; }, 1500);
+  setTimeout(function () { if (!window.__bastionLoaded) document.getElementById('load-error').hidden = false; }, 2500);
 </script>
 </body>
 </html>

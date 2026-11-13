@@ -51,7 +51,7 @@ export class Fx {
   tracer(x1, y1, x2, y2, color = '#fff3b0', width = 2.5, life = 0.09) { this.tracers.push({ x1, y1, x2, y2, color, width, life, max: life }); }
   text(x, y, text, color = '#fff', size = 14, life = 0.7) {
     if (this.texts.length > 120) this.texts.shift();
-    this.texts.push({ x: x + rand(-6, 6), y, vy: -55, text, color, size, life, max: life });
+    this.texts.push({ x: Math.max(60, Math.min(540, x + rand(-6, 6))), y, vy: -55, text, color, size, life, max: life });
   }
   coinBurst(x, y, n) {
     n = Math.min(n, 8);
@@ -128,8 +128,8 @@ export class Fx {
     for (const t of this.texts) {
       const k = t.life / t.max, pop = 1 + Math.max(0, k - 0.8) * 2.5;
       c.globalAlpha = Math.min(1, k * 2.5);
-      c.font = `900 ${Math.round(t.size * pop)}px "Trebuchet MS", system-ui, sans-serif`;
-      c.lineWidth = 4; c.strokeStyle = '#1d1a2b'; c.strokeText(t.text, t.x, t.y);
+      c.font = `700 ${Math.round(t.size * pop)}px Fredoka, ui-rounded, system-ui, sans-serif`;
+      c.lineWidth = Math.max(4, t.size * 0.28); c.strokeStyle = '#3d2c4e'; c.strokeText(t.text, t.x, t.y);
       c.fillStyle = t.color; c.fillText(t.text, t.x, t.y);
     }
     c.globalAlpha = 1;

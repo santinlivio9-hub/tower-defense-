@@ -3,7 +3,7 @@
 //  Voir le README pour le détail de chaque champ.
 // ============================================================================
 
-export const VIEW = { W: 1280, H: 720 };
+export const VIEW = { W: 600, H: 1000 };   // terrain en portrait
 
 export const GAME = {
   sellRatio: 0.7,          // revente : 70 % de l'investissement
@@ -14,13 +14,13 @@ export const GAME = {
   earlyBonusAlive: 15,     // bonus si on lance alors que des ennemis sont encore en vie
   waveBonusBase: 30,       // pièces de fin de vague = base + parVague * n
   waveBonusPerWave: 5,
-  pathWidth: 54,
-  towerRadius: 22,
+  pathWidth: 64,
+  towerRadius: 26,
   totalWaves: 30,
   bossEvery: 10,
   rewardMult: 1,           // multiplicateur global des pièces par kill
   maxMines: 6,             // nombre maximum de mines posées en même temps
-  stealthRevealRange: 75,  // toute tourelle révèle les invisibles à bout portant (px)
+  stealthRevealRange: 85,  // toute tourelle révèle les invisibles à bout portant (px)
   stealthRevealOnHit: 1.5, // secondes de révélation après un dégât (zone, brûlure, cryo)
 };
 
@@ -167,8 +167,8 @@ export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'mi
 
 // Vitesse de rotation (rad/s) et longueur du canon (px) par arme
 export const TOWER_VISUAL = {
-  assault: { turn: 10, muzzle: 30 }, smg: { turn: 13, muzzle: 24 }, shotgun: { turn: 9, muzzle: 29 },
-  sniper: { turn: 6, muzzle: 44 }, rocket: { turn: 5.5, muzzle: 30 }, minigun: { turn: 7, muzzle: 35 },
+  assault: { turn: 10, muzzle: 44 }, smg: { turn: 13, muzzle: 36 }, shotgun: { turn: 9, muzzle: 44 },
+  sniper: { turn: 6, muzzle: 60 }, rocket: { turn: 5.5, muzzle: 46 }, minigun: { turn: 7, muzzle: 50 },
   cryo: { turn: 0, muzzle: 0 }, mine: { turn: 0, muzzle: 0 },
 };
 
@@ -178,21 +178,21 @@ export const TOWER_VISUAL = {
 //  cost = coût dans le budget de vague, unlock = première vague d'apparition
 // ----------------------------------------------------------------------------
 export const ENEMIES = {
-  basic:    { name: 'Lumaca Pizzetta',      tag: 'Basique',  hp: 30,  speed: 58,  reward: 5,  leak: 1, r: 16, cost: 5,  unlock: 1,  interval: 0.7 },
-  fast:     { name: 'Peperoncino Rollerino', hint: "Rapide mais fragile : mitraillette et cryo conseillées.", tag: 'Rapide',   hp: 18,  speed: 122, reward: 5,  leak: 1, r: 14, cost: 6,  unlock: 2,  interval: 0.4 },
-  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 23, cost: 22, unlock: 4,  interval: 1.6 },
-  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 15, cost: 10, unlock: 6,  interval: 0.7, flying: true },
-  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 18, cost: 16, unlock: 8,  interval: 1.1, armor: 5 },
-  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 19, cost: 16, unlock: 9,  interval: 1.2, split: { type: 'mini', count: 3 } },
-  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 17, cost: 18, unlock: 12, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
-  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 15, cost: 12, unlock: 14, interval: 0.8, stealth: true },
-  mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 10, cost: 3,  unlock: 999, interval: 0.3 },
+  basic:    { name: 'Lumaca Pizzetta',      tag: 'Basique',  hp: 30,  speed: 58,  reward: 5,  leak: 1, r: 22, cost: 5,  unlock: 1,  interval: 0.7 },
+  fast:     { name: 'Peperoncino Rollerino', hint: "Rapide mais fragile : mitraillette et cryo conseillées.", tag: 'Rapide',   hp: 18,  speed: 122, reward: 5,  leak: 1, r: 20, cost: 6,  unlock: 2,  interval: 0.4 },
+  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 32, cost: 22, unlock: 4,  interval: 1.6 },
+  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 21, cost: 10, unlock: 6,  interval: 0.7, flying: true },
+  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 25, cost: 16, unlock: 8,  interval: 1.1, armor: 5 },
+  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 27, cost: 16, unlock: 9,  interval: 1.2, split: { type: 'mini', count: 3 } },
+  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 24, cost: 18, unlock: 12, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
+  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, interval: 0.8, stealth: true },
+  mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
   // Boss (hp non multipliés par la vague, voir WAVES.bossHpGrowth pour le mode infini)
-  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 3000,  speed: 24, reward: 250, leak: 10, r: 38, boss: true, unlock: 999,
+  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 4000,  speed: 24, reward: 250, leak: 10, r: 46, boss: true, unlock: 999,
            ability: { kind: 'summon', every: 6, type: 'fast', count: 3 }, title: 'Il souffle des sbires !' },
-  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 12000, speed: 22, reward: 500, leak: 12, r: 42, boss: true, armor: 4, unlock: 999,
+  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 14000, speed: 22, reward: 500, leak: 12, r: 50, boss: true, armor: 4, unlock: 999,
            ability: { kind: 'emp', every: 8, radius: 190, dur: 2.5 }, title: 'Son essorage coupe tes tourelles !' },
-  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 28000, speed: 20, reward: 900, leak: 99, r: 46, boss: true, unlock: 999,
+  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 36000, speed: 20, reward: 900, leak: 99, r: 56, boss: true, unlock: 999,
            ability: { kind: 'rage', every: 10, dur: 3, heal: 0.03 }, title: 'Bouclier de crème et rage finale !' },
 };
 
@@ -203,7 +203,7 @@ export const BOSS_ORDER = ['boss1', 'boss2', 'boss3'];
 // ----------------------------------------------------------------------------
 export const WAVES = {
   budget: (n) => 30 + 18 * n + 0.4 * n * n,                       // "points" d'ennemis par vague
-  hpScale: (n) => 1 + 0.13 * (n - 1) + 0.014 * (n - 1) * (n - 1),  // multiplicateur de PV par vague
+  hpScale: (n) => 1 + 0.16 * (n - 1) + 0.02 * (n - 1) * (n - 1),  // multiplicateur de PV par vague
   maxGroups: 5,
   maxPerGroup: 28,
   bossEscortBudget: 0.45,   // part du budget normal qui accompagne un boss
@@ -221,16 +221,31 @@ export const SHOP = {
     { id: 'money',  name: 'Tirelire',       desc: '+30 pièces de départ par niveau', per: 30, max: 5, costs: [10, 20, 30, 45, 65] },
     { id: 'lives',  name: 'Murs renforcés', desc: '+2 PV de base par niveau', per: 2, max: 5, costs: [10, 20, 30, 45, 65] },
   ],
-  skins: [
-    { id: 'default', name: 'Standard', cost: 0,   pal: null },
-    { id: 'camo',    name: 'Camouflage', cost: 20, pal: { metal: '#6b8e4e', dark: '#3b4a2a', wood: '#8a6b3d' } },
-    { id: 'neon',    name: 'Néon',     cost: 35,  pal: { metal: '#2b2b5c', dark: '#12122e', wood: '#ff3fd1', glow: '#39ffd0' } },
-    { id: 'lava',    name: 'Lave',     cost: 35,  pal: { metal: '#c0392b', dark: '#3d1410', wood: '#ff9f1a', glow: '#ffd23f' } },
-    { id: 'candy',   name: 'Bonbon',   cost: 45,  pal: { metal: '#ff8fc7', dark: '#7a3b8f', wood: '#8fe3ff' } },
-    { id: 'gold',    name: 'Or massif', cost: 100, pal: { metal: '#ffcf40', dark: '#a8741a', wood: '#fff1a8', glow: '#fff7c2' } },
+  skins: [   // finish = rendu appliqué aux sprites d'armes (voir js/sprites.js)
+    { id: 'default', name: 'Standard',   cost: 0,   finish: 'classic' },
+    { id: 'camo',    name: 'Camouflage', cost: 20,  finish: 'camo' },
+    { id: 'neon',    name: 'Néon',       cost: 35,  finish: 'neon' },
+    { id: 'lava',    name: 'Lave',       cost: 35,  finish: 'lava' },
+    { id: 'candy',   name: 'Bonbon',     cost: 45,  finish: 'candy' },
+    { id: 'gold',    name: 'Or massif',  cost: 100, finish: 'gold' },
   ],
   // Gemmes de fin de partie
   gemsWinBase: 20, gemsPerStar: 10, gemsPerWaveLost: 0.6, gemsPerWaveEndless: 1.2,
+};
+
+// ----------------------------------------------------------------------------
+//  SCORE
+// ----------------------------------------------------------------------------
+export const SCORE = {
+  perCost: 10,              // points par kill = coût de l'ennemi (ENEMIES.cost) x perCost
+  boss: 3000,               // points par boss (x numéro du boss)
+  multiWindow: 0.45,        // secondes pour enchaîner un multi-kill
+  multi: { 2: ['DOUBLE', 40], 3: ['TRIPLE', 100], 4: ['QUADRUPLE', 200], 5: ['MASSACRE', 400] }, // 5 = 5 kills et plus
+  cleanWave: 150,           // vague terminée sans perdre de PV (+ cleanWavePerWave x n)
+  cleanWavePerWave: 15,
+  earlyPerCoin: 4,          // points par pièce de bonus « en avance »
+  lifeBonus: 120,           // points par PV restant en cas de victoire
+  diffMult: { easy: 0.8, normal: 1, hard: 1.5 },
 };
 
 // Étoiles : part des PV restants nécessaire
