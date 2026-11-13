@@ -1,12 +1,12 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { SHOP, ACHIEVEMENTS, LEVELS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS } from './config.js';
+import { SHOP, ACHIEVEMENTS, LEVELS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS } from './config.js';
 
 const KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
 
 const defaults = () => ({
   v: 2,
-  gems: 0,
+  gems: 0, coins: COINS.start,
   towers: [...SHOP.starterTowers],
   skins: ['default'], skin: 'default',
   levels: {},            // n -> { stars, best, heroic (0/1), heroicBest }
@@ -15,6 +15,8 @@ const defaults = () => ({
   xp: 0, level: 1, talentPts: 0, talents: {},
   boosts: { ...STARTER_BOOSTS }, chests: { wood: 1, gold: 0 }, loadout: [],
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
+  viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
+  avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
   legacyStars: 0, notice: null,
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0 },
@@ -33,12 +35,13 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed']) d[k] = { ...def[k], ...raw[k] };
+    if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
   }
   // Ancienne sauvegarde (3 cartes, 3 difficultés, bonus permanents) -> nouveau système
   migrate(raw) {
     const d = this.data, def = defaults();
-    d.gems = raw.gems || 0;
+    d.gems = raw.gems || 0; d.coins = COINS.migrateBase;
     d.towers = [...new Set([...def.towers, ...(raw.towers || [])])]; d.seen.towers = [...d.towers];
     d.skins = raw.skins || def.skins; d.skin = raw.skin || 'default';
     d.achievements = raw.achievements || [];
@@ -78,7 +81,8 @@ export class Save {
     for (const [t, n] of Object.entries(CAMPAIGN.towerUnlocks)) if (p >= n && !this.data.towers.includes(t)) { this.data.towers.push(t); got.push(t); }
     return got;
   }
-  spend(n) { if (this.data.gems < n) return false; this.data.gems -= n; this.persist(); return true; }
+  collectionNew() { const d = this.data; return d.towers.length > (d.viewed.towers || 0) || d.seen.enemies.length > (d.viewed.enemies || 0); }
+  spend(n, cur = 'gems') { if (this.data[cur] < n) return false; this.data[cur] -= n; this.persist(); return true; }
 
   // ------------------------------------------------------------- château
   castleSum() { return Object.values(this.data.castle).reduce((a, b) => a + b, 0); }
@@ -87,7 +91,8 @@ export class Save {
   // ------------------------------------------------------------- talents
   talent(id) { return this.data.talents[id] || 0; }
   branchPoints(b) { return TALENTS[b].nodes.reduce((s, n) => s + this.talent(n.id), 0); }
-  canTalent(b, node) { return this.data.talentPts > 0 && this.talent(node.id) < node.max && this.branchPoints(b) >= (node.need || 0); }
+  talentOpen(b, node) { const ns = TALENTS[b].nodes, i = ns.indexOf(node); return (i <= 0 || this.talent(ns[i - 1].id) > 0) && this.branchPoints(b) >= (node.need || 0); }
+  canTalent(b, node) { return this.data.talentPts > 0 && this.talent(node.id) < node.max && this.talentOpen(b, node); }
   // Effets cumulés des talents
   mods() {
     const v = (b, id) => { const n = TALENTS[b].nodes.find((x) => x.id === id); return this.talent(id) * n.per; };

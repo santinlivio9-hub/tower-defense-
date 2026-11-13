@@ -283,16 +283,16 @@ export const heroicMod = (n) => HEROIC.mods[(n - 1) % HEROIC.mods.length];
 // ----------------------------------------------------------------------------
 export const CASTLE = {
   upgrades: {
-    walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: [10, 20, 35, 55, 80] },
-    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: [15, 30, 50, 75, 110] },   // every[niveau] = toutes les N vagues
-    treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: [10, 20, 35, 55, 80] },
-    cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: [20, 35, 55, 80, 120] },
+    walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: [120, 260, 450, 700, 1000] },
+    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: [180, 360, 600, 900, 1300] },   // every[niveau] = toutes les N vagues
+    treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: [120, 260, 450, 700, 1000] },
+    cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: [250, 420, 650, 950, 1400] },
   },
   // capacités actives : niveau 0 = verrouillée. cd en secondes.
   abilities: {
-    air:      { name: 'Frappe aérienne', desc: 'Bombarde une zone ciblée', icon: 'bomb', color: '#ff7a3c', cd: [0, 50, 45, 40], damage: [0, 220, 380, 600], pct: 0.25, bossPct: 0.04, radius: [0, 90, 100, 115], costs: [25, 45, 80] },
-    blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: [35, 55, 90] },
-    gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: [40, 60, 100] },
+    air:      { name: 'Frappe aérienne', desc: 'Bombarde une zone ciblée', icon: 'bomb', color: '#ff7a3c', cd: [0, 50, 45, 40], damage: [0, 220, 380, 600], pct: 0.25, bossPct: 0.04, radius: [0, 90, 100, 115], costs: [300, 550, 950] },
+    blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: [400, 650, 1050] },
+    gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: [450, 700, 1150] },
   },
   tiers: [0, 5, 12, 20],      // total de niveaux d'amélioration pour : bois, pierre, forteresse, citadelle dorée
 };
@@ -301,12 +301,12 @@ export const CASTLE = {
 //  BOOSTS (consommables, inventaire persistant)
 // ----------------------------------------------------------------------------
 export const BOOSTS = {
-  coins2: { name: 'Pièces x2',        desc: 'Double les pièces des kills pendant 1 vague', icon: 'coins',  color: '#ffd23f', cost: 12 },
-  heal:   { name: '+5 PV',            desc: 'Répare 5 PV du château (peut dépasser le maximum)', icon: 'heart', color: '#ff5d6c', cost: 10, amount: 5 },
-  free:   { name: 'Tourelle gratuite', desc: 'La prochaine tourelle posée ne coûte rien', icon: 'gift', color: '#3fd873', cost: 15 },
-  over:   { name: 'Surcharge',        desc: 'Cadence de toutes les tourelles +50 % pendant 20 s', icon: 'bolt', color: '#ff9f1a', cost: 15, rate: 1.5, dur: 20 },
-  shield: { name: 'Bouclier',         desc: 'Bloque toutes les fuites pendant 1 vague', icon: 'shield', color: '#5c9df2', cost: 25 },
-  revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40 },
+  coins2: { name: 'Pièces x2',        desc: 'Double les pièces des kills pendant 1 vague', icon: 'coins',  color: '#ffd23f', cost: 150, cur: 'coins', rarity: 1 },
+  heal:   { name: '+5 PV',            desc: 'Répare 5 PV du château (peut dépasser le maximum)', icon: 'heart', color: '#ff5d6c', cost: 120, cur: 'coins', rarity: 0, amount: 5 },
+  free:   { name: 'Tourelle gratuite', desc: 'La prochaine tourelle posée ne coûte rien', icon: 'gift', color: '#3fd873', cost: 180, cur: 'coins', rarity: 1 },
+  over:   { name: 'Surcharge',        desc: 'Cadence de toutes les tourelles +50 % pendant 20 s', icon: 'bolt', color: '#ff9f1a', cost: 200, cur: 'coins', rarity: 2, rate: 1.5, dur: 20 },
+  shield: { name: 'Bouclier',         desc: 'Bloque toutes les fuites pendant 1 vague', icon: 'shield', color: '#5c9df2', cost: 25, cur: 'gems', rarity: 3 },
+  revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40, cur: 'gems', rarity: 4 },
 };
 export const BOOST_ORDER = ['coins2', 'heal', 'free', 'over', 'shield', 'revive'];
 export const BOOST_SLOTS = { normal: 2, boss: 4 };   // emplacements à emporter (+ talent « Sacoche »)
@@ -324,22 +324,22 @@ export const XP = {
 };
 export const TALENTS = {
   attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
-    { id: 'dmg',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02 },
-    { id: 'rate',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02 },
-    { id: 'range', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02 },
-    { id: 'crit',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01 },
+    { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02 },
+    { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02 },
+    { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02 },
+    { id: 'crit', icon: 'star',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01 },
   ] },
   economy: { name: 'Économie', color: '#ffd23f', icon: 'coins', nodes: [
-    { id: 'start', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15 },
-    { id: 'kill',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03 },
-    { id: 'wave',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1 },
-    { id: 'gems',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05 },
+    { id: 'start', icon: 'coins', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15 },
+    { id: 'kill', icon: 'skull',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03 },
+    { id: 'wave', icon: 'wave',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1 },
+    { id: 'gems', icon: 'gem',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05 },
   ] },
   castle: { name: 'Château', color: '#5c9df2', icon: 'shield', nodes: [
-    { id: 'lives', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1 },
-    { id: 'cd',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04 },
-    { id: 'dur',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1 },
-    { id: 'slot',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6 },   // need = points déjà placés dans la branche
+    { id: 'lives', icon: 'heart', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1 },
+    { id: 'cd', icon: 'cannon',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04 },
+    { id: 'dur', icon: 'snow',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1 },
+    { id: 'slot', icon: 'bag',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6 },   // need = points déjà placés dans la branche
   ] },
 };
 export const CHESTS = {
@@ -430,3 +430,21 @@ export const END = {
     'Les virages sont les meilleurs emplacements : les ennemis y restent plus longtemps.',
   ],
 };
+
+// ----------------------------------------------------------------------------
+//  PIÈCES (monnaie conservée entre les parties ; les pièces de partie restent à part)
+//  Pièces : château, boosts courants. Gemmes (plus rares) : coffres, skins, boosts rares.
+// ----------------------------------------------------------------------------
+export const COINS = {
+  start: 150,                 // nouveau joueur
+  migrateBase: 300, migratePerStar: 60,   // anciennes sauvegardes (avant les pièces)
+  win: 90, perStar: 35, perWave: 6, perWaveLost: 5, firstClear: 120, bossMult: 2, endlessPerWave: 8,
+};
+// Barre d'onglets du hub (ordre affiché)
+export const TABS = [
+  { id: 'shop', label: 'Boutique', icon: 'cart' },
+  { id: 'castle', label: 'Château', icon: 'castle' },
+  { id: 'menu', label: 'Jouer', icon: 'play' },
+  { id: 'talents', label: 'Talents', icon: 'talent' },
+  { id: 'collection', label: 'Collection', icon: 'book' },
+];

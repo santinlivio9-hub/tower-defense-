@@ -1,5 +1,5 @@
 // Niveau de joueur (XP), talents, inventaire de boosts et coffres. Méthodes ajoutées à la classe UI (voir la fin de ui.js).
-import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS } from './config.js';
+import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, RARITY } from './config.js';
 import { icon, gem } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -21,85 +21,29 @@ export function chestSvg(kind, open = false) {
 
 export const Loot = {
   // ------------------------------------------------------------------ menu : barre d'XP et pastilles
-  renderMenu() {
-    const d = this.save.data, need = XP.need(d.level);
-    $('#menu-xp').innerHTML = `<span class="lvl">${d.level}</span><div class="xpbar"><i style="width:${(d.xp / need) * 100}%"></i><b>Niveau ${d.level} · ${d.xp} / ${need} XP</b></div>`;
-    const set = (id, n) => { const b = $(id); b.hidden = !n; b.textContent = n; };
-    set('#badge-talents', d.talentPts); set('#badge-inv', d.chests.wood + d.chests.gold);
-  },
-  // Barre d'XP animée de l'écran de fin, avec montées de niveau
-  xpBlock(r) {
-    const box = el('div', 'xp-end', `<span class="lvl">${r.xpBefore.level}</span><div class="xpbar"><i></i><b></b></div>`);
-    const bar = $('i', box), lab = $('b', box), badge = $('.lvl', box);
-    let lvl = r.xpBefore.level, xp = r.xpBefore.xp, left = r.xp;
-    const show = () => { lab.textContent = `Niveau ${lvl} · ${Math.round(xp)} / ${XP.need(lvl)} XP`; };
-    bar.style.width = (xp / XP.need(lvl)) * 100 + '%'; show();
-    const step = () => {
-      if (!box.isConnected) return;
-      const need = XP.need(lvl), gain = Math.min(left, need - xp);
-      xp += gain; left -= gain;
-      bar.style.transition = 'width .7s cubic-bezier(.3,.8,.3,1)'; bar.style.width = (xp / need) * 100 + '%'; show();
-      setTimeout(() => {
-        if (xp >= need) {
-          lvl++; xp = 0; badge.textContent = lvl; show();
-          box.classList.remove('up'); void box.offsetWidth; box.classList.add('up');
-          this.audio.play('levelup'); this.haptics.pulse(2);
-          bar.style.transition = 'none'; bar.style.width = '0%'; void bar.offsetWidth;
-        }
-        if (left > 0) setTimeout(step, 350);
-      }, 760);
-    };
-    setTimeout(step, 1500);
-    return box;
-  },
-
-  // ------------------------------------------------------------------ talents
-  renderTalents() {
-    const sv = this.save, d = sv.data, box = $('#talents-content');
-    box.innerHTML = '';
-    $('#talent-pts').textContent = d.talentPts;
-    box.append(el('p', 'hint', d.talentPts ? `Tu as <b>${d.talentPts}</b> point${d.talentPts > 1 ? 's' : ''} à placer.` : 'Gagne des points de talent en montant de niveau de joueur.'));
-    for (const [bid, br] of Object.entries(TALENTS)) {
-      const card = el('div', 'branch'); card.style.setProperty('--bc', br.color);
-      card.append(el('div', 'bhead', `${icon(br.icon)}<b>${br.name}</b><span>${sv.branchPoints(bid)} pts</span>`));
-      for (const n of br.nodes) {
-        const rank = sv.talent(n.id), locked = sv.branchPoints(bid) < (n.need || 0);
-        const row = el('div', 'tnode' + (rank >= n.max ? ' max' : '') + (locked ? ' locked' : ''), `<div class="tinfo"><b>${n.name}</b><small>${n.desc}${n.max > 1 ? ' par rang' : ''}${locked ? ` · ${n.need} points dans la branche` : ''}</small>${pips(rank, n.max)}</div>`);
-        const b = el('button', 'btn sm green' + (sv.canTalent(bid, n) ? '' : ' off'), rank >= n.max ? icon('check') : locked ? icon('lock') : icon('plus'));
-        b.onclick = () => {
-          if (!sv.canTalent(bid, n)) { this.audio.play('error'); return; }
-          d.talents[n.id] = rank + 1; d.talentPts--; sv.persist(); this.audio.play('upgrade'); this.haptics.pulse(1); this.renderTalents();
-        };
-        row.append(b); card.append(row);
-      }
-      box.append(card);
-    }
-    const spent = Object.values(d.talents).reduce((a, b) => a + b, 0);
-    if (spent) { const rs = el('button', 'btn ghost', icon('restart') + 'Récupérer tous mes points'); rs.onclick = () => { d.talentPts += spent; d.talents = {}; sv.persist(); this.renderTalents(); }; box.append(rs); }
-  },
-
-  // ------------------------------------------------------------------ inventaire : coffres et boosts
-  renderInventory() {
-    const sv = this.save, d = sv.data, box = $('#inventory-content'), keep = $('#inventory-scroll').scrollTop;
-    box.innerHTML = '';
-    box.append(el('h3', 'sect', 'Coffres'));
+  // ------------------------------------------------------------------ boutique : coffres et boosts
+  renderShopChests(grid) {
+    const d = this.save.data;
     const row = el('div', 'chest-row');
     for (const [kind, c] of Object.entries(CHESTS)) {
-      const n = d.chests[kind], card = el('div', 'chest-card' + (n ? ' has' : ''), `${chestSvg(kind)}<b>${c.name}</b><small>${c.cards} cartes · gemmes et boosts</small><em>×${n}</em>`);
+      const n = d.chests[kind], card = el('div', 'chest-card' + (n ? ' has' : ''), `${chestSvg(kind)}<b>${c.name}</b><small>${c.cards} cartes · gemmes et boosts</small>${n ? `<em>×${n}</em>` : ''}`);
       const open = el('button', 'btn sm green' + (n ? '' : ' off'), 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); };
-      card.append(open, this.gemButton(c.cost, 'Acheter', () => d.chests[kind]++, 'ghostgem'));
+      card.append(open, this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
       row.append(card);
     }
-    box.append(row, el('h3', 'sect', 'Boosts'), el('p', 'hint', 'Choisis ceux à emporter avant chaque niveau. Un boost non utilisé revient dans l\'inventaire.'));
+    grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss et en terminant les défis.'));
+  },
+  renderShopBoosts(grid) {
+    const d = this.save.data, g = el('div', 'cgrid');
     for (const id of BOOST_ORDER) {
-      const b = BOOSTS[id], card = el('div', 'card');
-      card.append(el('div', 'art plain', boostIco(id, 'big')));
-      const body = el('div', 'body', `<h3>${b.name}</h3><p>${b.desc}</p>`);
-      const r = el('div', 'row', `<span class="meta qty">En stock <b>×${d.boosts[id] || 0}</b></span>`);
-      r.append(this.gemButton(b.cost, 'Acheter', () => (d.boosts[id] = (d.boosts[id] || 0) + 1)));
-      body.append(r); card.append(body); box.append(card);
+      const b = BOOSTS[id], R = RARITY[b.rarity || 0];
+      const c = el('div', 'ccard boost shop', `<span class="cc-art">${boostIco(id, 'big')}</span><b>${b.name}</b><small class="rar">${R.name}</small><i class="qty">×${d.boosts[id] || 0}</i>`);
+      c.style.setProperty('--cc', R.color);
+      c.append(this.buyButton(b.cost, b.cur || 'gems', '', () => (d.boosts[id] = (d.boosts[id] || 0) + 1)));
+      c.querySelector('.cc-art').onclick = () => this.boostSheet && this.boostSheet(id);
+      g.append(c);
     }
-    $('#inventory-scroll').scrollTop = keep;
+    grid.append(g, el('p', 'hint', 'Les boosts sont utilisables directement en partie. Ceux que tu n\'utilises pas restent dans ton stock.'));
   },
   // Ouverture animée : secousse, explosion de lumière, cartes qui se retournent
   openChest(kind) {

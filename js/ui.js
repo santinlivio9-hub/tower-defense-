@@ -1,10 +1,12 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS } from './config.js';
+import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS } from './config.js';
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
 import { End } from './end.js';
+import { Talents } from './talents.js';
+import { Collection } from './collection.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -32,7 +34,7 @@ export class UI {
   constructor(save, audio) {
     this.save = save; this.audio = audio; this.game = null;
     this.haptics = new Haptics(save.data.settings, audio);
-    this.shopTab = 'skins';
+    this.shopTab = 'chests';
     this.canvas = $('#game'); this.cache = {}; this.last = 0; this.simulating = false;
     this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
 
@@ -51,8 +53,7 @@ export class UI {
     this.bindGameInput();
     $('#btn-endless').onclick = () => this.openEndless();
 
-    const parade = $('#menu-parade');
-    for (const t of ['basic', 'fast', 'tank', 'armored', 'flying', 'healer']) parade.append(enemyImg(t, 68));
+    this.buildTabbar();
 
     this.show('menu');
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.resize());
@@ -60,12 +61,28 @@ export class UI {
   }
 
   // ------------------------------------------------------------------ écrans
-  show(name) {
-    $$('.screen').forEach((s) => s.classList.toggle('active', s.id === 'screen-' + name));
+  // keep = simple rafraîchissement de l'écran courant (pas de transition)
+  show(name, keep = false) {
+    const prev = this.screen, next = $('#screen-' + name);
+    const tabOf = (n) => { const e = n && $('#screen-' + n); return e && e.classList.contains('tabbed') ? e.dataset.tab || n : null; };
+    const pt = tabOf(prev), nt = tabOf(name);
+    clearTimeout(this.slideT);
+    $$('.screen').forEach((s) => { s.classList.remove('in-l', 'in-r', 'out-l', 'out-r'); s.classList.toggle('active', s === next); });
+    // transition glissée entre les onglets (sens selon la position dans la barre)
+    if (!keep && pt && nt && prev !== name) {
+      const idx = (t) => TABS.findIndex((x) => x.id === t);
+      let dir = idx(nt) - idx(pt); if (!dir) dir = name === 'menu' ? -1 : 1;
+      const old = $('#screen-' + prev);
+      old.classList.add(dir > 0 ? 'out-l' : 'out-r'); next.classList.add(dir > 0 ? 'in-r' : 'in-l');
+      this.slideT = setTimeout(() => $$('.screen').forEach((s) => s.classList.remove('in-l', 'in-r', 'out-l', 'out-r')), 340);
+    }
     this.screen = name;
+    $('#resbar').hidden = $('#tabbar').hidden = !nt;
+    $$('#tabbar .tab').forEach((b) => b.classList.toggle('on', b.dataset.go === nt));
+    document.body.dataset.screen = name;
     this.refreshGems();
-    if (name === 'menu') $('#menu-best').textContent = fmt(this.save.bestScore());
-    if (name === 'menu') { if (this.renderMenu) this.renderMenu(); this.showNotice(); }
+    if (nt) this.tabBadges();
+    if (name === 'menu') this.showNotice();
     if (name === 'world') this.renderWorld();
     if (this.renderMeta) this.renderMeta(name);
     if (name === 'shop') this.renderShop();
@@ -73,7 +90,7 @@ export class UI {
     if (name === 'game') this.resize();
     if (name !== 'game') { this.closeOverlay(); $('#tutorial').hidden = true; }
   }
-  refreshGems() { $$('.gems').forEach((g) => (g.textContent = fmt(this.save.data.gems))); }
+  refreshGems() { this.refreshWallet(); }
   toast(title, sub = '', art = icon('medal')) {
     const box = $('#toasts'); while (box.children.length >= 2) box.firstChild.remove();
     const t = el('div', 'toast', `<div><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>`);
@@ -88,38 +105,20 @@ export class UI {
     const d = this.save.data, grid = $('#shop-content'); grid.innerHTML = '';
     $$('#shop-tabs [data-tab]').forEach((b) => b.classList.toggle('sel', b.dataset.tab === this.shopTab));
     this.refreshGems();
-    const price = (cost, label, fn) => {
-      const b = el('button', 'btn sm' + (d.gems < cost ? ' off' : ''), `${label} ${gem()}${cost}`);
-      b.onclick = () => {
-        if (!this.save.spend(cost)) { this.audio.play('error'); this.toast('Pas assez de gemmes', 'Joue des parties pour en gagner', gem()); return; }
-        fn(); this.save.persist(); this.audio.play('buy'); this.haptics.pulse(1); this.announce(this.save.checkAchievements()); this.renderShop();
-      };
-      return b;
-    };
+    if (this.shopTab === 'chests') { if (this.shopDaily) this.shopDaily(grid); this.renderShopChests(grid); return; }
+    if (this.shopTab === 'boosts') { this.renderShopBoosts(grid); return; }
     const owned = (txt) => el('span', 'owned', icon('check') + txt);
-    if (this.shopTab === 'boosts' && this.renderBoostShop) this.renderBoostShop(grid, price, owned);
-    else if (this.shopTab === 'skins') {      for (const s of SHOP.skins) {
-        const has = d.skins.includes(s.id), on = d.skin === s.id;
-        const card = el('div', 'card' + (on ? ' done' : ''));
-        const art = el('div', 'art multi'); art.append(towerImg('assault', 62, s.id, 3), towerImg('shotgun', 62, s.id, 4, 0));
-        const body = el('div', 'body'); body.append(el('h3', '', s.name), el('p', '', 'Finition appliquée à toutes tes armes.'));
-        const row = el('div', 'row', '<span></span>');
-        if (on) row.append(owned('Équipé'));
-        else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id); this.renderShop(); }; row.append(b); }
-        else row.append(price(s.cost, 'Acheter', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id); }));
-        body.append(row); card.append(art, body); grid.append(card);
-      }
-    } else {
-      for (const a of ACHIEVEMENTS) {
-        const done = d.achievements.includes(a.id), prog = Math.min(a.goal, this.save.achievementProgress(a));
-        const card = el('div', 'card' + (done ? ' done' : ''));
-        const art = el('div', 'art', icon(done ? 'medal' : 'lock')); art.firstChild.style.cssText = `width:38px;height:38px;color:${done ? 'var(--gold)' : 'var(--text-soft)'}`;
-        const body = el('div', 'body');
-        body.append(el('h3', '', a.name), el('p', '', a.desc), el('div', 'progress', `<i style="width:${(prog / a.goal) * 100}%"></i>`),
-          el('div', 'row', `<span class="meta"><b>${short(prog)}</b> / ${short(a.goal)}</span><span class="meta">${done ? icon('check') : ''}+<b>${a.gems}</b>${gem()}</span>`));
-        card.append(art, body); grid.append(card);
-      }
+    const g = el('div', 'cgrid');
+    for (const s of SHOP.skins) {
+      const has = d.skins.includes(s.id), on = d.skin === s.id;
+      const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"></span><b>${s.name}</b>`);
+      $('.cc-art', card).append(towerImg('assault', 64, s.id, 3), towerImg('shotgun', 64, s.id, 4, 0));
+      if (on) card.append(owned('Équipé'));
+      else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
+      else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id); }));
+      g.append(card);
     }
+    grid.append(g, el('p', 'hint', 'Une finition s\'applique à toutes tes armes.'));
   }
 
   switchRow(label, sub, ico, key, after) {
@@ -377,6 +376,7 @@ export class UI {
     const g = this.game;
     if (g && this.screen === 'game' && !this.simulating) { g.frame(dt); this.updateHud(); }
     else if (this.screen === 'castle') this.tickCastle(ts);
+    else if (this.screen === 'menu') this.tickHome(ts);
     requestAnimationFrame((t) => this.loop(t));
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
@@ -501,4 +501,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection);

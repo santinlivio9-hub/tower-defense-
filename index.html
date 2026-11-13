@@ -24,36 +24,34 @@
 <div id="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 <div id="app">
 
-  <!-- ================= MENU ================= -->
-  <section id="screen-menu" class="screen active">
-    <div class="menu">
-      <div class="chips">
-        <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
-        <span class="chip"><i data-ico="trophy" class="gold"></i><b id="menu-best">0</b></span>
-        <button class="icon-btn" data-go="settings" aria-label="Paramètres"><i data-ico="gear"></i></button>
-      </div>
-      <div id="menu-xp"></div>
-      <h1 class="logo" aria-label="Brainrot TD">
+  <!-- barre de ressources commune aux écrans du hub -->
+  <header id="resbar" hidden>
+    <div class="res-xp"><span class="lvl">1</span><div class="xpbar"><i></i><b></b></div></div>
+    <span class="chip res"><i class="coin-ico"></i><b class="coins">0</b></span>
+    <span class="chip res"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
+    <button class="icon-btn" data-go="settings" aria-label="Paramètres"><i data-ico="gear"></i></button>
+  </header>
+
+  <!-- ================= ACCUEIL (onglet Jouer) ================= -->
+  <section id="screen-menu" class="screen tabbed active">
+    <canvas id="home-scene" aria-hidden="true"></canvas>
+    <div class="home">
+      <h1 class="logo" aria-label="Brainrot Bastion">
         <span class="l1">BRAINROT</span>
         <span class="l2">BASTION</span>
-        <small>TOWER DEFENSE</small>
       </h1>
-      <div id="menu-parade" aria-hidden="true"></div>
-      <div class="menu-buttons">
-        <button class="btn primary big" data-go="world"><i data-ico="play"></i>Jouer</button>
-        <div class="tiles">
-          <button class="tile" data-go="castle"><i data-ico="castle"></i>Château</button>
-          <button class="tile" data-go="talents"><i data-ico="talent"></i>Talents<em id="badge-talents" hidden></em></button>
-          <button class="tile" data-go="inventory"><i data-ico="bag"></i>Inventaire<em id="badge-inv" hidden></em></button>
-          <button class="tile" data-go="shop"><i data-ico="cart"></i>Boutique</button>
-        </div>
+      <div class="home-side left" id="home-left"></div>
+      <div class="home-side right" id="home-right"></div>
+      <div class="home-play">
+        <button class="btn primary huge" id="btn-play"><span class="l"><i data-ico="play"></i>JOUER</span><small id="play-sub"></small></button>
+        <button class="map-btn" data-go="world" aria-label="Carte du monde"><i data-ico="map"></i><small>Carte</small></button>
       </div>
     </div>
   </section>
 
-  <!-- ================= CAMPAGNE ================= -->
-  <section id="screen-world" class="screen">
-    <header class="topbar">
+  <!-- ================= CARTE DU MONDE ================= -->
+  <section id="screen-world" class="screen tabbed" data-tab="menu">
+    <header class="tbar">
       <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
       <h2>Campagne</h2>
       <span class="chip"><i data-ico="star" class="gold"></i><b id="world-stars">0</b></span>
@@ -63,47 +61,37 @@
   </section>
 
   <!-- ================= BOUTIQUE ================= -->
-  <section id="screen-shop" class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
-      <h2>Boutique</h2>
-      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
-    </header>
+  <section id="screen-shop" class="screen tabbed">
+    <header class="tbar"><h2>Boutique</h2></header>
     <nav class="seg" id="shop-tabs">
+      <button data-tab="chests">Coffres</button>
+      <button data-tab="boosts">Boosts</button>
       <button data-tab="skins">Skins</button>
-      <button data-tab="achievements">Succès</button>
     </nav>
-    <div class="scroll"><div class="list" id="shop-content"></div></div>
+    <div class="scroll" id="shop-scroll"><div class="list" id="shop-content"></div></div>
   </section>
 
   <!-- ================= CHÂTEAU ================= -->
-  <section id="screen-castle" class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
-      <h2>Château</h2>
-      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
-    </header>
-    <div class="scroll" id="castle-scroll"><div class="list" id="castle-content"></div></div>
+  <section id="screen-castle" class="screen tabbed">
+    <div class="scroll" id="castle-scroll"><div id="castle-content"></div></div>
   </section>
 
   <!-- ================= TALENTS ================= -->
-  <section id="screen-talents" class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
-      <h2>Talents</h2>
-      <span class="chip"><i data-ico="talent" class="gold"></i><b id="talent-pts">0</b></span>
-    </header>
-    <div class="scroll"><div class="list" id="talents-content"></div></div>
+  <section id="screen-talents" class="screen tabbed">
+    <header class="tbar"><h2>Talents</h2><span class="chip pts"><i data-ico="talent" class="gold"></i><b id="talent-pts">0</b></span></header>
+    <div class="scroll" id="talents-scroll"><div id="talents-content"></div></div>
   </section>
 
-  <!-- ================= INVENTAIRE ================= -->
-  <section id="screen-inventory" class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
-      <h2>Inventaire</h2>
-      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
-    </header>
-    <div class="scroll" id="inventory-scroll"><div class="list" id="inventory-content"></div></div>
+  <!-- ================= COLLECTION ================= -->
+  <section id="screen-collection" class="screen tabbed">
+    <header class="tbar"><h2>Collection</h2><span class="chip" id="col-count"></span></header>
+    <nav class="seg" id="col-tabs">
+      <button data-tab="towers">Tourelles</button>
+      <button data-tab="enemies">Brainrots</button>
+      <button data-tab="boosts">Boosts</button>
+      <button data-tab="achievements">Succès</button>
+    </nav>
+    <div class="scroll" id="col-scroll"><div id="col-content"></div></div>
   </section>
 
   <!-- ================= PARAMÈTRES ================= -->
@@ -142,6 +130,7 @@
     <div id="aim-hint" hidden>Touche la zone à bombarder</div>
   </section>
 
+  <nav id="tabbar" hidden></nav>
   <div id="overlay" class="overlay"></div>
   <div id="toasts"></div>
   <div id="load-error" hidden>

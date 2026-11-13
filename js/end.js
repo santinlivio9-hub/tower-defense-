@@ -2,7 +2,7 @@
 // 1. bannière + étoiles  2. score (+ « NOUVEAU RECORD ! »)  3. gemmes / XP qui s'envolent,
 // montées de niveau  4. succès  5. écran final compact (MVP, 3 stats, boutons).
 import { TOWERS, ENEMIES, LEVELS, XP, END } from './config.js';
-import { icon, gem } from './icons.js';
+import { icon, gem, coin } from './icons.js';
 import { towerImg, enemyImg } from './sprites.js';
 import { chestSvg } from './loot.js';
 
@@ -50,7 +50,7 @@ export const End = {
     const d = this.save.data, win = r.victory;
     const root = el('div', 'endseq ' + (win ? 'win' : 'lose'));
     root.innerHTML = `<canvas class="es-fx"></canvas>
-      <div class="es-top"><div class="es-xp"><span class="lvl"></span><div class="xpbar"><i></i><b></b></div></div><span class="chip es-gems">${gem()}<b></b></span></div>
+      <div class="es-top"><div class="es-xp"><span class="lvl"></span><div class="xpbar"><i></i><b></b></div></div><span class="chip es-coins">${coin()}<b></b></span><span class="chip es-gems">${gem()}<b></b></span></div>
       <div class="es-stage"></div><div class="es-badges"></div>
       <div class="es-hint">Touche pour accélérer</div>`;
     this.openOverlay(root, 'full');
@@ -68,6 +68,7 @@ export const End = {
     const center = (e) => { const a = e.getBoundingClientRect(), b = root.getBoundingClientRect(); return [a.left + a.width / 2 - b.left, a.top + a.height / 2 - b.top]; };
     // compteurs du haut : valeurs d'avant la partie
     const gemsB = $('.es-gems b', root); let gemsShown = d.gems - r.gems; gemsB.textContent = fmt(gemsShown);
+    const coinsB = $('.es-coins b', root), rc = r.coins || 0; let coinsShown = (d.coins || 0) - rc; coinsB.textContent = fmt(coinsShown);
     const xpUI = { lvl: $('.es-xp .lvl', root), bar: $('.es-xp i', root), lab: $('.es-xp b', root), level: r.xpBefore.level, xp: r.xpBefore.xp };
     const showXp = () => { xpUI.lvl.textContent = xpUI.level; xpUI.lab.textContent = `${Math.round(xpUI.xp)} / ${XP.need(xpUI.level)} XP`; xpUI.bar.style.width = (xpUI.xp / XP.need(xpUI.level)) * 100 + '%'; };
     showXp();
@@ -115,10 +116,16 @@ export const End = {
       // ---------------------------------------------------------------- 3. récompenses
       seq.fast = false;
       const pills = el('div', 'es-pills'); stage.append(pills);
-      const gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `<i class="es-orb"></i><b>+${fmt(r.xp)} XP</b>`);
+      const cp = el('div', 'es-pill coin', `${coin()}<b>+${fmt(rc)}</b>`), gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `<i class="es-orb"></i><b>+${fmt(r.xp)} XP</b>`);
+      if (rc > 0) pills.append(cp);
       pills.append(gp, xp);
       for (const t of r.rewards || []) { const kind = /dor/i.test(t) ? 'gold' : 'wood'; pills.append(el('div', 'es-pill chest', `${chestSvg(kind)}<b>${t}</b>`)); }
       await wait(450);
+      if (rc > 0) {
+        const n = 10, per = rc / n;
+        await this.esFly(root, cp, $('.es-coins', root), coin(), n, seq, () => { coinsShown += per; coinsB.textContent = fmt(Math.min(d.coins, coinsShown)); this.audio.play('coin'); this.esBump($('.es-coins', root)); });
+        coinsB.textContent = fmt(d.coins);
+      }
       if (r.gems > 0) {
         const n = Math.min(10, Math.max(3, Math.round(r.gems / 3))), per = r.gems / n;
         await this.esFly(root, gp, $('.es-gems', root), gem(), n, seq, () => { gemsShown += per; gemsB.textContent = fmt(Math.min(d.gems, gemsShown)); this.audio.play('coin'); this.esBump($('.es-gems', root)); });

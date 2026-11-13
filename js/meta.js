@@ -13,6 +13,32 @@ const fmt = (n) => nf.format(Math.round(n));
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
 const NODE_X = [28, 64, 78, 40, 22, 50], SEC_H = 660;
+const INK = '#3d2c4e';
+// Décor propre à chaque monde (SVG inline), posé loin du chemin
+const DECO = {
+  prairie: [
+    (s) => `<svg viewBox="0 0 60 70" width="${s}"><rect x="26" y="40" width="8" height="24" rx="3" fill="#8a5530" stroke="${INK}" stroke-width="3"/><circle cx="30" cy="28" r="22" fill="#4caf50" stroke="${INK}" stroke-width="3"/><circle cx="22" cy="20" r="6" fill="#8be07a"/></svg>`,
+    (s) => `<svg viewBox="0 0 60 40" width="${s}"><circle cx="12" cy="26" r="7" fill="#ff7eb6" stroke="${INK}" stroke-width="2.5"/><circle cx="30" cy="20" r="7" fill="#ffe45c" stroke="${INK}" stroke-width="2.5"/><circle cx="48" cy="27" r="7" fill="#fff" stroke="${INK}" stroke-width="2.5"/></svg>`,
+  ],
+  desert: [
+    (s) => `<svg viewBox="0 0 50 70" width="${s}"><path d="M20 66V18a5 5 0 0 1 10 0v48z M20 40h-8a4 4 0 0 1-4-4V26a4 4 0 0 1 8 0v6h4 M30 34h8V20a4 4 0 0 1 8 0v14a6 6 0 0 1-6 6h-10" fill="#5fb53c" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></svg>`,
+    (s) => `<svg viewBox="0 0 80 36" width="${s}"><path d="M2 34Q22 4 44 22Q60 10 78 34z" fill="#e2b25c" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></svg>`,
+  ],
+  volcano: [
+    (s) => `<svg viewBox="0 0 80 64" width="${s}"><path d="M4 62L30 14h20l26 48z" fill="#56436a" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M30 14h20l-4 10-6-4-6 8z" fill="#ff7a3c" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/><circle cx="36" cy="6" r="4" fill="#ffb224"/><circle cx="46" cy="3" r="3" fill="#ff7a3c"/></svg>`,
+    (s) => `<svg viewBox="0 0 50 40" width="${s}"><path d="M4 36L14 12 26 20 34 6 46 36z" fill="#8ff0e0" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></svg>`,
+  ],
+  ice: [
+    (s) => `<svg viewBox="0 0 50 70" width="${s}"><rect x="21" y="54" width="8" height="12" rx="2" fill="#8a5530" stroke="${INK}" stroke-width="3"/><path d="M25 4L44 54H6z" fill="#3f8f7a" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M25 4l8 20-8-4-8 4z" fill="#fff"/></svg>`,
+    (s) => `<svg viewBox="0 0 60 40" width="${s}"><circle cx="30" cy="26" r="12" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="30" cy="11" r="8" fill="#fff" stroke="${INK}" stroke-width="3"/><path d="M30 12l6 2-6 1z" fill="#ff9f1a"/></svg>`,
+  ],
+  candy: [
+    (s) => `<svg viewBox="0 0 40 70" width="${s}"><rect x="17" y="30" width="6" height="38" rx="3" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="20" r="17" fill="#ff5d8f" stroke="${INK}" stroke-width="3"/><path d="M20 20m-10 0a10 10 0 0 1 10-10a6 6 0 0 1 6 6a3 3 0 0 1-3 3" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
+    (s) => `<svg viewBox="0 0 60 40" width="${s}"><path d="M8 36a22 22 0 0 1 44 0z" fill="#8fe3ff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="26" r="2.5" fill="#fff"/><circle cx="34" cy="22" r="2.5" fill="#ffd23f"/><circle cx="42" cy="30" r="2.5" fill="#ff5d8f"/></svg>`,
+  ],
+};
+// positions des décors : [x %, y px, taille, variante]
+const DECO_POS = [[8, 560, 46, 0], [90, 470, 52, 0], [86, 640, 40, 1], [6, 300, 48, 0], [92, 230, 44, 1], [60, 410, 36, 1], [12, 120, 50, 0], [88, 80, 46, 0], [36, 610, 34, 1]];
 const nodeY = (i) => SEC_H - 86 - i * 96 - (i === 5 ? 14 : 0);
 
 export const Meta = {
@@ -35,10 +61,11 @@ export const Meta = {
       sec.append(head);
       // décor : quelques brainrots du monde
       const deco = levelEnemies(LEVELS[wi * 6 + 4]).slice(-3);
+      for (const [x, y, sz, v] of DECO_POS) { const dd = el('div', 'wprop', DECO[w.theme][v](sz)); dd.style.cssText = `left:${x}%;top:${y}px`; sec.append(dd); }
       deco.forEach((t, k) => { const im = enemyImg(t, 46); im.className = 'wdeco'; im.style.cssText = `left:${[80, 8, 70][k]}%;top:${[SEC_H - 190, SEC_H - 330, 230][k]}px`; sec.append(im); });
       LEVELS.filter((l) => l.world === wi).forEach((L) => {
         const ld = sv.data.levels[L.n], done = sv.levelDone(L.n), unlocked = sv.levelUnlocked(L.n);
-        const b = el('button', 'node' + (L.boss ? ' boss' : '') + (done ? ' done' : unlocked ? ' open' : ' locked'));
+        const b = el('button', 'node' + (L.boss ? ' boss' : '') + (done ? ' done' : unlocked ? ' open' : ' locked')); b.dataset.n = L.n;
         b.style.cssText = `left:${NODE_X[L.idx]}%;top:${nodeY(L.idx)}px`;
         if (L.boss) b.append(enemyImg(w.boss, 66));
         b.insertAdjacentHTML('beforeend', unlocked ? `<b>${L.boss ? 'BOSS' : L.id}</b>` : icon('lock'));
@@ -50,9 +77,26 @@ export const Meta = {
       });
       box.append(sec);
     }
+    const target = current || [...box.querySelectorAll('.node')].find((n) => n.dataset.n == LEVELS.length);
+    if (target) {
+      const tn = +target.dataset.n, from = box.querySelector(`.node[data-n="${sv.data.avatar}"]`);
+      const av = el('div', 'avatar', `<span class="av-in"></span><i></i>`);
+      $('.av-in', av).append(towerImg('assault', 40, sv.data.skin, 3));
+      const place = (node) => { av.style.left = node.style.left; av.style.top = node.style.top; };
+      const walk = from && from !== target && from.parentElement === target.parentElement && sv.data.avatar < tn;
+      place(walk ? from : target); target.parentElement.append(av);
+      if (walk) { av.classList.add('walk'); setTimeout(() => { place(target); this.audio.play('sheet'); }, 450); setTimeout(() => av.classList.remove('walk'), 1300); }
+      if (sv.data.avatar !== tn) { sv.data.avatar = tn; sv.persist(); }
+    }
     const eb = $('#btn-endless'); eb.classList.toggle('off', !sv.endlessUnlocked());
     eb.innerHTML = icon(sv.endlessUnlocked() ? 'infinity' : 'lock') + 'Mode infini';
-    requestAnimationFrame(() => { const t = current || box.querySelector('.node.done:last-of-type') || box.lastChild; const sc = $('#world-scroll'); if (current) sc.scrollTop = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.6; else sc.scrollTop = prog >= LEVELS.length ? 0 : sc.scrollHeight; });
+    requestAnimationFrame(() => {
+      const sc = $('#world-scroll');
+      if (!current) { sc.scrollTop = prog >= LEVELS.length ? 0 : sc.scrollHeight; return; }
+      const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.55;
+      sc.scrollTop = Math.min(sc.scrollHeight, goal + sc.clientHeight * 0.5);   // part d'un peu plus bas…
+      requestAnimationFrame(() => sc.scrollTo({ top: goal, behavior: 'smooth' }));   // … et remonte le chemin
+    });
   },
 
   // ------------------------------------------------------------------ préparation d'un niveau
