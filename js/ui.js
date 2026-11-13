@@ -575,7 +575,8 @@ export class UI {
     const draw = (cv, cx, cy, size) => { if (cv) x.drawImage(cv, cx - size / 2, cy - size / 2, size, size); };
     ['basic', 'tank', 'armored', 'healer'].forEach((t, i) => draw(enemyFrames(t).frames[0][0].cv, 170 + i * 150, 1190, 190));
     const best = r.best || { type: 'assault', level: 1, branch: null };
-    draw(towerSprite(best.type, best.level, best.branch, skinFinish(this.save.data.skin)).cv, 900, 1180, 330);
+    const bs = towerSprite(best.type, best.level, best.branch, skinFinish(this.save.data.skin));
+    if (bs.base) draw(bs.base.cv, 900, 1180, 330); draw(bs.head.cv, 900, 1180, 330);
     text(location.host + location.pathname.replace(/index\.html$/, ''), 1300, 34, '#c5b5dc', 8);
     this.shareFile = null; this.shareCanvas = c;
     c.toBlob((b) => { if (b) this.shareFile = new File([b], 'brainrot-td-score.png', { type: 'image/png' }); }, 'image/png');

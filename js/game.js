@@ -5,7 +5,6 @@ import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
-import { drawPad, towerSprite, skinFinish } from './sprites.js';
 import { drawCastle } from './castle.js';
 
 const TAU = Math.PI * 2;

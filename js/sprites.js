@@ -249,114 +249,209 @@ export function enemySvg(type, expr = 0, step = 0, px = 192) {
   return build(body, EVB, px);
 }
 
-// ------------------------------------------------------------------ armes
-const STEEL = '#8E9AAB', DARK = '#4A4F63', WOOD = '#C98A4B';
-const MAIN = { assault: '#3FBFA8', smg: '#9B6BFF', shotgun: '#F0843A', sniper: '#6FBF3B', rocket: '#5C9DF2', minigun: '#F5B83D', cryo: '#58C8F5', mine: '#6B7488' };
-const gunEyes = (x, y, s = 1) => [-1, 1].map((k) => `<ellipse cx="${x + k * 8 * s}" cy="${y}" rx="${4.4 * s}" ry="${5.6 * s}" fill="${INK}"/><circle cx="${x + k * 8 * s - 1.4 * s}" cy="${y - 2 * s}" r="${1.8 * s}" fill="#fff"/>`).join('');
+// ------------------------------------------------------------------ tourelles
+// Vue de dessus : un socle fixe + une tête qui pivote (dessinée vers +x, pivot en (0,0), 2 unités = 1 px de jeu).
+// L = niveau (1-5), b = branche (0/1/null), R = couleur de rareté, M = couleur du type.
+const STEEL = '#8E9AAB', DARK = '#4A4F63', WOOD = '#C98A4B', GOLD = '#F5B83D', HOT = '#F04A3A';
+export const TOWER_COLOR = { assault: '#3D8BFF', smg: '#3FCF5E', shotgun: '#FF8A2A', sniper: '#9B5CFF', rocket: '#F0443A', minigun: '#8E9AAB', cryo: '#4FD6F5', mine: '#5B6178' };
 const star = (x, y, r, fill = '#FFD23F') => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, q = i % 2 ? r * 0.45 : r; d += `${i ? 'L' : 'M'}${(x + Math.cos(a) * q).toFixed(1)} ${(y + Math.sin(a) * q).toFixed(1)}`; } return `<path d="${d}Z" fill="${fill}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`; };
+const rect = (x, y, w, h, r, fill, sw = SW) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${st(fill, sw)}/>`;
+const circ = (x, y, r, fill, sw = SW) => `<circle cx="${x}" cy="${y}" r="${r}" ${st(fill, sw)}/>`;
+const lens = (x, y, r, col) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${col}" stroke="${INK}" stroke-width="3"/><circle cx="${x - r * 0.3}" cy="${y - r * 0.3}" r="${r * 0.32}" fill="#fff" opacity=".85"/>`;
+const bolts = (n, r, rad = 2.6) => Array.from({ length: n }, (_, i) => { const a = (i / n) * TAU + 0.4; return `<circle cx="${(Math.cos(a) * r).toFixed(1)}" cy="${(Math.sin(a) * r).toFixed(1)}" r="${rad}" fill="${INK}" opacity=".55"/>`; }).join('');
+const vents = (x, y, n, len = 12, gap = 6) => `<path d="${Array.from({ length: n }, (_, i) => `M${x} ${y + i * gap} h${len}`).join(' ')}" ${line(2.8, 'rgba(0,0,0,.35)')}/>`;
+const poly = (pts, fill, sw = SW) => `<path d="M${pts.map((p) => p.join(' ')).join(' L')} Z" ${st(fill, sw)}/>`;
+// couleurs d'armure / de canon : dorées au niveau 5
+const arm = (L) => (L >= 5 ? GOLD : DARK), bar = (L) => (L >= 5 ? '#E3A21C' : STEEL);
 
-// Dessinées vers +x, pivot en (0,0), 2 unités = 1 px de jeu. L = niveau (1-5), b = branche (0/1/null), R = couleur de rareté.
-const TOWER_ART = {
-  assault: (L, b, R, M) => `
-    <path d="M-80 -9 L-42 -11 L-42 11 L-64 17 Q-82 19 -82 5 Z" ${st(WOOD)}/>
-    <rect x="-28" y="8" width="15" height="28" rx="6" transform="rotate(14 -20 10)" ${st(DARK)}/>
-    ${b === 0 ? `<circle cx="12" cy="30" r="20" ${st(DARK)}/><circle cx="12" cy="30" r="9" ${st(STEEL, 3.5)}/>` : `<path d="M0 10 L22 10 L${28 + L} ${34 + L * 3} Q16 ${44 + L * 3} 6 ${36 + L * 3} Z" ${st(DARK)}/>`}
-    <rect x="36" y="-6" width="${L >= 3 ? 40 : 50}" height="10" rx="4" ${st(STEEL)}/>
-    ${L >= 3 ? `<rect x="72" y="-11" width="16" height="20" rx="5" ${st(DARK)}/>` : ''}
-    <rect x="28" y="-13" width="34" height="22" rx="8" ${st(shade(M, -0.28))}/><path d="M36 -4 h18 M36 3 h18" ${line(2.6, 'rgba(0,0,0,.3)')}/>
-    <rect x="-46" y="-17" width="82" height="32" rx="12" ${st(M)}/>
-    <rect x="-36" y="5" width="48" height="6" rx="3" fill="${R}"/>
-    ${b === 1 ? `<rect x="-26" y="-36" width="56" height="17" rx="8.5" ${st(DARK, 4.5)}/><circle cx="30" cy="-27.5" r="6" fill="${R}" stroke="${INK}" stroke-width="3"/><rect x="-14" y="-21" width="8" height="6" fill="${INK}"/><rect x="10" y="-21" width="8" height="6" fill="${INK}"/>` : L >= 2 ? `<rect x="-16" y="-32" width="28" height="16" rx="6" ${st(DARK, 4.5)}/><circle cx="-2" cy="-24" r="4.2" fill="${R}"/>` : `<rect x="-6" y="-26" width="12" height="10" rx="3" ${st(DARK, 4)}/>`}
-    ${shine(-26, -9, 14, 3, 0, 0.45)}${gunEyes(-14, -3)}${L >= 5 ? star(20, -2, 8) : ''}`,
-  smg: (L, b, R, M) => { const n = b === 1 ? (L >= 5 ? 3 : 2) : 1, h = 30 + (n - 1) * 12; return `
-    <path d="M-72 ${-h / 2 + 4} H-42 M-72 ${-h / 2 + 4} V10" ${line(11)}/><path d="M-72 ${-h / 2 + 4} H-42 M-72 ${-h / 2 + 4} V10" ${line(5, STEEL)}/>
-    <rect x="-36" y="8" width="15" height="26" rx="6" transform="rotate(12 -28 10)" ${st(DARK)}/>
-    <rect x="-6" y="8" width="17" height="${32 + L * 3}" rx="6" ${st(DARK)}/><rect x="-3" y="${32 + L * 3}" width="11" height="5" rx="2" fill="${R}"/>
-    ${Array.from({ length: n }, (_, i) => { const y = (i - (n - 1) / 2) * 13; return b === 0 ? `<rect x="24" y="${y - 9}" width="48" height="18" rx="8" ${st(DARK)}/><path d="M36 ${y - 9} v18 M48 ${y - 9} v18 M60 ${y - 9} v18" ${line(2.4, 'rgba(255,255,255,.25)')}/>` : `<rect x="24" y="${y - 5.5}" width="48" height="11" rx="5" ${st(STEEL)}/>`; }).join('')}
-    <rect x="-46" y="${-h / 2}" width="76" height="${h}" rx="13" ${st(M)}/>
-    <rect x="-36" y="${h / 2 - 11}" width="40" height="6" rx="3" fill="${R}"/>
-    ${L >= 2 ? `<rect x="-10" y="${-h / 2 - 12}" width="22" height="13" rx="5" ${st(DARK, 4.5)}/><circle cx="1" cy="${-h / 2 - 5.5}" r="3.4" fill="${R}"/>` : ''}
-    ${L >= 3 ? `<circle cx="20" cy="${h / 2 - 2}" r="6" ${st('#FFD23F', 3.5)}/>` : ''}
-    ${shine(-28, -h / 2 + 8, 12, 3, 0, 0.45)}${gunEyes(-18, -2)}${L >= 5 ? star(12, -3, 7) : ''}`; },
-  shotgun: (L, b, R, M) => `
-    <path d="M-86 -6 Q-86 -15 -76 -15 L-38 -12 L-38 12 L-72 20 Q-86 20 -86 8 Z" ${st(WOOD)}/><path d="M-76 -6 L-48 -4" ${line(3, 'rgba(255,255,255,.3)')}/>
-    <rect x="6" y="1" width="60" height="11" rx="5" ${st(DARK)}/>
-    <rect x="6" y="-14" width="${b === 1 ? 82 : 76}" height="14" rx="6" ${st(STEEL)}/>
-    ${b === 1 ? `<rect x="76" y="-17" width="12" height="20" rx="4" ${st(DARK)}/>` : b === 0 ? `<path d="M74 -17 h14 l-4 5 l4 5 l-4 5 l4 5 h-14 z" ${st('#F04A3A', 4)}/>` : `<rect x="78" y="-16" width="10" height="18" rx="4" ${st(DARK, 4.5)}/>`}
-    <rect x="26" y="-3" width="30" height="18" rx="7" ${st(shade(WOOD, -0.15))}/><path d="M34 -1 v14 M41 -1 v14 M48 -1 v14" ${line(2.4, 'rgba(0,0,0,.3)')}/>
-    <rect x="-42" y="-18" width="52" height="34" rx="12" ${st(M)}/>
-    <rect x="-34" y="6" width="34" height="6" rx="3" fill="${R}"/>
-    ${L >= 2 ? Array.from({ length: Math.min(4, L) }, (_, i) => `<rect x="${-36 + i * 10}" y="-29" width="8" height="12" rx="3" ${st('#F04A3A', 3.5)}/><rect x="${-36 + i * 10}" y="-21" width="8" height="4" fill="#FFD23F"/>`).join('') : ''}
-    ${shine(-26, -10, 10, 3, 0, 0.45)}${gunEyes(-18, -2)}${L >= 5 ? star(0, -3, 7) : ''}`,
-  sniper: (L, b, R, M) => `
-    <path d="M-98 -8 L-54 -12 L-54 12 L-80 18 Q-98 18 -98 6 Z" ${st(shade(M, -0.25))}/><rect x="-90" y="-16" width="30" height="9" rx="4" ${st(DARK, 4)}/>
-    ${L >= 2 ? `<path d="M62 2 L50 28 M62 2 L76 28" ${line(9)}/><path d="M62 2 L50 28 M62 2 L76 28" ${line(4, STEEL)}/>` : ''}
-    <rect x="20" y="${b === 0 ? -8 : -5.5}" width="88" height="${b === 0 ? 15 : 10}" rx="5" ${st(STEEL)}/>
-    <rect x="${b === 0 ? 98 : 102}" y="${b === 0 ? -13 : -10}" width="${b === 0 ? 22 : 18}" height="${b === 0 ? 25 : 19}" rx="5" ${st(DARK)}/>${b === 0 ? `<path d="M105 -13 v25 M113 -13 v25" ${line(2.4, 'rgba(255,255,255,.3)')}/>` : ''}
-    <rect x="-20" y="10" width="20" height="${16 + L * 2}" rx="5" ${st(DARK)}/>
-    <rect x="-58" y="-15" width="86" height="29" rx="11" ${st(M)}/>
-    <rect x="-48" y="5" width="50" height="6" rx="3" fill="${R}"/>
-    <rect x="-30" y="-22" width="8" height="9" fill="${INK}"/><rect x="6" y="-22" width="8" height="9" fill="${INK}"/>
-    <rect x="-42" y="-38" width="${68 + L * 4}" height="17" rx="8.5" ${st(DARK)}/>
-    <rect x="${22 + L * 4}" y="-43" width="15" height="27" rx="6" ${st(DARK)}/>
-    <ellipse cx="${30 + L * 4}" cy="-29.5" rx="4" ry="8.5" fill="${b === 1 ? '#FF7A3C' : R}" stroke="${INK}" stroke-width="2.4"/>
-    <rect x="-48" y="-41" width="10" height="23" rx="4" ${st(DARK, 4.5)}/>
-    ${shine(-20, -34, 16, 2.5, 0, 0.4)}${gunEyes(-34, -2)}${L >= 5 ? star(8, -2, 7) : ''}`,
-  rocket: (L, b, R, M) => `
-    <path d="M-92 -24 L-66 -15 L-66 15 L-92 24 Z" ${st(DARK)}/>
-    <rect x="-18" y="14" width="15" height="26" rx="6" ${st(DARK)}/>${L >= 2 ? `<rect x="22" y="14" width="14" height="20" rx="6" ${st(DARK)}/>` : ''}
-    <path d="M68 -13 Q94 -9 100 0 Q94 9 68 13 Z" ${st('#F04A3A')}/><path d="M76 -10 Q80 0 76 10" ${line(3, '#fff')}/>
-    <rect x="-68" y="-18" width="136" height="36" rx="13" ${st(M)}/>
-    <rect x="-46" y="-18" width="9" height="36" fill="${R}"/><rect x="34" y="-18" width="9" height="36" fill="${R}"/>
-    <rect x="56" y="-21" width="17" height="42" rx="7" ${st(DARK)}/>
-    ${b === 0 ? [-30, -6, 18].map((x) => `<path d="M${x} -36 h14 l8 7 l-8 7 h-14 z" ${st('#F04A3A', 3.5)}/>`).join('') : b === 1 ? `<path d="M-18 -20 v-12" ${line(5)}/><path d="M-32 -44 q14 14 28 0 z" ${st(STEEL, 4)}/><rect x="2" y="-36" width="26" height="18" rx="5" ${st(DARK, 4)}/><circle cx="15" cy="-27" r="5" fill="#4CD137"/>` : `<rect x="-12" y="-36" width="24" height="18" rx="5" ${st(DARK, 4.5)}/><circle cx="0" cy="-27" r="4.4" fill="${R}"/>`}
-    ${shine(-12, -10, 22, 3, 0, 0.45)}${gunEyes(10, -1, 1.1)}${L >= 5 ? star(-56, 0, 7) : ''}`,
-  minigun: (L, b, R, M) => `
-    <rect x="-74" y="6" width="42" height="${28 + L * 2}" rx="8" ${st(shade(M, -0.3))}/>${[0, 1, 2].map((i) => `<circle cx="${-64 + i * 11}" cy="18" r="3.4" fill="#FFD23F" stroke="${INK}" stroke-width="2"/>`).join('')}
-    <path d="M-48 -20 Q-32 -48 -8 -20" ${line(11)}/><path d="M-48 -20 Q-32 -48 -8 -20" ${line(5, DARK)}/>
-    <rect x="6" y="-19" width="90" height="38" rx="8" ${st(b === 0 ? '#C97A6A' : STEEL)}/>
-    ${b === 0 ? '<rect x="60" y="-17" width="34" height="34" rx="6" fill="#FF7A3C" opacity=".75"/>' : ''}
-    <rect x="42" y="-22" width="11" height="44" rx="5" ${st(DARK, 4.5)}/><rect x="86" y="-22" width="13" height="44" rx="5" ${st(DARK)}/>
-    <rect x="-6" y="-23" width="14" height="46" rx="6" ${st(DARK)}/>
-    <rect x="-64" y="-23" width="64" height="46" rx="15" ${st(M)}/>
-    <rect x="-54" y="10" width="40" height="6" rx="3" fill="${R}"/>
-    ${b === 1 ? `<path d="M-22 -8 q8 -14 2 -22 q14 8 12 22 q-2 10 -9 10 q-9 0 -5 -10 z" ${st('#FF7A3C', 3)}/>` : ''}
-    ${L >= 3 ? `<rect x="-40" y="-36" width="24" height="14" rx="5" ${st(DARK, 4.5)}/><circle cx="-28" cy="-29" r="3.6" fill="${R}"/>` : ''}
-    ${shine(-44, -14, 12, 3, 0, 0.45)}${gunEyes(-38, -3, 1.1)}${L >= 5 ? star(-14, 2, 7) : ''}`,
-  cryo: (L, b, R, M) => `
-    ${[-1, 1].map((k) => `<rect x="${k * 30 - 9}" y="34" width="18" height="16" rx="6" ${st(DARK, 4.5)}/>`).join('')}
-    ${L >= 2 ? [-1, 1].map((k) => `<path d="M${k * 30} -22 l${k * 12} -22 l${k * 4} 26 z" ${st('#BDF3FF', 4)}/>`).join('') : ''}
-    <path d="M0 -78 L${22 + L * 2} -44 L15 -8 L-15 -8 L${-22 - L * 2} -44 Z" ${st(b === 1 ? '#FFC2E2' : '#BDF3FF')}/>
-    <path d="M0 -78 L0 -8 M${22 + L * 2} -44 L0 -30 L${-22 - L * 2} -44" ${line(2.6, 'rgba(255,255,255,.8)')}/>
-    ${b === 1 ? `<path d="M-6 -60 l8 12 l-10 10 l8 12" ${line(3, INK)}/>` : ''}
-    ${[-1, 1].map((k) => `<circle cx="${k * 44}" cy="10" r="13" ${st(DARK)}/><circle cx="${k * 44}" cy="10" r="6" fill="#8fe9ff"/>`).join('')}
-    <rect x="-36" y="-12" width="72" height="52" rx="18" ${st(M)}/>
-    <rect x="-36" y="26" width="72" height="7" fill="${R}"/>
-    ${b === 0 ? [0, 60, 120].map((a) => `<path d="M-20 -44 h40" transform="rotate(${a} 0 -44)" ${line(4, '#fff')}/>`).join('') : ''}
-    ${shine(-22, -2, 5, 10, 14, 0.5)}
-    <g>${[-1, 1].map((k) => `<ellipse cx="${k * 11}" cy="8" rx="5.6" ry="7" fill="${INK}"/><circle cx="${k * 11 - 2}" cy="5.5" r="2.2" fill="#fff"/>`).join('')}<path d="M-5 17 q5 5 10 0" ${line(2.8, INK)}/><ellipse cx="-22" cy="16" rx="5" ry="3" fill="#ff8fab" opacity=".7"/><ellipse cx="22" cy="16" rx="5" ry="3" fill="#ff8fab" opacity=".7"/></g>
-    ${L >= 5 ? star(0, -44, 8) : ''}`,
-  mine: (L, b, R, M) => { const sp = b === 0 ? 52 : 44 + L; return `
-    ${Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * TAU, c = Math.cos(a), s = Math.sin(a), w = 0.26; return `<path d="M${Math.cos(a - w) * 30} ${Math.sin(a - w) * 30} L${c * sp} ${s * sp} L${Math.cos(a + w) * 30} ${Math.sin(a + w) * 30} Z" ${st(b === 1 ? '#FFD23F' : DARK, 4.5)}/>`; }).join('')}
-    <circle cx="0" cy="0" r="35" ${st(M)}/>
-    <circle cx="0" cy="0" r="25" fill="none" stroke="${R}" stroke-width="6"/>
-    ${b === 0 ? `<circle cx="0" cy="0" r="25" fill="none" stroke="${INK}" stroke-width="6" stroke-dasharray="8 11.6"/>` : ''}
-    ${[45, 135, 225, 315].map((a) => `<circle cx="${Math.cos((a * Math.PI) / 180) * 30}" cy="${Math.sin((a * Math.PI) / 180) * 30}" r="2.6" fill="${INK}" opacity=".5"/>`).join('')}
-    <circle cx="0" cy="-6" r="12" ${st(DARK, 4.5)}/>
-    ${b === 1 ? `<path d="M-22 6 l8 -8 l-2 8 l8 -4 M22 6 l-8 -8 l2 8 l-8 -4" ${line(2.8, '#FFD23F')}/>` : ''}
-    ${shine(-18, -20, 8, 3.5, -30, 0.45)}${gunEyes(0, 17, 0.9)}`; },
+// Socle : grandit et se blinde avec le niveau, anneau à la couleur de la rareté
+function basePlate(L, R, M) {
+  const r = [42, 48, 52, 56, 58][L - 1], A = L >= 5 ? GOLD : L >= 3 ? '#565b73' : DARK;
+  let s = `<circle cx="0" cy="6" r="${r + 2}" fill="${INK}" opacity=".3"/>`;
+  if (L >= 3) s += poly(Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * TAU + 0.39; return [(Math.cos(a) * (r + 5)).toFixed(1), (Math.sin(a) * (r + 5)).toFixed(1)]; }), A);
+  else s += circ(0, 0, r, A);
+  if (L >= 4) s += [45, 135, 225, 315].map((a) => `<rect x="${r - 6}" y="-9" width="14" height="18" rx="4" transform="rotate(${a})" ${st(M, 4)}/>`).join('');
+  s += `<circle r="${r - 9}" fill="${shade(A, -0.25)}" stroke="${R}" stroke-width="6"/>`;
+  if (L >= 2) s += bolts(L >= 3 ? 8 : 4, r - 3.5);
+  s += `<path d="M${-r + 8} -14 A${r - 4} ${r - 4} 0 0 1 -14 ${-r + 8}" ${line(3.5, 'rgba(255,255,255,.4)')}/>`;
+  return s;
+}
+// Tête : chaque fonction renvoie le SVG de la partie qui pivote
+const HEAD = {
+  // Fusil d'assaut — compact, plaques de blindage, bleu
+  assault: (L, b, R, M) => {
+    const A = arm(L), B = bar(L); let s = '';
+    if (b === 0) { // Rafale : trois canons et tambour de munitions
+      s += [-11, 0, 11].map((y) => rect(20, y - 4.5, 62, 9, 4, B, 4.5)).join('') + rect(74, -19, 12, 38, 5, A);
+      s += circ(-6, 34, 17, A) + circ(-6, 34, 7, GOLD, 3.5) + rect(-34, -26, 60, 52, 14, M) + rect(-30, -34, 44, 12, 5, A, 4.5);
+    } else if (b === 1) { // Balles traçantes : long canon, capteur et viseur laser
+      s += rect(20, -5.5, 84, 11, 5, B) + rect(92, -9, 16, 18, 5, A) + `<circle cx="110" cy="0" r="5" fill="#ff5d6c"/>`;
+      s += rect(-34, -24, 58, 48, 14, M) + rect(-20, -40, 40, 16, 7, A, 4.5) + lens(20, -32, 8, '#ff5d6c') + rect(-30, 24, 40, 10, 4, A, 4.5);
+    } else {
+      s += rect(20, -5.5, L >= 3 ? 70 : 54, 11, 5, B);
+      if (L >= 3) s += rect(82, -9, 14, 18, 5, A) + rect(20, 10, 40, 7, 3.5, B, 4);
+      else s += rect(68, -8, 9, 16, 4, A, 4.5);
+      s += rect(-32, -23, 56, 46, 13, M);
+      if (L >= 2) s += rect(-28, -32, 42, 11, 5, A, 4.5) + rect(-28, 21, 42, 11, 5, A, 4.5);
+    }
+    s += rect(-22, -10, 26, 20, 7, shade(M, -0.3), 4) + lens(-9, 0, 6, R) + shine(-18, -16, 10, 3, 0, 0.45);
+    if (L >= 3) s += vents(8, -8, 3, 9);
+    return s + (L >= 5 ? star(8, 0, 9) : '');
+  },
+  // Mitraillette — petite, nerveuse, double chargeur, verte
+  smg: (L, b, R, M) => {
+    const A = arm(L), B = bar(L); let s = '';
+    const mags = [-1, 1].map((k) => circ(-4, k * 27, 13, A) + `<circle cx="-4" cy="${k * 27}" r="5" fill="#FFD23F" stroke="${INK}" stroke-width="2.6"/>`).join('');
+    if (b === 0) { // Perforantes : deux aiguilles effilées
+      s += [-7, 7].map((y) => poly([[14, y - 5], [70, y - 3.5], [92, y], [70, y + 3.5], [14, y + 5]], '#3a3f55', 4.5) + `<path d="M74 ${y} L90 ${y}" ${line(2.4, '#c9a6ff')}/>`).join('');
+      s += mags + circ(0, 0, 25, M) + rect(10, -15, 12, 30, 5, A, 4.5);
+    } else if (b === 1) { // Double / triple canon
+      const ys = L >= 5 ? [-17, 0, 17] : [-12, 12];
+      s += ys.map((y) => rect(12, y - 7, 54, 14, 6, B) + rect(58, y - 9, 10, 18, 4, A, 4.5)).join('');
+      s += mags + rect(-28, -27, 50, 54, 16, M);
+    } else {
+      s += (L >= 3 ? [-6.5, 6.5] : [0]).map((y) => rect(14, y - 4.5, L >= 3 ? 54 : 44, 9, 4, B, 4.5)).join('');
+      s += mags + circ(0, 0, 24, M);
+      if (L >= 2) s += `<path d="M14 -22 A26 26 0 0 1 14 22" ${line(13)}/><path d="M14 -22 A26 26 0 0 1 14 22" ${line(6, A === GOLD ? GOLD : '#6b7185')}/>`;
+    }
+    s += lens(-6, 0, 7, R) + shine(-12, -14, 7, 2.6, -20, 0.5);
+    return s + (L >= 5 ? star(-22, 0, 7) : '');
+  },
+  // Pompe — trapue, canon large et court, orange
+  shotgun: (L, b, R, M) => {
+    const A = arm(L), B = bar(L); let s = '';
+    if (b === 0) { // Souffle du dragon : tête de dragon
+      s += [-1, 1].map((k) => poly([[-22, k * 20], [-52, k * 40], [-30, k * 12]], '#FFF0C4', 4.5)).join('');
+      s += `<path d="M-34 -26 Q-40 0 -34 26 L18 22 Q62 16 70 6 L70 -6 Q62 -16 18 -22 Z" ${st(HOT)}/>`;
+      s += poly([[62, -9], [84, -5], [84, 5], [62, 9]], '#3a2030', 4.5) + `<path d="M84 -4 q14 -6 20 4 q-8 -2 -10 4 q-4 -6 -10 -4 z" fill="#FFD23F" stroke="#FF8A2A" stroke-width="3" stroke-linejoin="round"/>`;
+      s += [-1, 1].map((k) => `<ellipse cx="14" cy="${k * 13}" rx="8" ry="4.5" fill="#FFD23F" stroke="${INK}" stroke-width="3" transform="rotate(${k * 12} 14 ${k * 13})"/><ellipse cx="15" cy="${k * 13}" rx="2" ry="4" fill="${INK}"/><circle cx="52" cy="${k * 5}" r="2.4" fill="${INK}"/>`).join('');
+      s += [-22, -6, 10].map((x) => poly([[x - 6, 0], [x + 2, -6], [x + 8, 0], [x + 2, 6]], L >= 5 ? GOLD : '#FFB347', 3.5)).join('');
+      return s + shine(-10, -15, 16, 3, 6, 0.4) + (L >= 5 ? star(36, 0, 7) : '');
+    }
+    if (b === 1) { // Canon long : fusil de chasse à deux longs canons
+      s += [-7, 7].map((y) => rect(10, y - 5.5, 96, 11, 5, B, 4.5)).join('') + rect(96, -15, 10, 30, 4, A, 4.5);
+      s += rect(18, -15, 34, 30, 8, WOOD) + vents(26, -8, 4, 18, 5.5) + circ(92, 0, 3.5, '#FFD23F', 3);
+      s += rect(-36, -27, 52, 54, 14, M) + rect(-52, -12, 22, 24, 7, WOOD);
+    } else {
+      const ys = L >= 3 ? [-15, 15] : [0], h = L >= 3 ? 12 : 16;
+      s += ys.map((y) => poly([[12, y - h], [L >= 3 ? 62 : 54, y - h - 5], [L >= 3 ? 62 : 54, y + h + 5], [12, y + h]], B) + `<ellipse cx="${L >= 3 ? 61 : 53}" cy="${y}" rx="4" ry="${h + 1}" fill="${INK}" opacity=".75"/>`).join('');
+      s += rect(-36, -30, 54, 60, 15, M);
+      if (L >= 2) s += rect(-42, -20, 12, 40, 5, A, 4.5) + [-18, -6, 6].map((y) => `<rect x="-26" y="${y}" width="16" height="9" rx="3" fill="${HOT}" stroke="${INK}" stroke-width="2.6"/><rect x="-14" y="${y}" width="4" height="9" fill="#FFD23F"/>`).join('');
+    }
+    s += lens(4, 0, 7, R) + shine(-16, -21, 13, 3, 0, 0.45);
+    return s + (L >= 5 ? star(-18, 18, 7) : '');
+  },
+  // Sniper — fin, très long canon, grande lunette, violet
+  sniper: (L, b, R, M) => {
+    const A = arm(L), B = bar(L); let s = '';
+    if (b === 0) { // Calibre lourd : canon épais, gros frein de bouche
+      s += rect(8, -8, 100, 16, 6, B) + rect(96, -15, 26, 30, 6, A) + `<path d="M104 -15 v30 M112 -15 v30" ${line(2.6, 'rgba(255,255,255,.3)')}/>`;
+      s += [30, 44, 58].map((x) => rect(x, -11, 7, 22, 3, A, 4)).join('');
+      s += rect(-44, -15, 60, 30, 10, M) + rect(-30, -31, 54, 15, 7.5, A, 4.5) + lens(26, -23.5, 7, R) + rect(-58, -9, 18, 18, 6, A, 4.5);
+    } else if (b === 1) { // Lunette thermique : grosse optique orange, chargeur
+      s += rect(8, -4.5, 108, 9, 4.5, B, 4.5) + rect(108, -8, 12, 16, 4, A, 4.5);
+      s += rect(-42, -13, 56, 26, 9, M) + rect(-24, 12, 22, 26, 6, A, 4.5);
+      s += rect(-36, -36, 70, 20, 10, A) + `<ellipse cx="36" cy="-26" rx="7" ry="12" fill="#FF7A3C" stroke="${INK}" stroke-width="4"/><ellipse cx="34" cy="-29" rx="2.4" ry="4.5" fill="#fff" opacity=".8"/>` + `<path d="M-30 -22 q-14 6 -8 18" ${line(3.5, '#ff7a3c')}/>`;
+    } else {
+      s += rect(8, -4.5, L >= 3 ? 104 : 92, 9, 4.5, B, 4.5);
+      s += L >= 3 ? rect(104, -9, 16, 18, 5, A) : rect(94, -7, 9, 14, 4, A, 4.5);
+      s += rect(-42, -12, 56, 24, 9, M);
+      if (L >= 2) s += rect(-54, -8, 16, 16, 5, A, 4.5) + rect(-20, 10, 18, 9, 4, A, 4);
+      s += rect(-28, -27 - (L >= 3 ? 3 : 0), L >= 3 ? 58 : 46, L >= 3 ? 16 : 13, 7, A, 4.5) + lens(L >= 3 ? 30 : 18, L >= 3 ? -22 : -20.5, L >= 3 ? 7 : 5.5, R);
+    }
+    s += shine(-26, -7, 12, 2.4, 0, 0.5) + rect(-18, -5, 16, 10, 4, shade(M, -0.3), 3.5);
+    return s + (L >= 5 ? star(-28, 0, 7) : '');
+  },
+  // Lance-roquettes — lanceur à tubes multiples, rouge
+  rocket: (L, b, R, M) => {
+    const A = arm(L); let s = '';
+    const tube = (y, h, x1 = 44) => rect(6, y - h / 2, x1 - 6, h, h / 2.6, DARK, 4.5) + poly([[x1 - 2, y - h / 2 + 2.5], [x1 + h * 0.75, y], [x1 - 2, y + h / 2 - 2.5]], '#fff', 4) + `<circle cx="${x1 + h * 0.3}" cy="${y}" r="${h * 0.16}" fill="${HOT}"/>`;
+    if (b === 0) { // Fragmentation : gros panier à 6 petits tubes
+      s += rect(-40, -40, 80, 80, 16, M) + rect(-46, -26, 12, 52, 5, A, 4.5);
+      s += [[-24, 30], [0, 38], [24, 30]].map(([y, x]) => rect(-4, y - 8, x + 12, 16, 6, DARK, 4.5) + circ(x + 8, y, 6.5, '#FFD23F', 3.5)).join('');
+      s += [[-12, 4], [12, 4]].map(([y, x]) => circ(x, y, 7.5, '#FFD23F', 3.5)).join('') + circ(-18, 0, 7.5, '#FFD23F', 3.5);
+    } else if (b === 1) { // Missile guidé : deux gros missiles à ailettes et radar
+      s += rect(-38, -30, 62, 60, 14, M);
+      s += [-18, 18].map((y) => poly([[-30, y - 12], [-18, y - 6], [-18, y + 6], [-30, y + 12]], A, 4) + rect(-22, y - 7.5, 76, 15, 7, '#F3F6FA', 4.5) + poly([[52, y - 7.5], [74, y], [52, y + 7.5]], HOT, 4.5) + `<rect x="10" y="${y - 7.5}" width="8" height="15" fill="${R}"/>`).join('');
+      s += `<path d="M-34 -14 A16 16 0 0 0 -34 14 Z" ${st(STEEL, 4.5)}/>` + circ(-28, 0, 4.5, '#4CD137', 3);
+    } else {
+      const ys = L >= 3 ? [-22.5, -7.5, 7.5, 22.5] : L >= 2 ? [-19, 0, 19] : [-13, 13], h = L >= 3 ? 12.5 : L >= 2 ? 15 : 20;
+      s += rect(-40, -33, 62, 66, 14, M) + ys.map((y) => tube(y, h, L >= 3 ? 52 : 46)).join('') + rect(-30, -22, 22, 44, 8, shade(M, -0.3), 4) + lens(-19, 0, 6, R);
+      if (L >= 2) s += rect(-46, -24, 12, 48, 5, A, 4.5);
+      if (L >= 3) s += rect(-22, -37, 36, 9, 4, A, 4) + rect(-22, 28, 36, 9, 4, A, 4);
+    }
+    s += shine(-24, -26, 9, 2.6, 0, 0.45);
+    return s + (L >= 5 ? star(-26, 0, 8) : '');
+  },
+  // Minigun — grosse tourelle blindée à 6 canons, grise et jaune
+  minigun: (L, b, R, M) => {
+    const A = arm(L), Y = '#FFC531', len = L >= 3 ? 66 : 54; let s = '';
+    const B = b === 0 ? '#E0694A' : bar(L);
+    s += rect(26, -15, len, 30, 6, B) + `<path d="M30 -5 h${len - 8} M30 5 h${len - 8}" ${line(3, 'rgba(0,0,0,.35)')}/>`;
+    if (b === 0) s += `<rect x="${26 + len - 30}" y="-13" width="28" height="26" rx="5" fill="#FFB347" opacity=".8"/>` + vents(40, -22, 1, 30) + vents(40, 22, 1, 30);
+    s += rect(22 + len, -19, 11, 38, 5, A) + (L >= 3 ? rect(54, -18, 9, 36, 4, A, 4.5) : '') + rect(14, -22, 16, 44, 6, A);
+    s += rect(-30, 26, 44, 22, 6, Y) + [0, 1, 2].map((i) => `<circle cx="${-20 + i * 12}" cy="37" r="3.4" fill="${INK}" opacity=".6"/>`).join('');
+    s += rect(-44, -34, 64, 68, 16, M);
+    s += `<path d="M-36 -34 l12 0 l-14 16 z M-12 -34 l14 0 l-52 62 l0 -16 z M14 -34 l6 6 l0 10 l-42 52 l-14 0 z" fill="${Y}" opacity=".9"/>` + `<rect x="-44" y="-34" width="64" height="68" rx="16" fill="none" stroke="${INK}" stroke-width="${SW}"/>`;
+    if (L >= 2) s += rect(-52, -24, 14, 48, 6, A, 4.5) + rect(4, -42, 22, 12, 5, A, 4.5);
+    if (b === 1) s += rect(-58, -18, 22, 36, 9, HOT) + `<path d="M-50 4 q6 -12 2 -18 q10 6 9 17 q-1 8 -6 8 q-7 0 -5 -7 z" fill="#FFD23F" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/>` + rect(20 + len, -22, 14, 44, 6, HOT);
+    s += circ(-12, 0, 13, shade(M, -0.3), 4.5) + lens(-12, 0, 7, R) + shine(-30, -26, 10, 3, 0, 0.45);
+    return s + (L >= 5 ? star(6, 22, 7) : '');
+  },
+  // Cryo — cristal givrant et émetteurs, cyan (ne pivote pas)
+  cryo: (L, b, R, M) => {
+    const A = arm(L); let s = '';
+    const hex = (r, fill, sw = SW, rot = 0) => poly(Array.from({ length: 6 }, (_, i) => { const a = (i / 6) * TAU + rot; return [(Math.cos(a) * r).toFixed(1), (Math.sin(a) * r).toFixed(1)]; }), fill, sw);
+    if (L >= 2) s += [45, 135, 225, 315].map((a) => { const x = Math.cos((a * Math.PI) / 180) * 36, y = Math.sin((a * Math.PI) / 180) * 36; return circ(x, y, 9, A, 4.5) + `<circle cx="${x}" cy="${y}" r="4" fill="#8fe9ff"/>`; }).join('');
+    s += hex(34, M) + hex(24, shade(M, -0.3), 4);
+    if (b === 0) { // Zéro absolu : grand flocon blanc
+      s += circ(0, 0, 30, '#2E6FD9');
+      s += [0, 60, 120].map((a) => `<g transform="rotate(${a})"><path d="M-40 0 H40 M-30 -9 L-22 0 L-30 9 M30 -9 L22 0 L30 9" ${line(9)}/><path d="M-40 0 H40 M-30 -9 L-22 0 L-30 9 M30 -9 L22 0 L30 9" ${line(4.5, '#fff')}/></g>`).join('');
+      s += circ(0, 0, 8, '#fff', 4);
+    } else if (b === 1) { // Givre fragilisant : cristal brisé rose
+      s += poly([[0, -44], [9, -16], [38, -22], [18, 0], [40, 22], [10, 15], [0, 46], [-10, 15], [-38, 24], [-17, 0], [-40, -20], [-9, -15]], '#FF9DD2');
+      s += `<path d="M0 -44 L0 46 M-40 -20 L40 22 M38 -22 L-38 24" ${line(2.4, 'rgba(255,255,255,.75)')}/><path d="M-4 -10 l8 8 l-9 7 l7 8" ${line(3, INK)}/>`;
+    } else {
+      const r = L >= 3 ? 26 : 18;
+      if (L >= 3) s += [0, 60, 120, 180, 240, 300].map((a) => `<path d="M0 ${-r - 14} l5 8 l-5 6 l-5 -6 z" transform="rotate(${a})" ${st('#BDF3FF', 3.5)}/>`).join('');
+      s += poly([[0, -r], [r * 0.62, -r * 0.3], [r * 0.62, r * 0.3], [0, r], [-r * 0.62, r * 0.3], [-r * 0.62, -r * 0.3]], '#BDF3FF');
+      s += `<path d="M0 ${-r} L0 ${r} M${-r * 0.62} ${-r * 0.3} L${r * 0.62} ${r * 0.3} M${r * 0.62} ${-r * 0.3} L${-r * 0.62} ${r * 0.3}" ${line(2.4, 'rgba(255,255,255,.85)')}/>`;
+    }
+    return s + shine(-14, -18, 7, 3, -30, 0.5) + (L >= 5 ? star(0, 0, 9) : '');
+  },
+  // Mine — disque piégé (le voyant clignotant est dessiné par le jeu)
+  mine: (L, b, R, M) => {
+    const r = b === 0 ? 40 : [30, 33, 35, 36, 36][L - 1], n = b === 0 ? 10 : L >= 3 ? 8 : 6, A = arm(L); let s = '';
+    s += `<circle cx="0" cy="5" r="${r + 4}" fill="${INK}" opacity=".3"/>`;
+    s += Array.from({ length: n }, (_, i) => { const a = (i / n) * TAU, w = 0.22, sp = r + (L >= 3 || b != null ? 13 : 8); return poly([[Math.cos(a - w) * (r - 4), Math.sin(a - w) * (r - 4)], [Math.cos(a) * sp, Math.sin(a) * sp], [Math.cos(a + w) * (r - 4), Math.sin(a + w) * (r - 4)]].map((p) => p.map((v) => v.toFixed(1))), b === 1 ? '#FFD23F' : A, 4.5); }).join('');
+    s += circ(0, 0, r, M);
+    if (b === 0) s += `<circle r="${r - 8}" fill="none" stroke="#FFD23F" stroke-width="7" stroke-dasharray="9 9"/>`;
+    else if (L >= 2) s += `<circle r="${r - 8}" fill="none" stroke="${R}" stroke-width="5"/>`;
+    if (b === 1) s += `<circle r="${r - 9}" fill="none" stroke="#8fe9ff" stroke-width="5"/>` + [0, 90, 180, 270].map((a) => `<path d="M${r - 20} -3 l7 -4 l-3 6 l8 -3" transform="rotate(${a + 45})" ${line(3, '#fff')}/>`).join('');
+    s += bolts(L >= 3 ? 6 : 4, r - 5, 2.4) + circ(0, 0, 11, DARK, 4.5) + shine(-r * 0.5, -r * 0.55, 7, 3, -35, 0.45);
+    return s + (L >= 5 ? star(0, -r + 12, 6) : '');
+  },
 };
+// Pieds du trépied du sniper (sous le socle)
+const tripod = (L) => [90, 210, 330].map((a) => `<g transform="rotate(${a})"><path d="M0 0 H${L >= 2 ? 62 : 56}" ${line(L >= 2 ? 16 : 13)}/><path d="M0 0 H${L >= 2 ? 62 : 56}" ${line(L >= 2 ? 8 : 6, L >= 5 ? GOLD : STEEL)}/>${circ(L >= 2 ? 62 : 56, 0, L >= 2 ? 10 : 8, L >= 5 ? GOLD : DARK, 4.5)}</g>`).join('');
 
-const TVB = 130; // demi-vue des armes (260 unités = 130 px de jeu)
-// icon = true : cadrage serré et arme inclinée, pour l'interface
-export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 260, icon = false) {
+const TVB = 130; // demi-vue des tourelles (260 unités = 130 px de jeu)
+// part : 'base' (socle fixe), 'head' (tête qui pivote) ou 'icon' (les deux, pour l'interface)
+export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 260, part = 'icon') {
   grads = new Set(); finish = fin; OL = fin === 'neon' ? '#0a0d1c' : INK;
-  const R = RARITY[level - 1].color, k = 1 + (level - 1) * 0.035;
-  const upright = type === 'cryo' || type === 'mine';
-  const tf = icon ? (upright ? `translate(0 ${type === 'cryo' ? 14 : 0}) scale(${type === 'mine' ? 1.5 : 1.05})` : `rotate(-32) translate(${type === 'sniper' ? -12 : -4} 0) scale(${type === 'sniper' ? 0.84 : 1.02})`) : `scale(${k})`;
-  const body = `<g transform="${tf}">${TOWER_ART[type](level, branch, R, MAIN[type])}</g>`;
+  const R = RARITY[level - 1].color, M = TOWER_COLOR[type];
+  const base = type === 'mine' ? '' : (type === 'sniper' ? tripod(level) : '') + basePlate(type === 'sniper' ? Math.max(1, level - 1) : level, R, M);
+  const head = HEAD[type](level, branch, R, M);
+  let body, vb = TVB;
+  if (part === 'base') body = base;
+  else if (part === 'head') body = head;
+  else { // icône : tête tournée vers le haut-droite, cadrage serré
+    const still = type === 'cryo' || type === 'mine', long = type === 'sniper' ? 0.74 : type === 'minigun' || type === 'assault' || type === 'shotgun' ? 0.86 : 0.95;
+    body = `<g transform="scale(${still ? (type === 'mine' ? 1.45 : 1.2) : long})">${base}<g transform="rotate(${still ? 0 : -50}) translate(${still ? 0 : type === 'sniper' ? -22 : -8} 0)">${head}</g></g>`;
+    vb = 84;
+  }
   const glow = fin === 'neon' ? `<filter id="nf" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` : '';
-  const svg = build(glow ? `<g filter="url(#nf)">${body}</g>` : body, icon ? 96 : upright ? 100 : TVB, px);
+  const svg = build(glow ? `<g filter="url(#nf)">${body}</g>` : body, vb, px);
   return glow ? svg.replace('<defs>', '<defs>' + glow) : svg;
 }
 export const skinFinish = (skinId) => (SHOP.skins.find((s) => s.id === skinId) || {}).finish || 'classic';
@@ -387,34 +482,22 @@ export function enemyFrames(type) {
   return f;
 }
 const towerCache = new Map();
+// { base, head } rastérisés ; half = demi-taille d'affichage en px de jeu
 export function towerSprite(type, level, branch, fin) {
   const key = `${type}|${level}|${branch}|${fin}`;
   let s = towerCache.get(key);
-  if (!s) { s = raster(towerSvg(type, level, branch, fin, 390), 390, false); s.half = type === 'cryo' || type === 'mine' ? 50 : TVB / 2; towerCache.set(key, s); }
+  if (!s) {
+    s = { base: type === 'mine' ? null : raster(towerSvg(type, level, branch, fin, 390, 'base'), 390, false), head: raster(towerSvg(type, level, branch, fin, 390, 'head'), 390, true), half: TVB / 2 };
+    Object.defineProperty(s, 'ready', { get() { return s.head.ready && (!s.base || s.base.ready); } });
+    towerCache.set(key, s);
+  }
   return s;
 }
 export function preloadSprites(skin) {
   for (const t of Object.keys(ENEMIES)) enemyFrames(t);
-  for (const t of Object.keys(TOWER_ART)) towerSprite(t, 1, null, skinFinish(skin));
+  for (const t of Object.keys(HEAD)) towerSprite(t, 1, null, skinFinish(skin));
 }
 
 // Images pour l'interface (DOM)
 export function enemyImg(type, size = 40) { const i = new Image(); i.src = url(enemySvg(type, 0, 0, size * 3)); i.width = i.height = size; i.alt = ''; i.draggable = false; return i; }
-export function towerImg(type, size = 48, skin = 'default', level = 1, branch = null) { const i = new Image(); i.src = url(towerSvg(type, level, branch, skinFinish(skin), size * 3, true)); i.width = i.height = size; i.alt = ''; i.draggable = false; return i; }
-
-// ------------------------------------------------------------------ socle (canvas) : couleur et éclat selon la rareté
-export function drawPad(c, level, time = 0) {
-  const col = RARITY[level - 1].color, R = GAME.towerRadius;
-  c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(0, 7, R + 2, R * 0.8, 0, 0, TAU); c.fill();
-  if (level >= 5) { // halo légendaire
-    const g = c.createRadialGradient(0, 0, R * 0.6, 0, 0, R * 1.9); g.addColorStop(0, 'rgba(255,210,63,.55)'); g.addColorStop(1, 'rgba(255,210,63,0)');
-    c.fillStyle = g; c.beginPath(); c.arc(0, 0, R * 1.9, 0, TAU); c.fill();
-  }
-  c.lineWidth = 4; c.strokeStyle = INK;
-  c.fillStyle = '#39324f'; c.beginPath(); c.arc(0, 3, R, 0, TAU); c.fill(); c.stroke();
-  const g = c.createLinearGradient(0, -R, 0, R); g.addColorStop(0, '#7a7396'); g.addColorStop(1, '#4b4466');
-  c.fillStyle = g; c.beginPath(); c.arc(0, 0, R, 0, TAU); c.fill(); c.stroke();
-  c.strokeStyle = col; c.lineWidth = 5; c.beginPath(); c.arc(0, 0, R - 6, 0, TAU); c.stroke();
-  c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2.5; c.beginPath(); c.arc(0, 0, R - 6, -2.4, -1.2); c.stroke();
-  if (level >= 4) { c.strokeStyle = col; c.lineWidth = 2.5; c.setLineDash([5, 7]); c.lineDashOffset = -time * 14; c.beginPath(); c.arc(0, 0, R + 5, 0, TAU); c.stroke(); c.setLineDash([]); }
-}
+export function towerImg(type, size = 48, skin = 'default', level = 1, branch = null) { const i = new Image(); i.src = url(towerSvg(type, level, branch, skinFinish(skin), size * 3, 'icon')); i.width = i.height = size; i.alt = ''; i.draggable = false; return i; }

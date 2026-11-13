@@ -165,10 +165,10 @@ export const TOWERS = {
 
 export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'mine'];
 
-// Vitesse de rotation (rad/s) et longueur du canon (px) par arme
+// Vitesse de rotation (rad/s) et distance de la bouche du canon (px) par tourelle
 export const TOWER_VISUAL = {
-  assault: { turn: 10, muzzle: 44 }, smg: { turn: 13, muzzle: 36 }, shotgun: { turn: 9, muzzle: 44 },
-  sniper: { turn: 6, muzzle: 60 }, rocket: { turn: 5.5, muzzle: 46 }, minigun: { turn: 7, muzzle: 50 },
+  assault: { turn: 10, muzzle: 42 }, smg: { turn: 13, muzzle: 32 }, shotgun: { turn: 9, muzzle: 30 },
+  sniper: { turn: 6, muzzle: 56 }, rocket: { turn: 5.5, muzzle: 30 }, minigun: { turn: 7, muzzle: 48 },
   cryo: { turn: 0, muzzle: 0 }, mine: { turn: 0, muzzle: 0 },
 };
 
