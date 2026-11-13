@@ -1,7 +1,7 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
 import { VIEW, TOWERS, TOWER_ORDER, ENEMIES, RARITY, DIFFICULTIES, SHOP, ACHIEVEMENTS } from './config.js';
-import { MAPS, getMap, drawMapPreview } from './maps.js';
+import { MAPS, getMap, drawMapPreview, THEMES, buildField } from './maps.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -95,7 +95,7 @@ export class UI {
     for (const m of MAPS) {
       const unlocked = this.save.mapUnlocked(m), md = this.save.mapData(m.id);
       const card = el('div', 'card' + (unlocked ? '' : ' locked'));
-      const cv = el('canvas', 'thumb'); cv.width = 312; cv.height = 520; drawMapPreview(cv, m);
+      const cv = el('canvas', 'thumb'); cv.width = 312; cv.height = 489; drawMapPreview(cv, THEMES[m.theme], buildField(m.layout, false, m.slots));
       const body = el('div', 'body');
       body.append(el('h3', '', m.name), el('p', '', m.desc));
       if (this.endless) body.append(el('div', 'meta', `${icon('infinity')}Record : <b>vague ${md.bestEndless || 0}</b>`), el('div', 'meta', `${icon('trophy', 'gold')}Meilleur score : <b>${fmt(md.best.endless || 0)}</b>`));
@@ -233,8 +233,8 @@ export class UI {
   // pièces qui s'envolent de l'ennemi vers le compteur
   flyCoins({ x, y, n }) {
     if (this.simulating || document.hidden || this.screen !== 'game') return;
-    const r = this.canvas.getBoundingClientRect(), dst = $('#hud-money .coin-ico').getBoundingClientRect();
-    const sx = r.left + (x / VIEW.W) * r.width, sy = r.top + (y / VIEW.H) * r.height;
+    const dst = $('#hud-money .coin-ico').getBoundingClientRect();
+    const { x: sx, y: sy } = this.toScreen(x, y);
     const dx = dst.left + dst.width / 2 - sx, dy = dst.top + dst.height / 2 - sy;
     for (let i = 0; i < n && this.flying < 18; i++) {
       const c = el('i', 'coin-ico coin-fly'); c.style.left = sx + 'px'; c.style.top = sy + 'px';
@@ -279,13 +279,18 @@ export class UI {
   select(t) { if (this.game) { if (t && t !== this.game.selected) this.audio.play('sheet'); this.game.selected = t; this.cache.sheetKey = null; } }
 
   toLogical(e) {
-    const r = this.canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * VIEW.W, y: ((e.clientY - r.top) / r.height) * VIEW.H, inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom };
+    const r = this.canvas.getBoundingClientRect(), v = this.view;
+    return { x: (e.clientX - r.left - v.ox) / v.s, y: (e.clientY - r.top - v.oy) / v.s, inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom };
   }
   // Rectangle écran d'un point du terrain (pour le tutoriel)
   fieldPoint(x, y) {
-    const r = this.canvas.getBoundingClientRect();
-    return { getBoundingClientRect: () => ({ left: r.left + (x / VIEW.W) * r.width, top: r.top + (y / VIEW.H) * r.height, width: 0, height: 0 }) };
+    const p = this.toScreen(x, y);
+    return { getBoundingClientRect: () => ({ left: p.x, top: p.y, width: 0, height: 0 }) };
+  }
+  // Point du terrain -> coordonnées écran (px CSS)
+  toScreen(x, y) {
+    const r = this.canvas.getBoundingClientRect(), v = this.view;
+    return { x: r.left + v.ox + x * v.s, y: r.top + v.oy + y * v.s };
   }
   tryPlace(p, keep) {
     const g = this.game, t = g.placeTower(g.placing, p.x, p.y);
@@ -358,13 +363,17 @@ export class UI {
 
   // ------------------------------------------------------------------ boucle
   resize() {
+    // Le canvas couvre tout l'écran ; la zone jouable (600 x 940) est calée entre le HUD et la barre du bas,
+    // à la largeur de l'écran dès que la hauteur le permet. Le décor remplit le reste.
     const st = $('#stage').getBoundingClientRect();
     if (!st.width || !st.height) return;
-    const s = Math.min(st.width / VIEW.W, st.height / VIEW.H), dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    this.canvas.style.width = VIEW.W * s + 'px'; this.canvas.style.height = VIEW.H * s + 'px';
-    const w = Math.round(VIEW.W * s * dpr), h = Math.round(VIEW.H * s * dpr);
+    const top = $('#hud').offsetHeight, bot = $('#dock').offsetHeight, dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    const free = st.height - top - bot, s = Math.min(st.width / VIEW.W, free / VIEW.H);
+    const w = Math.round(st.width * dpr), h = Math.round(st.height * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
-    if (this.game && Math.abs(this.game.scale - w / VIEW.W) > 0.001) this.game.setScale(w / VIEW.W);
+    this.view = { s, ox: (st.width - VIEW.W * s) / 2, oy: top + (free - VIEW.H * s) / 2 };   // en px CSS
+    const key = [w, h, s, top, bot].join();
+    if (this.game && this.game.viewKey !== key) { this.game.viewKey = key; this.game.setView(s * dpr, this.view.ox / s, this.view.oy / s, w, h); }
     this.cache.tut = null;
   }
   loop(ts) {
@@ -398,12 +407,13 @@ export class UI {
     let label;
     if (g.over) label = '';
     else if (!nw) label = '<span class="l">Dernière vague !</span>';
-    else if (!g.canStartNext) label = `<span class="l">Vague ${g.wave}…</span>`;
+    else if (!g.canStartNext) label = `<span class="l">Vague ${g.wave} en cours</span><small>${g.queue.length + g.enemies.length} brainrots restants</small>`;
     else {
-      const bonus = g.earlyBonus, cd = g.countdown != null ? ` · ${Math.ceil(g.countdown)} s` : '';
-      label = `<span class="l">${icon('play')}Vague ${nw.n}${cd}</span>` + (bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '');
+      const bonus = g.earlyBonus;
+      label = `<span class="l">${icon('play')}${g.wave === 0 ? 'Lancer la vague 1' : 'Lancer la vague ' + nw.n}</span>`
+        + (g.countdown != null ? `<small>Départ auto dans ${Math.ceil(g.countdown)} s${bonus > 0 ? ` · +${bonus}${coin()}` : ''}</small>` : bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '');
     }
-    this.set('waveLabel', label, (v) => { btn.innerHTML = v; btn.style.visibility = v ? '' : 'hidden'; btn.disabled = !g.canStartNext; btn.classList.toggle('ready', g.canStartNext); });
+    this.set('waveLabel', label, (v) => { btn.innerHTML = v; btn.style.visibility = v ? '' : 'hidden'; btn.disabled = !g.canStartNext; btn.classList.toggle('ready', g.canStartNext); btn.classList.toggle('busy', !g.canStartNext); });
     this.set('preview', g.over || !nw ? 0 : nw.n, (n) => {
       const box = $('#wave-preview'); box.innerHTML = ''; if (!n) return;
       box.append(el('span', 'lbl', 'Suivante'));
@@ -490,14 +500,11 @@ export class UI {
     const r = target.getBoundingClientRect(), key = `${this.tutStep}|${Math.round(r.left)}|${Math.round(r.top)}`;
     if (this.cache.tut === key) return; this.cache.tut = key;
     box.hidden = false; box.innerHTML = `<span>${step.text}</span>`;
-    const skip = el('button', '', 'Passer le tutoriel'); skip.onclick = () => this.endTutorial(); box.append(skip);
-    const host = $('#screen-game').getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight;
-    const cx = r.left + r.width / 2 - host.left;
-    const left = Math.max(8, Math.min(host.width - bw - 8, cx - bw / 2));
-    let top = r.top - host.top - bh - 16; const up = top < 60;
-    if (up) top = r.top + r.height - host.top + 16;
-    box.classList.toggle('up', up);
-    box.style.left = left + 'px'; box.style.top = top + 'px'; box.style.setProperty('--ax', Math.max(18, Math.min(bw - 18, cx - left)) + 'px');
+    const skip = el('button', '', 'Passer'); skip.onclick = () => this.endTutorial(); box.append(skip);
+    const ring = el('i', 'tut-ring'); box.append(ring);
+    const host = box.getBoundingClientRect();
+    ring.style.left = r.left + r.width / 2 - host.left + 'px'; ring.style.top = r.top + r.height / 2 - host.top + 'px';
+    ring.style.setProperty('--d', Math.max(58, Math.min(110, Math.max(r.width, r.height) + 16)) + 'px');
   }
   endTutorial() { this.tutStep = -1; $('#tutorial').hidden = true; this.save.data.settings.tutorialDone = true; this.save.persist(); }
 

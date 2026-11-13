@@ -3,7 +3,7 @@
 //  Voir le README pour le détail de chaque champ.
 // ============================================================================
 
-export const VIEW = { W: 600, H: 1000 };   // terrain en portrait
+export const VIEW = { W: 600, H: 940 };    // zone jouable en portrait (le décor se prolonge autour pour remplir l'écran)
 
 export const GAME = {
   sellRatio: 0.7,          // revente : 70 % de l'investissement

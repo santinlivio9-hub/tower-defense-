@@ -24,7 +24,7 @@ export class Enemy {
     this.healT = cfg.heal ? cfg.heal.every : 0;
     this.pendingText = 0; this.textT = 0;
     this.dead = false; this.reached = false; this.enraged = false;
-    this.blinkT = 1 + Math.random() * 3; this.enterT = cfg.boss ? 1 : 0;
+    this.blinkT = 1 + Math.random() * 3; this.enterT = cfg.boss ? 1 : 0; this.spawnT = d < 5 && !cfg.boss ? 1 : 0;
     this.x = 0; this.y = 0; this.gy = 0;
     this.place();
   }
@@ -51,7 +51,7 @@ export class Enemy {
   update(dt, game) {
     this.flash = Math.max(0, this.flash - dt * 5);
     this.blinkT -= dt; if (this.blinkT < -0.13) this.blinkT = 1.5 + Math.random() * 3.5;
-    this.enterT = Math.max(0, this.enterT - dt * 0.9);
+    this.enterT = Math.max(0, this.enterT - dt * 0.9); this.spawnT = Math.max(0, this.spawnT - dt * 3);
     this.slowT -= dt; this.stunT -= dt; this.vulnT -= dt; this.shieldT -= dt; this.revealT -= dt;
     let sp = this.speed;
     if (this.stunT > 0) sp = 0; else if (this.slowT > 0) sp *= 1 - this.slowF;
@@ -119,7 +119,7 @@ export class Enemy {
     const hop = this.flying ? 0 : bounce * (this.boss ? 6 : 5);
     const sq = (0.5 - bounce) * 0.14 + this.flash * 0.14;
     const hidden = this.hidden;
-    const zoom = 1 + this.enterT * this.enterT * 1.6;               // entrée de boss : zoom
+    const zoom = (1 + this.enterT * this.enterT * 1.6) * (1 - this.spawnT * this.spawnT);               // entrée de boss : zoom
     const expr = this.flash > 0.2 || this.stunT > 0 ? 2 : this.blinkT < 0 ? 1 : 0;
     const step = Math.floor(w / Math.PI) & 1;
     const fr = f.frames[expr][step];
