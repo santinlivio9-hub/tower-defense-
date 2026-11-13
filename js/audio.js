@@ -87,5 +87,9 @@ const SOUNDS = {
   sheet:        { gap: 80, fn: (a) => { a.noise({ dur: 0.12, gain: 0.08, f0: 800, f1: 3000, type: 'bandpass' }); a.tone({ type: 'sine', f0: 300, f1: 520, dur: 0.1, gain: 0.07 }); } },
   tick:         { gap: 35, fn: (a) => a.tone({ type: 'square', f0: 1500, dur: 0.02, gain: 0.03 }) },
   record:       { fn: (a) => [784, 988, 1175, 1568, 1976].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.18, gain: 0.1, delay: i * 0.08 })) },
+  boost:        { fn: (a) => { [392, 523, 659, 784, 1047].forEach((f, i) => a.tone({ type: 'sawtooth', f0: f, f1: f * 1.5, dur: 0.14, gain: 0.1, delay: i * 0.05 })); a.noise({ dur: 0.35, gain: 0.2, f0: 600, f1: 6000, type: 'bandpass' }); } },
+  chest:        { fn: (a) => { a.noise({ dur: 0.5, gain: 0.3, f0: 300, f1: 5000, type: 'bandpass' }); [523, 784, 1047, 1568].forEach((f, i) => a.tone({ type: 'triangle', f0: f, dur: 0.3, gain: 0.14, delay: 0.1 + i * 0.07 })); } },
+  card:         { gap: 60, fn: (a) => { a.noise({ dur: 0.08, gain: 0.12, f0: 2500, type: 'highpass' }); a.tone({ type: 'triangle', f0: 880, f1: 1320, dur: 0.12, gain: 0.1 }); } },
+  levelup:      { fn: (a) => [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.2, gain: 0.1, delay: i * 0.08 })) },
   star:         { gap: 10, fn: (a) => a.tone({ type: 'triangle', f0: 1200, f1: 2000, dur: 0.2, gain: 0.14 }) },
 };

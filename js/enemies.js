@@ -1,19 +1,22 @@
 // Ennemis : déplacement, états (ralenti, gel, brûlure), capacités, dessin.
-import { ENEMIES } from './config.js';
+import { ENEMIES, WAVES } from './config.js';
 import { enemyFrames } from './sprites.js';
 
 const TAU = Math.PI * 2;
 
 export class Enemy {
-  constructor(game, type, pathIdx, d, hpScale, bossMul = 1) {
-    const cfg = ENEMIES[type], diff = game.diff;
-    this.type = type; this.cfg = cfg;
+  // o = { elite, mini } : groupe d'élite (plus résistant) ou mini-boss (boss réduit)
+  constructor(game, type, pathIdx, d, hpScale, bossMul = 1, o = {}) {
+    const cfg = ENEMIES[type];
+    this.type = type; this.cfg = cfg; this.elite = !!o.elite && !cfg.boss; this.mini = !!o.mini;
     this.path = game.paths[pathIdx]; this.pathIdx = pathIdx;
     this.d = d; this.hpScale = hpScale;
-    this.maxHp = Math.round(cfg.hp * diff.hp * (game.map.hp || 1) * (cfg.boss ? bossMul : hpScale));
+    this.maxHp = Math.round(cfg.hp * game.hpMult * (cfg.boss ? bossMul : hpScale) * (this.elite ? WAVES.eliteHp : 1));
     this.hp = this.maxHp;
-    this.speed = cfg.speed * diff.speed * (cfg.boss ? 1 : 0.94 + Math.random() * 0.12);
-    this.r = cfg.r; this.armor = cfg.armor || 0;
+    this.speed = cfg.speed * game.speedMult * (cfg.boss ? 1 : 0.94 + Math.random() * 0.12);
+    this.r = cfg.r * (this.elite ? 1.2 : this.mini ? 0.78 : 1); this.armor = cfg.armor || 0;
+    this.reward = Math.round(cfg.reward * (this.elite ? WAVES.eliteReward : this.mini ? 0.4 : 1));
+    this.leakDmg = this.mini ? 8 : this.elite ? cfg.leak + 1 : cfg.leak; this.abilityN = 0;
     this.flying = !!cfg.flying; this.boss = !!cfg.boss;
     this.off = cfg.boss ? 0 : (Math.random() - 0.5) * 22;
     this.phase = Math.random() * TAU; this.walk = 0; this.dir = 1;
@@ -90,30 +93,33 @@ export class Enemy {
     }
     if (cfg.ability) {
       const a = cfg.ability;
-      if (a.kind === 'rage' && !this.enraged && this.hp < this.maxHp * 0.5) {
+      if ((a.kind === 'rage' || a.rage) && !this.enraged && this.hp < this.maxHp * 0.5) {
         this.enraged = true; game.shake(10); game.fx.ring(this.x, this.y, 20, 160, '#ff3b3b', 0.6, 10);
         game.fx.text(this.x, this.y - this.r - 20, 'RAGE !', '#ff3b3b', 26, 1.2);
       }
       this.abilityT -= dt;
       if (this.abilityT <= 0) {
-        this.abilityT = a.every;
-        if (a.kind === 'summon') {
-          for (let i = 0; i < a.count; i++) game.spawnEnemy(a.type, this.pathIdx, Math.min(this.path.total - 5, this.d + 25 + i * 22), this.hpScale);
-          game.fx.ring(this.x, this.y, 10, 90, '#ffd23f', 0.5, 6); game.audio.play('wave_start');
-        } else if (a.kind === 'emp') {
-          for (const t of game.towers) if (Math.hypot(t.x - this.x, t.y - this.y) < a.radius) t.disabledT = a.dur;
-          game.fx.ring(this.x, this.y, 20, a.radius, '#5fd8ff', 0.6, 10); game.fx.ring(this.x, this.y, 10, a.radius * 0.7, '#fff', 0.45, 5);
-          game.shake(7); game.audio.play('zap');
-        } else if (a.kind === 'rage') {
-          this.shieldT = a.dur; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * a.heal);
-          game.fx.ring(this.x, this.y, 80, 20, '#fffbe8', 0.5, 8); game.audio.play('cryo');
-        }
+        this.abilityT = a.every * (this.mini ? 1.5 : 1);
+        this.cast(game, a.kind === 'combo' ? a.list[this.abilityN++ % a.list.length] : a);
       }
+    }
+  }
+  cast(game, a) {
+    if (a.kind === 'summon') {
+      for (let i = 0; i < a.count; i++) game.spawnEnemy(a.type, this.pathIdx, Math.min(this.path.total - 5, this.d + 25 + i * 22), this.hpScale);
+      game.fx.ring(this.x, this.y, 10, 90, '#ffd23f', 0.5, 6); game.audio.play('wave_start');
+    } else if (a.kind === 'emp') {
+      for (const t of game.towers) if (Math.hypot(t.x - this.x, t.y - this.y) < a.radius) t.disabledT = a.dur;
+      game.fx.ring(this.x, this.y, 20, a.radius, '#5fd8ff', 0.6, 10); game.fx.ring(this.x, this.y, 10, a.radius * 0.7, '#fff', 0.45, 5);
+      game.shake(7); game.audio.play('zap');
+    } else if (a.kind === 'rage') {
+      this.shieldT = a.dur; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * a.heal);
+      game.fx.ring(this.x, this.y, 80, 20, '#fffbe8', 0.5, 8); game.audio.play('cryo');
     }
   }
 
   draw(c) {
-    const f = enemyFrames(this.type), r = this.r;
+    const f = enemyFrames(this.type), r = this.r, k0 = this.r / this.cfg.r;
     const w = this.walk * (this.boss ? 0.07 : 0.11) + this.phase;
     const bounce = Math.abs(Math.sin(w));
     const hop = this.flying ? 0 : bounce * (this.boss ? 6 : 5);
@@ -132,7 +138,8 @@ export class Enemy {
       c.translate(this.x + (this.enterT > 0 ? (Math.random() - 0.5) * 6 * this.enterT : 0), this.y - hop + r * sq * 0.5);
       c.rotate(Math.sin(w) * (this.boss ? 0.035 : 0.07));
       c.scale(this.dir * (1 + sq) * zoom, (1 - sq) * zoom);
-      const h = f.half;
+      const h = f.half * k0;
+      if (this.elite) { c.strokeStyle = '#ffd23f'; c.lineWidth = 4 / k0; c.globalAlpha = 0.5 + Math.sin(this.walk * 0.2) * 0.25; c.beginPath(); c.arc(0, 0, this.cfg.r * 1.25, 0, TAU); c.stroke(); c.globalAlpha = 1; }
       c.drawImage(fr.cv, -h, -h, h * 2, h * 2);
       if (this.flash > 0.02 && fr.white) { c.globalAlpha = Math.min(1, this.flash) * 0.85; c.drawImage(fr.white, -h, -h, h * 2, h * 2); }
       c.restore();

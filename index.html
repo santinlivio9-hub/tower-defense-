@@ -38,24 +38,22 @@
       </h1>
       <div id="menu-parade" aria-hidden="true"></div>
       <div class="menu-buttons">
-        <button class="btn primary big" data-go="maps"><i data-ico="play"></i>Jouer</button>
+        <button class="btn primary big" data-go="world"><i data-ico="play"></i>Jouer</button>
         <button class="btn pink" data-go="shop"><i data-ico="cart"></i>Boutique</button>
         <button class="btn ghost" data-go="settings"><i data-ico="gear"></i>Paramètres</button>
       </div>
     </div>
   </section>
 
-  <!-- ================= CARTES ================= -->
-  <section id="screen-maps" class="screen">
+  <!-- ================= CAMPAGNE ================= -->
+  <section id="screen-world" class="screen">
     <header class="topbar">
       <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
-      <h2>Choisis ta carte</h2>
-      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
+      <h2>Campagne</h2>
+      <span class="chip"><i data-ico="star" class="gold"></i><b id="world-stars">0</b></span>
     </header>
-    <div class="scroll">
-      <div class="seg" id="diff-row"></div>
-      <div class="list" id="map-grid"></div>
-    </div>
+    <div class="scroll" id="world-scroll"><div id="world-map"></div></div>
+    <div class="world-foot"><button class="btn pink" id="btn-endless"></button></div>
   </section>
 
   <!-- ================= BOUTIQUE ================= -->
@@ -66,8 +64,6 @@
       <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
     </header>
     <nav class="seg" id="shop-tabs">
-      <button data-tab="towers">Armes</button>
-      <button data-tab="perks">Bonus</button>
       <button data-tab="skins">Skins</button>
       <button data-tab="achievements">Succès</button>
     </nav>

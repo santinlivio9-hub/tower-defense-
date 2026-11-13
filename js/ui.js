@@ -1,7 +1,7 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { VIEW, TOWERS, TOWER_ORDER, ENEMIES, RARITY, DIFFICULTIES, SHOP, ACHIEVEMENTS } from './config.js';
-import { MAPS, getMap, drawMapPreview, THEMES, buildField } from './maps.js';
+import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS } from './config.js';
+import { Meta } from './meta.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -29,7 +29,7 @@ export class UI {
   constructor(save, audio) {
     this.save = save; this.audio = audio; this.game = null;
     this.haptics = new Haptics(save.data.settings, audio);
-    this.diff = 'normal'; this.endless = false; this.shopTab = 'towers';
+    this.shopTab = 'skins';
     this.canvas = $('#game'); this.cache = {}; this.last = 0; this.simulating = false;
     this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
 
@@ -46,6 +46,7 @@ export class UI {
     window.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     this.bindGameInput();
+    $('#btn-endless').onclick = () => this.openEndless();
 
     const parade = $('#menu-parade');
     for (const t of ['basic', 'fast', 'tank', 'armored', 'flying', 'healer']) parade.append(enemyImg(t, 68));
@@ -61,7 +62,9 @@ export class UI {
     this.screen = name;
     this.refreshGems();
     if (name === 'menu') $('#menu-best').textContent = fmt(this.save.bestScore());
-    if (name === 'maps') this.renderMaps();
+    if (name === 'menu') { if (this.renderMenu) this.renderMenu(); this.showNotice(); }
+    if (name === 'world') this.renderWorld();
+    if (this.renderMeta) this.renderMeta(name);
     if (name === 'shop') this.renderShop();
     if (name === 'settings') this.renderSettings();
     if (name === 'game') this.resize();
@@ -78,40 +81,6 @@ export class UI {
   openOverlay(node) { const ov = $('#overlay'); ov.innerHTML = ''; ov.append(node); ov.classList.add('show'); }
   closeOverlay() { $('#overlay').classList.remove('show'); }
 
-  renderMaps() {
-    const row = $('#diff-row'); row.innerHTML = '';
-    for (const [id, d] of Object.entries(DIFFICULTIES)) {
-      const b = el('button', this.diff === id && !this.endless ? 'sel' : '', d.name);
-      b.onclick = () => { this.diff = id; this.endless = false; this.renderMaps(); };
-      row.append(b);
-    }
-    const anyBeaten = MAPS.some((m) => this.save.mapBeaten(m.id));
-    const eb = el('button', (this.endless ? 'sel' : '') + (anyBeaten ? '' : ' locked'), icon(anyBeaten ? 'infinity' : 'lock') + 'Infini');
-    eb.onclick = () => { if (!anyBeaten) { this.toast('Mode infini verrouillé', 'Termine une carte pour le débloquer', icon('lock')); return; } this.endless = !this.endless; this.renderMaps(); };
-    row.append(eb);
-
-    const grid = $('#map-grid'); grid.innerHTML = '';
-    const d = DIFFICULTIES[this.diff];
-    for (const m of MAPS) {
-      const unlocked = this.save.mapUnlocked(m), md = this.save.mapData(m.id);
-      const card = el('div', 'card' + (unlocked ? '' : ' locked'));
-      const cv = el('canvas', 'thumb'); cv.width = 312; cv.height = 489; drawMapPreview(cv, THEMES[m.theme], buildField(m.layout, false, m.slots));
-      const body = el('div', 'body');
-      body.append(el('h3', '', m.name), el('p', '', m.desc));
-      if (this.endless) body.append(el('div', 'meta', `${icon('infinity')}Record : <b>vague ${md.bestEndless || 0}</b>`), el('div', 'meta', `${icon('trophy', 'gold')}Meilleur score : <b>${fmt(md.best.endless || 0)}</b>`));
-      else body.append(el('div', 'row', `<span class="meta">${d.name}</span>${stars(md.stars[this.diff] || 0)}`), el('div', 'meta', `${icon('trophy', 'gold')}Meilleur score : <b>${fmt(md.best[this.diff] || 0)}</b>`));
-      const spacer = el('div'); spacer.style.flex = '1'; body.append(spacer);
-      if (!unlocked) body.append(el('div', 'note', `${icon('lock')}Termine « ${getMap(m.unlock).name} »`));
-      else if (this.endless && !this.save.mapBeaten(m.id)) body.append(el('div', 'note', `${icon('lock')}Termine d'abord cette carte`));
-      else {
-        const b = el('button', 'btn primary', icon(this.endless ? 'infinity' : 'play') + 'Jouer');
-        b.onclick = () => this.startGame(m.id, this.diff, this.endless);
-        body.append(b);
-      }
-      card.append(cv, body); grid.append(card);
-    }
-  }
-
   renderShop() {
     const d = this.save.data, grid = $('#shop-content'); grid.innerHTML = '';
     $$('#shop-tabs [data-tab]').forEach((b) => b.classList.toggle('sel', b.dataset.tab === this.shopTab));
@@ -125,34 +94,11 @@ export class UI {
       return b;
     };
     const owned = (txt) => el('span', 'owned', icon('check') + txt);
-    if (this.shopTab === 'towers') {
-      for (const t of TOWER_ORDER) {
-        const cfg = TOWERS[t], has = this.save.towerUnlocked(t), cost = SHOP.towerUnlocks[t] || 0;
-        const card = el('div', 'card' + (has ? ' done' : ''));
-        const art = el('div', 'art'); art.append(towerImg(t, 76, d.skin, has ? 3 : 1));
-        const body = el('div', 'body');
-        body.append(el('h3', '', cfg.name), el('p', '', cfg.desc), el('p', '', `Spécialisations : ${cfg.branches.map((b) => b.name).join(' ou ')}`));
-        const row = el('div', 'row', `<span class="meta">${coin()}<b>${cfg.cost}</b> en partie</span>`);
-        row.append(has ? owned('Débloquée') : price(cost, 'Débloquer', () => d.towers.push(t)));
-        body.append(row); card.append(art, body); grid.append(card);
-      }
-    } else if (this.shopTab === 'perks') {
-      for (const p of SHOP.perks) {
-        const lvl = d.perks[p.id] || 0, max = lvl >= p.max;
-        const card = el('div', 'card' + (max ? ' done' : ''));
-        const art = el('div', 'art', icon({ damage: 'sword', money: 'cart', lives: 'heart' }[p.id]));
-        if (p.id === 'money') art.innerHTML = coin(); art.firstChild.style.cssText = 'width:40px;height:40px';
-        const body = el('div', 'body');
-        body.append(el('h3', '', p.name), el('p', '', p.desc), el('div', 'pips', Array.from({ length: p.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')));
-        const row = el('div', 'row', `<span class="meta">Niveau <b>${lvl}/${p.max}</b></span>`);
-        row.append(max ? owned('Niveau max') : price(p.costs[lvl], 'Améliorer', () => (d.perks[p.id] = lvl + 1)));
-        body.append(row); card.append(art, body); grid.append(card);
-      }
-    } else if (this.shopTab === 'skins') {
-      for (const s of SHOP.skins) {
+    if (this.shopTab === 'boosts' && this.renderBoostShop) this.renderBoostShop(grid, price, owned);
+    else if (this.shopTab === 'skins') {      for (const s of SHOP.skins) {
         const has = d.skins.includes(s.id), on = d.skin === s.id;
         const card = el('div', 'card' + (on ? ' done' : ''));
-        const art = el('div', 'art multi'); art.append(towerImg('assault', 62, s.id, 3), towerImg('rocket', 62, s.id, 4, 0));
+        const art = el('div', 'art multi'); art.append(towerImg('assault', 62, s.id, 3), towerImg('shotgun', 62, s.id, 4, 0));
         const body = el('div', 'body'); body.append(el('h3', '', s.name), el('p', '', 'Finition appliquée à toutes tes armes.'));
         const row = el('div', 'row', '<span></span>');
         if (on) row.append(owned('Équipé'));
@@ -202,22 +148,26 @@ export class UI {
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
 
   // ------------------------------------------------------------------ partie
-  startGame(mapId, diff, endless) {
+  startGame(n, heroic = false, endless = false, boosts = []) {
     if (this.game) this.game.commit();
-    const g = (this.game = new Game({ canvas: this.canvas, map: getMap(mapId), difficulty: diff, endless, save: this.save, audio: this.audio }));
-    this.lastArgs = [mapId, diff, endless];
-    this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 };
+    const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts }));
+    this.lastArgs = [n, heroic, endless];
+    this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
     g.onEvent = (name, data) => this.onGameEvent(name, data);
     this.closeOverlay(); this.closeMenu();
-    this.syncMute();
+    this.syncMute(); if (this.buildDock) this.buildDock();
     $('#btn-speed b').textContent = 'x1'; $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
+    if (g.heroic) this.toast('Défi héroïque : ' + g.heroic.name, g.heroic.desc, icon('crown'));
     window.__game = g; // pratique pour le débogage / l'équilibrage en console
   }
+  // Rejouer : on reprend les mêmes boosts s'il en reste
+  replay() { const [n, h, e] = this.lastArgs; this.startGame(n, h, e, this.loadoutFor ? this.loadoutFor(LEVELS[n - 1]) : []); }
+  levelLabel(g = this.game) { return g.endless ? `Mode infini · ${g.world.name}` : `${g.heroic ? 'Héroïque' : 'Niveau'} ${g.level.id} · ${g.world.name}`; }
   quitGame() {
     if (this.game) { this.game.commit(); this.announce(this.save.checkAchievements()); }
-    this.game = null; this.show('maps');
+    this.game = null; this.show('world');
   }
   onGameEvent(name, data) {
     if (name === 'end') setTimeout(() => this.showEnd(data), data.victory ? 1700 : 1100);
@@ -225,10 +175,8 @@ export class UI {
     else if (name === 'coins') this.flyCoins(data);
     else if (name === 'haptic') { if (!this.simulating) this.haptics.pulse(data); }
     else if (name === 'combo') { this.audio.play('combo'); const s = $('#hud-score'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); }
-    else if (name === 'cleared' && !this.simulating) { // présente les nouveaux types d'ennemis de la vague suivante
-      const nw = this.game.nextWave;
-      for (const g of nw ? nw.groups : []) { const c = ENEMIES[g.type]; if (c.unlock === nw.n && c.hint) this.toast(`Nouveau : ${c.name}`, c.hint, enemyImg(g.type, 40)); }
-    }
+    else if (name === 'intro' && !this.simulating) this.showIntro(data.map((id) => ({ kind: 'enemy', id })));
+    else if ((name === 'ability' || name === 'boost') && this.buildDock) this.cache.dock = null;
   }
 
   // pièces qui s'envolent de l'ennemi vers le compteur
@@ -267,7 +215,7 @@ export class UI {
     const g = this.game, t = slot.tower, skin = this.save.data.skin, items = [];
     if (!t) {
       for (const type of g.buildable(slot)) {
-        const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, this.save.data.perks);
+        const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
         items.push({ key: type, cls: g.money < cost ? 'poor' : '', art: towerImg(type, 46, skin), price: cost, free: cost === 0,
           info: `<b>${cfg.name}</b><span>${cfg.desc}</span><small>${this.statLine(type, st)}</small>`,
           preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
@@ -277,7 +225,7 @@ export class UI {
     }
     const cur = this.statRows(t.type, t.stats);
     for (const o of t.upgradeOptions()) {
-      const ns = computeStats(t.type, o.level, o.branch, this.save.data.perks), nxt = this.statRows(t.type, ns);
+      const ns = computeStats(t.type, o.level, o.branch, g.mods), nxt = this.statRows(t.type, ns);
       const diff = cur.map((r, i) => (nxt[i][1] !== r[1] ? `${r[0]} <b>${r[1]}</b> → <b class="g">${nxt[i][1]}</b>` : null)).filter(Boolean).join(' · ');
       items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (g.money < o.cost ? ' poor' : ''),
         art: o.kind === 'level' ? icon('up') : towerImg(t.type, 46, skin, o.level, o.branch), label: o.kind === 'level' ? 'Niv. ' + o.level : o.name, price: o.cost,
@@ -367,7 +315,7 @@ export class UI {
     cv.addEventListener('pointerup', (e) => {
       const g = this.game; if (!g || !this.down) return; this.down = null; const p = this.toLogical(e);
       if (g.paused) return;
-      if (this.onFieldTap && this.onFieldTap(p)) return;      // ciblage d'une capacité
+      if (this.aiming) { const id = this.aiming; this.aiming = null; this.cache.dock = null; if (p.y > -40 && g.useAbility(id, p.x, p.y)) this.haptics.pulse(2); return; }   // cible d'une capacité
       const slot = g.slotAt(p.x, p.y);
       this.openMenu(slot && slot !== g.menuSlot ? slot : null);
     });
@@ -390,16 +338,16 @@ export class UI {
     else if (e.code === 'Escape') { if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
   }
   togglePause() {
-    const g = this.game; if (!g || g.over) return;
+    const g = this.game; if (!g || g.over || this.introOpen) return;
     g.paused = !g.paused;
     if (!g.paused) { this.closeOverlay(); return; }
     this.closeMenu();
-    const m = el('div', 'panel glass', `<h2 class="win">PAUSE</h2><p class="sub">${g.map.name} · ${g.endless ? 'Mode infini' : g.diff.name} · vague ${g.wave}</p>
+    const m = el('div', 'panel glass', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
       <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
     const btns = el('div', 'btns');
     const b1 = el('button', 'btn primary big', icon('play') + 'Reprendre'); b1.onclick = () => this.togglePause();
     const row = el('div', 'btn-row');
-    const b2 = el('button', 'btn ghost', icon('restart') + 'Rejouer'); b2.onclick = () => this.startGame(...this.lastArgs);
+    const b2 = el('button', 'btn ghost', icon('restart') + 'Rejouer'); b2.onclick = () => this.replay();
     const b3 = el('button', 'btn ghost', icon('home') + 'Quitter'); b3.onclick = () => this.quitGame();
     row.append(b2, b3); btns.append(b1, row);
     m.append(btns, this.switchRow('Son', '', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); }), this.switchRow('Vibrations', '', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
@@ -466,6 +414,7 @@ export class UI {
       }
     });
     this.updateRadial();
+    if (this.updateDock) this.updateDock();
     this.updateTutorial();
   }
 
@@ -516,10 +465,11 @@ export class UI {
   }
   showEnd(r) {
     const g = this.game; if (!g || g.result !== r) return;
-    this.closeMenu();
+    this.closeMenu(); this.aiming = null;
+    if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.showIntro(r.towers.map((id) => ({ kind: 'tower', id })), () => this.showEnd(r)); return; }
     const m = el('div', 'panel glass');
-    m.append(el('h2', r.victory ? 'win' : 'lose', r.victory ? 'VICTOIRE !' : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'));
-    m.append(el('p', 'sub', `${g.map.name} · ${g.endless ? 'Mode infini' : g.diff.name} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`));
+    m.append(el('h2', r.victory ? 'win' : 'lose', r.victory ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'));
+    m.append(el('p', 'sub', `${this.levelLabel(g)} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`));
     if (r.victory) {
       m.append(el('div', 'big-stars', [0, 1, 2].map((i) => icon('star', i < r.stars ? 'on' : '').replace('<svg', `<svg style="animation-delay:${0.5 + i * 0.4}s"`)).join('')));
       for (let i = 0; i < r.stars; i++) setTimeout(() => { this.audio.play('star'); this.haptics.pulse(1); }, 650 + i * 400);
@@ -528,10 +478,12 @@ export class UI {
     setTimeout(() => this.countUp($('b', sb), r.score), 400);
     if (r.record) { const rec = el('div', 'record', icon('trophy') + 'NOUVEAU RECORD !'); rec.style.visibility = 'hidden'; m.append(rec); setTimeout(() => { rec.style.visibility = ''; this.audio.play('record'); this.haptics.pulse(2); }, 1900); }
     else if (r.previous) m.append(el('p', 'sub', `Record : ${fmt(r.previous)}`));
-    m.append(el('div', 'earned', `+${r.gems}${gem()}`));
+    if (r.endless && r.rank != null && r.rank >= 0) m.append(el('p', 'sub', `Classement local : <b>n° ${r.rank + 1}</b>`));
+    m.append(el('div', 'earned', `<span>+${r.gems}${gem()}</span><span class="xp">+${r.xp} XP</span>`));
+    if (this.xpBlock) m.append(this.xpBlock(r));
     const s = g.stats;
     m.append(el('div', 'end-stats', [['Kills', fmt(s.kills)], ['Dégâts', short(s.damage)], ['Pièces', short(s.earned)], ['PV restants', `${g.lives}/${g.maxLives}`], ['Tourelles', s.built], ['Boss vaincus', s.bossKills]].map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('')));
-    const by = Object.entries(s.dmgByType).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const by = Object.entries(s.dmgByType).sort((a, b) => b[1] - a[1]).slice(0, 4);
     if (by.length) {
       const bars = el('div', 'bars');
       for (const [type, v] of by) { const row = el('div', 'bar', `<div><i data-w="${(v / by[0][1]) * 100}"></i></div><span>${short(v)}</span>`); row.prepend(towerImg(type, 26, this.save.data.skin)); bars.append(row); }
@@ -542,21 +494,27 @@ export class UI {
       const mvp = el('div', 'mvp', `<div><b>MVP · ${r.best.label}</b>${short(r.best.dmg)} dégâts · ${r.best.kills} kills</div>`);
       mvp.prepend(towerImg(r.best.type, 48, this.save.data.skin, r.best.level, r.best.branch)); m.append(mvp);
     }
-    if (r.victory && !g.endless) {
-      const nextMap = MAPS.find((mp) => mp.unlock === g.map.id);
-      m.append(el('p', 'sub', (nextMap ? `Carte « ${nextMap.name} » débloquée · ` : '') + 'Mode infini disponible'));
-    }
+    const lines = [];
+    for (const t of r.rewards || []) lines.push(`${icon('gift')}<span><b>${t}</b>Récompense de première victoire</span>`);
+    for (const t of r.towers || []) lines.push(`${icon('plus')}<span><b>${TOWERS[t].name}</b>Nouvelle tourelle débloquée</span>`);
+    for (const u of r.levelUps || []) lines.push(`${icon('up')}<span><b>Niveau de joueur ${u.level}</b>${u.text}</span>`);
+    if (r.firstClear && !g.heroic) lines.push(`${icon('crown')}<span><b>Défi Héroïque débloqué</b>Plus dur, récompenses doublées</span>`);
+    if (r.victory && !g.heroic && g.level.n === 12 && r.firstClear) lines.push(`${icon('infinity')}<span><b>Mode infini débloqué</b>Avec classement local</span>`);
+    for (const a of r.achievements || []) lines.push(`${icon('medal')}<span><b>Succès : ${a.name}</b>${a.desc}</span><span>+${a.gems}${gem()}</span>`);
+    if (lines.length) m.append(el('div', 'unlocks', lines.map((l) => `<div>${l}</div>`).join('')));
     const btns = el('div', 'btns');
-    const again = el('button', 'btn primary big', icon('restart') + 'Rejouer'); again.onclick = () => this.startGame(...this.lastArgs);
+    const nextN = g.level.n + 1, canNext = r.victory && !g.endless && !g.heroic && nextN <= LEVELS.length;
+    if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.show('world'); this.openPrep(nextN); }; btns.append(nx); }
+    const again = el('button', 'btn ' + (canNext ? 'ghost' : 'primary big'), icon('restart') + 'Rejouer'); again.onclick = () => this.replay();
     const share = el('button', 'btn pink', icon('share') + 'Partager mon score'); share.onclick = () => this.shareScore(r);
     const row = el('div', 'btn-row');
-    const maps = el('button', 'btn ghost', icon('map') + 'Cartes'); maps.onclick = () => { this.game = null; this.show('maps'); };
-    const shop = el('button', 'btn ghost', icon('cart') + 'Boutique'); shop.onclick = () => { this.game = null; this.show('shop'); };
-    row.append(maps, shop); btns.append(again, share, row); m.append(btns);
-    if (r.achievements && r.achievements.length) btns.before(el('div', 'unlocks', r.achievements.map((a) => `<div>${icon('medal')}<span><b>Succès : ${a.name}</b>${a.desc}</span><span>+${a.gems}${gem()}</span></div>`).join('')));
+    const maps = el('button', 'btn ghost', icon('map') + 'Carte'); maps.onclick = () => { this.game = null; this.show('world'); };
+    const home = el('button', 'btn ghost', icon('home') + 'Menu'); home.onclick = () => { this.game = null; this.show('menu'); };
+    row.append(maps, home); btns.append(again, share, row); m.append(btns);
     this.openOverlay(m);
     this.refreshGems();
     this.prepareShare(r);
+    if (this.afterEnd) this.afterEnd(r);
   }
 
   // Image de score générée à l'avance (navigator.share doit partir directement du toucher)
@@ -567,13 +525,13 @@ export class UI {
     for (const [cx, cy, col] of [[120, 160, '#ff5d8f'], [980, 420, '#5c9df2'], [140, 1180, '#3fd873'], [960, 1120, '#ffb224']]) { const rg = x.createRadialGradient(cx, cy, 0, cx, cy, 420); rg.addColorStop(0, col + '88'); rg.addColorStop(1, col + '00'); x.fillStyle = rg; x.fillRect(0, 0, 1080, 1350); }
     const text = (t, y, px, col, lw = 22) => { x.font = F(px); x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineJoin = 'round'; x.lineWidth = lw; x.strokeStyle = '#3d2c4e'; x.strokeText(t, 540, y); x.fillStyle = col; x.fillText(t, 540, y); };
     text('BRAINROT', 170, 150, '#ffd23f', 30); text('BASTION', 300, 150, '#ff5d8f', 30);
-    text(`${g.map.name} · ${g.endless ? 'Mode infini' : g.diff.name}`, 430, 52, '#fff', 14);
+    text(this.levelLabel(g), 430, 46, '#fff', 14);
     text(r.victory ? 'VICTOIRE !' : `Vague ${r.wavesDone}`, 520, 70, r.victory ? '#8dffae' : '#ffb3c4', 16);
     text(fmt(r.score), 700, 210, '#fff', 34); text('POINTS', 840, 54, '#c5b5dc', 12);
     if (r.victory) for (let i = 0; i < 3; i++) { x.save(); x.translate(400 + i * 140, 950); x.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, q = k % 2 ? 26 : 58; x.lineTo(Math.cos(a) * q, Math.sin(a) * q); } x.closePath(); x.lineWidth = 12; x.strokeStyle = '#3d2c4e'; x.stroke(); x.fillStyle = i < r.stars ? '#ffd23f' : 'rgba(255,255,255,.2)'; x.fill(); x.restore(); }
     if (r.record) text('NOUVEAU RECORD !', 1040, 56, '#ffd23f', 14);
     const draw = (cv, cx, cy, size) => { if (cv) x.drawImage(cv, cx - size / 2, cy - size / 2, size, size); };
-    ['basic', 'tank', 'armored', 'healer'].forEach((t, i) => draw(enemyFrames(t).frames[0][0].cv, 170 + i * 150, 1190, 190));
+    ['basic', 'tank', 'armored', 'healer'].forEach((t, i) => draw(enemyFrames(t).frames[0][0].cv, 150 + i * 140, 1190, 180));
     const best = r.best || { type: 'assault', level: 1, branch: null };
     const bs = towerSprite(best.type, best.level, best.branch, skinFinish(this.save.data.skin));
     if (bs.base) draw(bs.base.cv, 900, 1180, 330); draw(bs.head.cv, 900, 1180, 330);
@@ -583,7 +541,7 @@ export class UI {
   }
   async shareScore(r) {
     const g = this.game, url = location.origin + location.pathname;
-    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot TD (${g.map.name}, ${g.endless ? 'mode infini' : g.diff.name}) ! Tu fais mieux ?`;
+    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot TD (${this.levelLabel(g)}) ! Tu fais mieux ?`;
     try {
       if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot TD', text: text + ' ' + url }); return; }
       if (navigator.share) { await navigator.share({ title: 'Brainrot TD', text, url }); return; }
@@ -593,3 +551,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
+Object.assign(UI.prototype, Meta);
