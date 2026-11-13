@@ -10,14 +10,15 @@ export const GAME = {
   critChance: 0.08,        // chance de critique de base
   critMult: 2,             // multiplicateur de critique de base
   interWaveTime: 12,       // secondes avant le lancement auto de la vague suivante
+  overlapTime: 40,         // si des ennemis restent : la vague suivante part quand même après ce délai
   earlyBonusPerSec: 2,     // pièces par seconde restante si on lance en avance
   earlyBonusAlive: 15,     // bonus si on lance alors que des ennemis sont encore en vie
-  waveBonusBase: 30,       // pièces de fin de vague = base + parVague * n
-  waveBonusPerWave: 5,
+  waveBonusBase: 24,       // pièces de fin de vague = base + parVague * n
+  waveBonusPerWave: 4,
   pathWidth: 64,
   towerRadius: 26,
   bossEvery: 10,           // mode infini : un boss toutes les 10 vagues
-  rewardMult: 1,           // multiplicateur global des pièces par kill
+  rewardMult: 0.85,        // multiplicateur global des pièces par kill
   stealthRevealRange: 85,  // toute tourelle révèle les invisibles à bout portant (px)
   stealthRevealOnHit: 1.5, // secondes de révélation après un dégât (zone, brûlure, cryo)
 };
@@ -182,15 +183,15 @@ export const ENEMIES = {
   stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, from: 5, interval: 0.8, stealth: true },
   mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
   // Boss de monde. Leurs PV sont multipliés par le niveau (CAMPAIGN.hpWorld), pas par la vague.
-  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 9000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
+  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 15000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
            ability: { kind: 'summon', every: 6, type: 'fast', count: 3 }, title: 'Il souffle des sbires !' },
-  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 11000, speed: 22, reward: 400, leak: 99, r: 50, boss: true, armor: 4, unlock: 999,
+  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 24000, speed: 22, reward: 400, leak: 99, r: 50, boss: true, armor: 4, unlock: 999,
            ability: { kind: 'emp', every: 8, radius: 190, dur: 2.5 }, title: 'Son essorage coupe tes tourelles !' },
-  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 13000, speed: 20, reward: 500, leak: 99, r: 56, boss: true, unlock: 999,
+  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 29000, speed: 20, reward: 500, leak: 99, r: 56, boss: true, unlock: 999,
            ability: { kind: 'rage', every: 10, dur: 3, heal: 0.03 }, title: 'Bouclier de crème et rage finale !' },
-  boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 15000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
+  boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 33000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
            ability: { kind: 'combo', every: 7, list: [{ kind: 'emp', radius: 220, dur: 3 }, { kind: 'summon', type: 'armored', count: 3 }] }, title: 'Il gèle tes tourelles et appelle ses crabes !' },
-  boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 18000, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
+  boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 30000, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
            ability: { kind: 'combo', every: 6, rage: true, list: [{ kind: 'summon', type: 'tank', count: 2 }, { kind: 'rage', dur: 3, heal: 0.025 }, { kind: 'emp', radius: 200, dur: 2.5 }] }, title: 'Le roi des brainrots : sbires, bouclier et rugissement !' },
 };
 
@@ -199,12 +200,13 @@ export const ENEMIES = {
 //  « m » = vague équivalente : n dans un niveau normal, étirée dans un niveau de boss.
 // ----------------------------------------------------------------------------
 export const WAVES = {
-  budget: (m) => 34 + 20 * m + 0.5 * m * m,                       // « points » d'ennemis par vague
-  hpScale: (m) => 1 + 0.16 * (m - 1) + 0.02 * (m - 1) * (m - 1),  // multiplicateur de PV par vague
+  budget: (m) => 32 + 19 * m + 0.42 * m * m,                       // « points » d'ennemis par vague
+  hpScale: (m) => 1 + 0.16 * (m - 1) + 0.018 * (m - 1) * (m - 1),  // multiplicateur de PV par vague
   maxGroups: 5,
   maxPerGroup: 28,
+  maxSpan: 30,              // durée max (s) des apparitions d'une vague : au-delà, les groupes sont resserrés
   bossEscortBudget: 0.5,    // part du budget normal qui accompagne un boss ou un mini-boss
-  finalWaveBudget: 1.4,     // dernière vague d'un niveau normal
+  finalWaveBudget: 1.1,     // dernière vague d'un niveau normal
   bossHpGrowth: 1.6,        // mode infini : PV des boss x1,6 à chaque boss
   eliteFrom: 19,            // niveau de campagne à partir duquel des groupes « élite » apparaissent
   eliteChance: 0.22, eliteHp: 3, eliteReward: 3,
@@ -223,7 +225,8 @@ export const WORLDS = [
 export const CAMPAIGN = {
   waves:     [15, 16, 17, 18, 20],        // niveaux 1 à 5 d'un monde
   bossWaves: [30, 33, 36, 40, 45],        // niveau 6 (boss) du monde 1 à 5
-  bossPaceTo: 24,                         // un niveau de boss finit à la difficulté d'une « vague 24 »
+  bossPaceTo: 28,                         // un niveau de boss finit à la difficulté d'une « vague 28 »
+  pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
   money:     [200, 200, 190, 190, 180, 260],   // pièces de départ par niveau du monde
   lives: 20,
   slots:     [10, 11, 12, 12, 13, 16],    // emplacements de tourelles par niveau du monde
@@ -235,8 +238,9 @@ export const CAMPAIGN = {
     ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'serpent'],
     ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
   ],
-  hpWorld:    [1, 1.3, 1.65, 2.05, 2.5],  // PV des ennemis par monde...
-  hpLevel:    0.05,                       // ...puis +5 % par niveau dans le monde
+  hpWorld:    [1.4, 1.45, 1.9, 2.55, 3.0], // PV des ennemis par monde...
+  bossLevelHp: [1.28, 1.5, 1.7, 1.3, 1.25],      // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  hpLevel:    0.015,                      // ...puis +1,5 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
   miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
@@ -254,7 +258,7 @@ WORLDS.forEach((w, wi) => {
     LEVELS.push({
       n: wi * 6 + i + 1, id: `${wi + 1}-${i + 1}`, world: wi, idx: i, boss, waves,
       layout: lay.replace('!', ''), mirror: lay.endsWith('!'), slots: CAMPAIGN.slots[i], money: CAMPAIGN.money[i],
-      hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
+      hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i) * (boss ? CAMPAIGN.bossLevelHp[wi] : 1)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
       pace: boss ? (CAMPAIGN.bossPaceTo - 1) / (waves - 1) : 1,
     });
   }

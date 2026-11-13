@@ -21,7 +21,9 @@ export class Game {
     this.flowers = [];
     this.score = 0; this.comboN = 0; this.comboT = -9; this.cleanWave = true;
     const H = this.heroic || {}, cs = save.data.castle, U = CASTLE.upgrades, m = (this.mods = save.mods());
-    this.hpMult = level.hp * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1); this.speedMult = level.speed * (H.speed || 1);
+    const len = this.paths.reduce((a, q) => a + q.total, 0) / this.paths.length;
+    this.ease = Math.max(CAMPAIGN.pathEase[0], Math.min(CAMPAIGN.pathEase[1], len / CAMPAIGN.pathRef));
+    this.hpMult = level.hp * this.ease * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1); this.speedMult = level.speed * (H.speed || 1);
     this.scoreMult = this.heroic ? HEROIC.scoreMult : 1;
     this.banned = H.ban || []; this.towerLimit = H.towerLimit || 0;
     this.money = Math.round(level.money * (H.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
@@ -347,11 +349,16 @@ export class Game {
         this.audio.play('wave_clear');
         this.onEvent('cleared', this.wave);
         if (!this.endless && this.wave >= this.totalWaves) { this.end(true); return; }
-        this.countdown = GAME.interWaveTime;
+        this.countdown = Math.min(this.countdown ?? Infinity, GAME.interWaveTime);
       } else if (this.countdown !== null) {
         this.countdown -= dt;
         if (this.countdown <= 0) this.startNextWave(false);
       }
+    } else if (this.wave > 0 && this.queue.length === 0 && this.canStartNext) {
+      // des ennemis traînent encore : la vague suivante part quand même après un délai
+      if (this.countdown === null) this.countdown = GAME.overlapTime;
+      this.countdown -= dt;
+      if (this.countdown <= 0) this.startNextWave(false);
     }
   }
   leak(e) {

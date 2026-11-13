@@ -21,58 +21,68 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
 
 ## Commandes
 
-| Action | Souris / tactile | Clavier |
+| Action | Tactile / souris | Clavier |
 | --- | --- | --- |
-| Choisir une tourelle | toucher la barre, ou glisser-déposer sur le terrain | `1` à `8` |
-| Poser | toucher le terrain (vert = valide, rouge = invalide) | `Maj` + clic pour en poser plusieurs |
-| Annuler | clic droit | `Échap` |
-| Améliorer / cibler / vendre | clic sur une tourelle | |
-| Lancer la vague | bouton ▶ (bonus si lancée en avance) | `Espace` |
-| Pause | bouton ⏸ | `P` |
-| Vitesse x1 / x2 / x3 | bouton en haut à droite | |
+| Construire | toucher un socle libre : menu radial des tourelles, puis toucher encore pour confirmer | `1` à `8` dans le menu |
+| Améliorer / branche / ciblage / vendre | toucher une tourelle : même menu radial | `1` à `8` dans le menu |
+| Mines | toucher une zone marquée sur le chemin | |
+| Lancer la vague | bouton « Lancer la vague » (bonus si lancée en avance) | `Espace` |
+| Capacités du château, boosts | boutons ronds en bas de l'écran | |
+| Pause | bouton pause | `P` |
+| Fermer un menu | toucher ailleurs | `Échap` |
 
 ## Contenu
 
-- **Format portrait** pensé pour le téléphone : terrain 600 × 1000, les brainrots entrent par le haut, la base est en bas.
-- **8 tourelles** : fusil d'assaut, mitraillette, pompe, sniper, lance-roquettes, minigun, cryo, mine (6 max).
-  Niveaux 1 à 3 communs, **2 spécialisations exclusives** au niveau 4, puis une maîtrise légendaire au niveau 5.
-  L'arme gagne des détails à chaque niveau, le socle prend la couleur de la rareté. 4 modes de ciblage, revente à 70 %.
-- **8 ennemis + 3 boss** : basique, rapide, tank, volant, blindé, diviseur, soigneur, invisible ; un boss
-  toutes les 10 vagues (invocation de sbires, IEM qui coupe les tourelles, bouclier + rage).
-- **3 cartes** (dont une à 2 chemins) débloquées l'une après l'autre, **30 vagues** chacune, 3 difficultés,
-  **mode infini** débloqué en terminant la carte.
-- **Score** : points par kill, multi-kills (DOUBLE, TRIPLE, MASSACRE…), vague parfaite, vague lancée en avance,
-  bonus de PV restants ; record par carte et par difficulté ; image de score à partager.
-- **Progression** : gemmes gagnées en fin de partie → boutique (nouvelles tourelles, bonus permanents, skins),
-  étoiles par carte, succès. Aucun achat réel. Sauvegarde automatique dans le `localStorage`.
+- **Format portrait** plein écran : le terrain (600 × 940) occupe toute la largeur, le décor se prolonge autour.
+- **Campagne** : 5 mondes × 6 niveaux. Niveaux normaux de 15 à 20 vagues (10 à 15 minutes), niveau de boss
+  de 30 à 45 vagues à la fin de chaque monde, avec des mini-boss toutes les 10 vagues. 1 à 3 étoiles selon les PV
+  restants. Chaque niveau terminé débloque un **défi Héroïque** (contrainte spéciale, récompenses doublées).
+- **Emplacements fixes** (10 à 16 socles par niveau) placés aux virages et croisements, zones de mines sur le chemin.
+  Flèche « UP » au-dessus des tourelles qu'on peut améliorer.
+- **8 tourelles** qui changent d'apparence à chaque niveau : niveaux 1 à 3, **2 branches au look distinct** au niveau 4,
+  maîtrise dorée au niveau 5. Elles se débloquent au fil de la campagne, avec une carte de présentation.
+- **8 ennemis + 5 boss**, groupes « élite » dans les derniers mondes.
+- **Château** amélioré avec les gemmes : murs, réparation, trésorerie, canon, et 3 capacités actives
+  (frappe aérienne, blizzard, pluie d'or). Son apparence évolue : bois → pierre → forteresse → citadelle dorée.
+- **Niveau de joueur** (XP), **arbre de talents** à 3 branches, **coffres** à ouverture animée.
+- **Boosts** consommables (pièces x2, +5 PV, tourelle gratuite, surcharge, bouclier, seconde chance) dans un
+  inventaire persistant ; on en emporte 2 par niveau (4 en niveau de boss).
+- **Mode infini** débloqué après le monde 2, classement local des 10 meilleurs scores.
+- **Score** partout (multi-kills, vague parfaite, record par niveau), image de score à partager.
 - **PWA** : installable sur l'écran d'accueil (« Brainrot TD »), jouable hors ligne.
+- Deux monnaies : pièces (en partie) et gemmes (hors partie). Tout se gagne en jouant, aucun achat réel.
 
-Les invisibles sont révélés à bout portant, par les dégâts de zone, ou par les améliorations de détection
-(Balles traçantes, Lunette thermique, Givre fragilisant).
+Les anciennes sauvegardes sont converties automatiquement : étoiles et bonus achetés deviennent des gemmes, de l'XP
+et des coffres ; tourelles, skins et succès sont conservés.
 
 ## Architecture
 
 ```
-index.html            écrans (menu, cartes, boutique, paramètres, jeu)
+index.html            écrans (menu, campagne, château, talents, inventaire, boutique, paramètres, jeu)
 css/style.css         design system (Fredoka, verre, boutons 3D, safe-areas)
 manifest.webmanifest  PWA
 sw.js                 service worker (hors ligne)
 icons/                icônes générées par tools/make-icons.mjs
-js/config.js          TOUTES les valeurs d'équilibrage
+js/config.js          TOUTES les valeurs d'équilibrage (tourelles, ennemis, campagne, château, boosts, XP, talents)
 js/main.js            point d'entrée
-js/game.js            état d'une partie, boucle (delta time), dégâts, économie, score, rendu
-js/maps.js            cartes, chemins, décor
-js/waves.js           génération procédurale des vagues
-js/enemies.js         ennemis et boss (déplacement, états, capacités)
-js/towers.js          tourelles (stats, améliorations, ciblage, tir)
+js/game.js            une partie : boucle (delta time), dégâts, économie, château, boosts, score, rendu
+js/maps.js            thèmes, tracés, emplacements de tourelles, décor
+js/waves.js           génération procédurale des vagues d'un niveau
+js/enemies.js         ennemis et boss
+js/towers.js          tourelles (stats, améliorations, ciblage, tir, dessin)
+js/castle.js          dessin du château (4 apparences)
 js/projectiles.js     roquettes
 js/fx.js              particules, traînées, textes flottants
-js/sprites.js         sprites SVG des brainrots et des armes, finitions (skins)
+js/sprites.js         sprites SVG des brainrots et des tourelles
 js/icons.js           icônes SVG de l'interface
 js/audio.js           sons Web Audio
 js/haptics.js         vibrations
-js/save.js            sauvegarde et succès
-js/ui.js              HUD, barre de tourelles, feuille d'amélioration, menus, tutoriel, fin de partie, partage
+js/save.js            sauvegarde, migration, progression, XP, coffres
+js/ui.js              HUD, menu radial, tutoriel, fin de partie, partage
+js/meta.js            carte du monde, préparation d'un niveau, cartes de présentation, mode infini
+js/hub.js             écran Château, capacités en partie
+js/loot.js            XP, talents, inventaire, coffres, boosts
+tools/simulate.cjs    robot d'équilibrage (voir plus bas)
 ```
 
 Pour régénérer les icônes après avoir modifié un sprite : `node tools/make-icons.mjs` (nécessite Playwright).
@@ -92,10 +102,15 @@ Tout se règle dans **`js/config.js`** (et un multiplicateur par carte dans `js/
 | Capacités (soin, division, boss) | `ENEMIES.<type>.heal` / `.split` / `.ability` |
 | Nombre d'ennemis par vague | `WAVES.budget(n)` (chaque ennemi « coûte » `ENEMIES.<type>.cost`) |
 | Montée des PV au fil des vagues | `WAVES.hpScale(n)` |
-| Argent de départ, PV de base, PV ennemis par difficulté | `DIFFICULTIES` |
-| Difficulté propre à une carte | champ `hp` de la carte dans `js/maps.js` |
-| Revente, critiques, bonus de vague, bonus « en avance », nombre de vagues | `GAME` |
-| Prix de la boutique, bonus permanents, skins, gemmes gagnées | `SHOP` |
+| Nombre de vagues, argent de départ, emplacements, tracé de chaque niveau | `CAMPAIGN` |
+| Difficulté par monde / par niveau / des niveaux de boss | `CAMPAIGN.hpWorld`, `.hpLevel`, `.bossLevelHp`, `.density` |
+| Mini-boss, déblocage des tourelles et du mode infini | `CAMPAIGN.miniBossEvery`, `.towerUnlocks`, `.endlessAfter` |
+| Défis héroïques | `HEROIC` |
+| Château et capacités actives | `CASTLE` |
+| Boosts, emplacements à emporter | `BOOSTS`, `BOOST_SLOTS` |
+| XP, récompenses de niveau, talents, coffres | `XP`, `TALENTS`, `CHESTS` |
+| Revente, critiques, bonus de vague, bonus « en avance », délais entre vagues | `GAME` |
+| Skins | `SHOP` |
 | Seuils des étoiles, succès | `STARS`, `ACHIEVEMENTS` |
 | Points par kill, multi-kills, bonus de score | `SCORE` |
 
@@ -106,11 +121,19 @@ Stats reconnues : `damage`, `rate` (tirs/s), `range`, `pellets`, `spread`, `spla
 `ignoreArmor`, `detect`, `crit`, `critMult`, `burn`, `burnDur`, `barrels`, `homing`, `knockback`, `stun`,
 `freezeChance`, `freezeDur`, `vuln`, `cluster`, `spinUp`, `minRate`, `projSpeed`, `bossMul`.
 
-### Ajouter une carte
+### Ajouter un tracé
 
-Ajoute une entrée dans `MAPS` (`js/maps.js`) : un `id`, un nom, des couleurs et un ou plusieurs chemins sous forme de
-listes de points `[x, y]` dans un repère 600 × 1000. Le premier point est l'entrée (en haut, hors écran), le dernier la base (en bas).
-Avec plusieurs chemins, fais-les finir au même point.
+Ajoute une entrée dans `LAYOUTS` (`js/maps.js`) : un ou plusieurs chemins sous forme de listes de points `[x, y]`
+dans un repère 600 × 940. Le premier point est le portail (en haut), le dernier le château `(300, 850)`.
+Les socles sont placés automatiquement là où ils couvrent le plus de chemin. Utilise ensuite son nom dans
+`CAMPAIGN.layouts` (suffixe `!` pour l'utiliser en miroir).
+
+### Robot d'équilibrage
+
+`tools/simulate.cjs` joue des niveaux sans affichage avec un robot (qui joue bien, mal, ou bien en utilisant ses boosts)
+et affiche le résultat, la durée et les tourelles posées. Mode d'emploi en tête du fichier. Repères visés :
+un niveau normal dure 10 à 15 minutes, se gagne en jouant correctement et se perd en jouant mal ;
+un niveau de boss se perd sans boosts et se gagne avec.
 
 ### Tester rapidement
 
@@ -120,6 +143,7 @@ Dans la console du navigateur, la partie en cours est accessible via `__game` :
 __game.money = 99999;        // argent illimité
 __game.startNextWave();      // forcer la vague suivante
 __game.speed = 3;
+__ui.startGame(12);          // lancer directement le niveau 12
 ```
 
 Pour repartir de zéro : Paramètres → Réinitialiser.
