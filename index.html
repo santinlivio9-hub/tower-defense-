@@ -30,8 +30,10 @@
       <div class="chips">
         <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
         <span class="chip"><i data-ico="trophy" class="gold"></i><b id="menu-best">0</b></span>
+        <button class="icon-btn" data-go="settings" aria-label="Paramètres"><i data-ico="gear"></i></button>
       </div>
-      <h1 class="logo" aria-label="Brainrot Bastion">
+      <div id="menu-xp"></div>
+      <h1 class="logo" aria-label="Brainrot TD">
         <span class="l1">BRAINROT</span>
         <span class="l2">BASTION</span>
         <small>TOWER DEFENSE</small>
@@ -39,8 +41,12 @@
       <div id="menu-parade" aria-hidden="true"></div>
       <div class="menu-buttons">
         <button class="btn primary big" data-go="world"><i data-ico="play"></i>Jouer</button>
-        <button class="btn pink" data-go="shop"><i data-ico="cart"></i>Boutique</button>
-        <button class="btn ghost" data-go="settings"><i data-ico="gear"></i>Paramètres</button>
+        <div class="tiles">
+          <button class="tile" data-go="castle"><i data-ico="castle"></i>Château</button>
+          <button class="tile" data-go="talents" hidden><i data-ico="talent"></i>Talents<em id="badge-talents" hidden></em></button>
+          <button class="tile" data-go="inventory" hidden><i data-ico="bag"></i>Inventaire<em id="badge-inv" hidden></em></button>
+          <button class="tile" data-go="shop"><i data-ico="cart"></i>Boutique</button>
+        </div>
       </div>
     </div>
   </section>
@@ -68,6 +74,16 @@
       <button data-tab="achievements">Succès</button>
     </nav>
     <div class="scroll"><div class="list" id="shop-content"></div></div>
+  </section>
+
+  <!-- ================= CHÂTEAU ================= -->
+  <section id="screen-castle" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" data-go="menu" aria-label="Retour"><i data-ico="back"></i></button>
+      <h2>Château</h2>
+      <span class="chip"><i data-ico="gem" class="gem-ico"></i><b class="gems">0</b></span>
+    </header>
+    <div class="scroll" id="castle-scroll"><div class="list" id="castle-content"></div></div>
   </section>
 
   <!-- ================= PARAMÈTRES ================= -->
@@ -103,6 +119,7 @@
       </div>
     </footer>
     <div id="radial" hidden></div>
+    <div id="aim-hint" hidden>Touche la zone à bombarder</div>
   </section>
 
   <div id="overlay" class="overlay"></div>
