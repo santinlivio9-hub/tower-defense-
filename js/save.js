@@ -1,6 +1,11 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { SHOP, ACHIEVEMENTS, LEVELS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS } from './config.js';
+import { SHOP, ACHIEVEMENTS, LEVELS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { mulberry32, hashStr } from './maps.js';
+
+// date locale « AAAA-MM-JJ » (le jour change à minuit, heure du téléphone)
+export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const mondayOf = (d = new Date()) => { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return today(m); };
 
 const KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
 
@@ -17,6 +22,8 @@ const defaults = () => ({
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
+  daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '' },
+  pass: { pts: 0, claimed: [] },
   legacyStars: 0, notice: null,
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0 },
@@ -35,7 +42,7 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
   }
   // Ancienne sauvegarde (3 cartes, 3 difficultés, bonus permanents) -> nouveau système
@@ -120,10 +127,12 @@ export class Save {
   // Applique une récompense { gems, talent, chest, boosts } ; renvoie sa description
   grant(r) {
     const d = this.data, out = [];
+    if (r.coins) { d.coins = (d.coins || 0) + r.coins; out.push(`${r.coins} pièces`); }
     if (r.gems) { d.gems += r.gems; out.push(`${r.gems} gemmes`); }
     if (r.talent) { d.talentPts += r.talent; out.push(r.talent > 1 ? `${r.talent} points de talent` : '1 point de talent'); }
     if (r.chest) { d.chests[r.chest]++; out.push(CHESTS[r.chest].name); }
-    if (r.boosts) { for (let i = 0; i < r.boosts; i++) { const id = BOOST_ORDER[Math.floor(Math.random() * 4)]; d.boosts[id]++; } out.push(`${r.boosts} boosts`); }
+    if (typeof r.boosts === 'object') for (const [id, n] of Object.entries(r.boosts)) { d.boosts[id] = (d.boosts[id] || 0) + n; out.push(`${n} ${BOOSTS[id].name}`); }
+    else if (r.boosts) { for (let i = 0; i < r.boosts; i++) { const id = BOOST_ORDER[Math.floor(Math.random() * 4)]; d.boosts[id]++; } out.push(r.boosts > 1 ? `${r.boosts} boosts` : '1 boost'); }
     return out.join(' + ');
   }
   // Ouvre un coffre ; renvoie les cartes [{ kind: 'gems'|'boost', id, n }] (déjà ajoutées à l'inventaire)
@@ -131,7 +140,8 @@ export class Save {
     const d = this.data, c = CHESTS[kind]; if (!c || d.chests[kind] <= 0) return null;
     d.chests[kind]--; d.stats.chests = (d.stats.chests || 0) + 1;
     const cards = [];
-    for (let i = 0; i < c.cards; i++) {
+    const coins = Math.round(c.coins[0] + Math.random() * (c.coins[1] - c.coins[0])); d.coins = (d.coins || 0) + coins; cards.push({ kind: 'coins', n: coins });
+    for (let i = 1; i < c.cards; i++) {
       if (i > 0 && Math.random() < c.boostChance) {
         const rare = Math.random() < c.rare, id = rare ? (Math.random() < 0.6 ? 'shield' : 'revive') : BOOST_ORDER[Math.floor(Math.random() * 4)];
         const n = rare ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
@@ -144,6 +154,73 @@ export class Save {
     this.persist();
     return cards;
   }
+
+  // ------------------------------------------------------------- quotidien
+  // À appeler à chaque passage sur l'accueil : nouveau jour = série, nouvelles quêtes, roue, défi
+  dailyTick() {
+    const D = this.data.daily, now = today();
+    if (D.day !== now) {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      D.streak = D.day === today(y) ? D.streak + 1 : 1;
+      D.day = now;
+      const rnd = mulberry32(hashStr('q' + now)), pool = [...DAILY.quests];
+      D.quests = [];
+      while (D.quests.length < DAILY.perDay && pool.length) { const q = pool.splice(Math.floor(rnd() * pool.length), 1)[0]; D.quests.push({ id: q.id, prog: 0, claimed: false }); }
+    }
+    const wk = mondayOf();
+    if (D.week !== wk) { D.week = wk; const q = DAILY.weekly[Math.floor(mulberry32(hashStr('w' + wk))() * DAILY.weekly.length)]; D.weekly = { id: q.id, prog: 0, claimed: false }; }
+    this.persist();
+  }
+  questDef(q, weekly = false) { return (weekly ? DAILY.weekly : DAILY.quests).find((x) => x.id === q.id); }
+  calendarReady() { return this.data.daily.calDay !== today(); }
+  claimCalendar() {
+    const D = this.data.daily; if (!this.calendarReady()) return null;
+    const i = D.cal % DAILY.calendar.length, r = DAILY.calendar[i];
+    D.cal++; D.calDay = today(); const text = this.grant(r); this.persist();
+    return { i, r, text };
+  }
+  // Progression des quêtes à la fin d'une partie : ev = { kills, wins, boosts, stars, built, upgrades, combo, bosses, drops, waves }
+  trackDaily(ev) {
+    const D = this.data.daily; this.dailyTick();
+    for (const q of [...D.quests, D.weekly].filter(Boolean)) {
+      if (q.claimed) continue;
+      const v = ev[q.id] || 0;
+      q.prog = q.id === 'combo' ? Math.max(q.prog, v) : q.prog + v;
+    }
+    this.persist();
+  }
+  questsReady() { const D = this.data.daily; return [...D.quests, D.weekly].filter((q) => q && !q.claimed && q.prog >= this.questDef(q, q === D.weekly).n).length; }
+  claimQuest(q) {
+    const D = this.data.daily, wk = q === D.weekly, def = this.questDef(q, wk);
+    if (q.claimed || q.prog < def.n) return null;
+    q.claimed = true; const text = this.grant(def.reward); this.addPass(def.pass); this.persist();
+    return text;
+  }
+  wheelReady() { return this.data.daily.wheel !== today(); }
+  spinWheel() {
+    const W = DAILY.wheel, total = W.reduce((a, s) => a + s.w, 0); let x = Math.random() * total, i = 0;
+    for (; i < W.length - 1; i++) { x -= W[i].w; if (x < 0) break; }
+    const { w, ...r } = W[i]; const text = this.grant(r); this.data.daily.wheel = today(); this.persist();
+    return { i, text, r };
+  }
+  // défi du jour : un niveau normal déjà terminé (sinon le 1er) + un modificateur, tirés selon la date
+  challenge() {
+    const rnd = mulberry32(hashStr('c' + today()));
+    const done = LEVELS.filter((L) => !L.boss && this.levelDone(L.n));
+    const L = done.length ? done[Math.floor(rnd() * done.length)] : LEVELS[0];
+    const mod = DAILY.challenges[Math.floor(rnd() * DAILY.challenges.length)];
+    return { n: L.n, mod, done: this.data.daily.chDay === today() };
+  }
+  challengeDay() { return today(); }
+  // passe de progression
+  addPass(n) { this.data.pass.pts += Math.max(0, Math.round(n)); }
+  passTier() { return Math.min(PASS.tiers, Math.floor(this.data.pass.pts / PASS.perTier)); }
+  passReady() { const t = this.passTier(), c = this.data.pass.claimed; let n = 0; for (let i = 1; i <= t; i++) if (!c.includes(i)) n++; return n; }
+  claimPass(tier) {
+    const P = this.data.pass; if (tier > this.passTier() || P.claimed.includes(tier)) return null;
+    P.claimed.push(tier); const text = this.grant(passReward(tier)); this.persist(); return text;
+  }
+  dailyCount() { return (this.calendarReady() ? 1 : 0) + this.questsReady() + (this.wheelReady() ? 1 : 0) + this.passReady(); }
 
   // ------------------------------------------------------------- succès
   // Vérifie les succès ; renvoie la liste des succès nouvellement débloqués.

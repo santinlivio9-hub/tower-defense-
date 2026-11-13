@@ -1,7 +1,7 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
-import { JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -13,9 +13,11 @@ const TAU = Math.PI * 2;
 
 export class Game {
   // level = entrée de LEVELS ; heroic = défi héroïque ; endless = mode infini ; boosts = identifiants des boosts emportés
-  constructor({ canvas, level, heroic = false, endless = false, save, audio, boosts = [] }) {
+  // challenge = modificateur du défi du jour (voir DAILY.challenges)
+  constructor({ canvas, level, heroic = false, endless = false, save, audio, boosts = [], challenge = null }) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
-    this.level = endless ? { ...level, endless: true } : level; this.endless = endless;
+    this.challenge = challenge; const Ch = challenge || {};
+    this.level = endless ? { ...level, endless: true } : Ch.density ? { ...level, density: level.density * Ch.density } : level; this.endless = endless;
     this.world = WORLDS[level.world]; this.heroic = heroic && !endless ? heroicMod(level.n) : null;
     this.save = save; this.audio = audio;
     this.theme = THEMES[this.world.theme]; this.field = buildField(level.layout, level.mirror, level.slots, CAMPAIGN.mines);
@@ -25,10 +27,11 @@ export class Game {
     const H = this.heroic || {}, cs = save.data.castle, U = CASTLE.upgrades, m = (this.mods = save.mods());
     const len = this.paths.reduce((a, q) => a + q.total, 0) / this.paths.length;
     this.ease = Math.max(CAMPAIGN.pathEase[0], Math.min(CAMPAIGN.pathEase[1], len / CAMPAIGN.pathRef));
-    this.hpMult = level.hp * this.ease * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1); this.speedMult = level.speed * (H.speed || 1);
+    this.hpMult = level.hp * this.ease * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1) * (Ch.hp || 1); this.speedMult = level.speed * (H.speed || 1) * (Ch.speed || 1);
+    this.sizeMult = Ch.size || 1; this.coinMult = Ch.coins || 1;
     this.scoreMult = this.heroic ? HEROIC.scoreMult : 1;
-    this.banned = H.ban || []; this.towerLimit = H.towerLimit || 0;
-    this.money = Math.round(level.money * (H.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
+    this.banned = Ch.only ? TOWER_ORDER.filter((t) => !Ch.only.includes(t)) : H.ban || []; this.towerLimit = H.towerLimit || 0;
+    this.money = Math.round(level.money * (H.money || 1) * (Ch.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
     this.maxLives = (H.lives || CAMPAIGN.lives + cs.walls * U.walls.per) + m.lives; this.lives = this.maxLives;
     this.totalWaves = level.waves;
     this.wave = 0; this.cleared = 0; this.queue = []; this.spawnClock = 0; this.countdown = null;
@@ -193,7 +196,7 @@ export class Game {
   kill(e, tower) {
     e.dead = true;
     if (e.pendingText > 0) this.dmgText(e, e.pendingText, false);
-    const reward = Math.round(e.reward * GAME.rewardMult * this.mods.coinMult * (this.coins2 ? 2 : 1));
+    const reward = Math.round(e.reward * GAME.rewardMult * this.mods.coinMult * this.coinMult * (this.coins2 ? 2 : 1));
     this.addMoney(reward);
     this.stats.kills++; this.stats.cost += e.boss ? 60 : e.cfg.cost; if (tower) tower.kills++;
     const fx = this.fx;
@@ -225,6 +228,7 @@ export class Game {
     }
     if (e.boss) {
       if (!e.mini) this.stats.bossKills++;
+      this.stats.bosses = (this.stats.bosses || 0) + 1;
       this.shake(18); this.audio.play('explosion');
       fx.explosion(e.x, e.y, 150, '#ffd23f'); fx.explosion(e.x, e.y, 230, '#ff5d8f');
       if (!e.mini) { this.slowT = JUICE.bossDeathSlow; this.slowK = 0.25; this.flashScreen('255,255,255', 0.6); }
@@ -287,7 +291,7 @@ export class Game {
     this.fx.add({ k: 'flash', x: t.x, y: t.y, vx: 0, vy: 0, life: 0.18, max: 0.18, size: 46, color: '#ffffff' });
     this.fx.beam(t.x, t.y + 20, t.level >= 5 ? '#ffe27a' : '#fff6c8'); this.audio.play('beam');
     for (let i = 0; i < 8; i++) this.fx.add({ k: 'dot', x: t.x + (Math.random() - 0.5) * 40, y: t.y + 10, vx: 0, vy: -90 - Math.random() * 80, life: 0.7, max: 0.7, size: 3.5, color: col });
-    this.shake(t.level >= 4 ? 5 : 2.5); this.hintT = 0;
+    this.shake(t.level >= 4 ? 5 : 2.5); this.hintT = 0; this.stats.upgrades = (this.stats.upgrades || 0) + 1;
     this.fx.text(t.x, t.y - 40, t.level >= 4 ? t.label + ' !' : 'NIVEAU ' + t.level + ' !', col, t.level >= 4 ? 20 : 18, 1.3);
     if (t.level >= 5) { this.stats.legendaries++; this.fx.confetti(t.x, t.y, 40, 300); this.audio.play('legendary'); }
     else this.audio.play('upgrade');
@@ -572,7 +576,13 @@ export class Game {
     let gems = 0, newStars = 0;
     r.firstClear = false; r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;
     r.rewards = [];
-    if (this.endless) {
+    if (this.challenge) {
+      gems = victory ? CAMPAIGN.gemsWin : 0;
+      if (victory) {
+        r.challengeWin = !sv.challenge().done;
+        if (r.challengeWin) { d.daily.chDay = sv.challengeDay(); r.rewards.push(sv.grant(DAILY.challengeReward)); sv.addPass(DAILY.challengePass); }
+      }
+    } else if (this.endless) {
       gems = wavesDone * CAMPAIGN.gemsPerWaveEndless;
       s.bestEndless = Math.max(s.bestEndless, wavesDone);
       if (this.score > 0 && this.result) r.rank = sv.addEndless({ score: this.score, wave: wavesDone, world: L.world, t: Date.now() });
@@ -586,7 +596,7 @@ export class Game {
       if (r.firstClear && (L.boss || hero)) { const kind = L.boss && !hero ? 'gold' : 'wood'; r.rewards.push(sv.grant({ chest: kind })); }
       r.towers = sv.grantTowers();
     } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
-    let coins = this.endless ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost
+    let coins = this.endless || this.challenge ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost
       : (COINS.win + stars * COINS.perStar + wavesDone * COINS.perWave) * (L.boss ? COINS.bossMult : 1) + (r.firstClear ? COINS.firstClear : 0);
     if (victory && hero) coins *= HEROIC.gemsMult;
     r.coins = Math.round(coins); d.coins = (d.coins || 0) + r.coins;
@@ -595,6 +605,8 @@ export class Game {
     r.xp = Math.round((g.cost * XP.perCost + wavesDone * XP.perWave + (victory ? XP.win + newStars * XP.perStar : 0)) * (hero ? HEROIC.xpMult : 1));
     r.xpBefore = { level: d.level, xp: d.xp };
     r.levelUps = sv.addXp(r.xp);
+    sv.addPass(r.xp + (victory && !this.challenge ? stars * PASS.perStar : 0));
+    sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? stars : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone });
     r.achievements = sv.checkAchievements();
     sv.persist();
   }

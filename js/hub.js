@@ -81,7 +81,6 @@ export const Hub = {
     const d = this.save.data, nc = d.chests.wood + d.chests.gold;
     if (this.homeDaily) this.homeDaily(left, right, side);
     side(left, chestSvg(d.chests.gold ? 'gold' : 'wood'), 'Coffres', () => { this.shopTab = 'chests'; this.show('shop'); }, nc, nc ? 'glow' : '');
-    side(right, icon(this.save.endlessUnlocked() ? 'infinity' : 'lock'), 'Infini', () => this.openEndless(), 0, this.save.endlessUnlocked() ? '' : 'off');
   },
   // Scène animée de l'accueil : ciel, nuages, collines, château, brainrots qui passent au loin
   tickHome(ts) {

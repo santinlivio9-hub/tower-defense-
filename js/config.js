@@ -353,8 +353,8 @@ export const TALENTS = {
   ] },
 };
 export const CHESTS = {
-  wood: { name: 'Coffre en bois', cost: 30, cards: 3, gems: [6, 14], boostChance: 0.6, rare: 0.15 },
-  gold: { name: 'Coffre doré',    cost: 75, cards: 5, gems: [15, 35], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
+  wood: { name: 'Coffre en bois', cost: 30, cards: 3, coins: [80, 160], gems: [6, 14], boostChance: 0.6, rare: 0.15 },
+  gold: { name: 'Coffre doré',    cost: 75, cards: 5, coins: [220, 420], gems: [15, 35], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
 };
 
 // ----------------------------------------------------------------------------
@@ -483,3 +483,55 @@ export const MUSIC = {
   volume: 0.55, bpm: 104, bossBpmAdd: 16,
   chords: [[60, 64, 67], [57, 60, 64], [65, 69, 72], [67, 71, 74]],   // do, la mineur, fa, sol (notes MIDI)
 };
+
+// ----------------------------------------------------------------------------
+//  RAISONS DE REVENIR : cadeau du jour (7 jours), quêtes, roue, défi du jour, passe de progression.
+//  Tout est gratuit, aucun achat réel, aucun minuteur à attendre.
+//  Une récompense = { coins, gems, chest: 'wood'|'gold', boosts: nombre (au hasard) ou { id: nombre }, talent }
+// ----------------------------------------------------------------------------
+export const DAILY = {
+  calendar: [
+    { coins: 100 }, { gems: 5 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 250 },
+    { gems: 10 }, { boosts: { over: 1, shield: 1 } }, { chest: 'gold', gems: 10 },
+  ],
+  perDay: 3,                  // quêtes du jour
+  quests: [                   // {n} = objectif ; pass = points de passe en plus de la récompense
+    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 150 }, pass: 40 },
+    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 200 }, pass: 50 },
+    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 120, gems: 3 }, pass: 40 },
+    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 180 }, pass: 50 },
+    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'plus', reward: { coins: 150 }, pass: 40 },
+    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'up', reward: { coins: 150 }, pass: 40 },
+    { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'bolt', reward: { gems: 5 }, pass: 40 },
+    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 250 }, pass: 50 },
+    { id: 'drops', text: 'Ramasse {n} bulles de boost', n: 2, icon: 'gift', reward: { boosts: 1 }, pass: 40 },
+    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 150 }, pass: 40 },
+  ],
+  weekly: [                   // une grosse quête par semaine (lundi)
+    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 30 }, pass: 200 },
+    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 30 }, pass: 200 },
+    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 30 }, pass: 200 },
+  ],
+  wheel: [                    // segments de la roue (w = poids)
+    { coins: 80, w: 20 }, { gems: 3, w: 16 }, { coins: 150, w: 16 }, { boosts: 1, w: 14 },
+    { coins: 300, w: 10 }, { gems: 10, w: 8 }, { chest: 'wood', w: 12 }, { chest: 'gold', w: 4 },
+  ],
+  wheelExtraCost: 15,         // gemmes pour un tour bonus (le tour du jour est gratuit)
+  challenges: [               // défi du jour : un niveau déjà joué + un modificateur fun
+    { id: 'giant', name: 'Brainrots géants', desc: 'Énormes et coriaces, mais plus lents', size: 1.6, hp: 1.5, speed: 0.8 },
+    { id: 'double', name: 'Tout en x2', desc: 'Deux fois plus de brainrots, deux fois plus de pièces', density: 2, coins: 2, money: 2 },
+    { id: 'pump', name: 'Que des pompes', desc: 'Seule la pompe est autorisée', only: ['shotgun'], money: 1.5 },
+    { id: 'rush', name: 'Ruée folle', desc: 'Brainrots 50 % plus rapides, pièces x1,5', speed: 1.5, coins: 1.5 },
+    { id: 'tiny', name: 'Mini-invasion', desc: 'Brainrots minuscules, fragiles et très nombreux', size: 0.6, hp: 0.45, density: 2.4 },
+    { id: 'sniper', name: 'Tireurs d\'élite', desc: 'Seul le sniper est autorisé', only: ['sniper'], money: 1.6 },
+  ],
+  challengeReward: { chest: 'gold', gems: 15 }, challengePass: 80,
+};
+export const PASS = {
+  tiers: 30, perTier: 300,    // points par palier
+  perStar: 40,                // points par étoile gagnée (en plus de l'XP gagnée)
+  cycle: [{ coins: 150 }, { gems: 5 }, { boosts: 1 }, { coins: 250 }],
+  every5: { chest: 'gold' },  // paliers 5, 10, 15...
+  final: { coins: 1000, gems: 50, chest: 'gold' },
+};
+export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);

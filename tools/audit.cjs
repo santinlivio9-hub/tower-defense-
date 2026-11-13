@@ -21,6 +21,7 @@ const SCENES = [
   ['calendar', () => __ui.openDaily && __ui.openDaily('calendar')],
   ['pass', () => __ui.openDaily && __ui.openDaily('pass')],
   ['wheel', () => __ui.openDaily && __ui.openDaily('wheel')],
+  ['challenge', () => __ui.openDaily && __ui.openDaily('challenge')],
   ['game', async () => { __ui.startGame(6, false, false, []); }],
   ['pause', () => { __ui.togglePause(); }],
   ['intro', () => { __ui.closeOverlay(); __ui.showIntro([{ kind: 'enemy', id: 'tank' }, { kind: 'tower', id: 'sniper' }], () => {}); }],

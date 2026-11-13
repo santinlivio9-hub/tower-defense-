@@ -14,7 +14,7 @@ export class Enemy {
     this.maxHp = Math.round(cfg.hp * game.hpMult * (cfg.boss ? bossMul : hpScale) * (this.elite ? WAVES.eliteHp : 1));
     this.hp = this.maxHp;
     this.speed = cfg.speed * game.speedMult * (cfg.boss ? 1 : 0.94 + Math.random() * 0.12);
-    this.r = cfg.r * (this.elite ? 1.2 : this.mini ? 0.78 : 1); this.armor = cfg.armor || 0;
+    this.r = cfg.r * (this.elite ? 1.2 : this.mini ? 0.78 : 1) * (cfg.boss ? 1 : game.sizeMult || 1); this.armor = cfg.armor || 0;
     this.reward = Math.round(cfg.reward * (this.elite ? WAVES.eliteReward : this.mini ? 0.4 : 1));
     this.leakDmg = this.mini ? 8 : this.elite ? cfg.leak + 1 : cfg.leak; this.abilityN = 0;
     this.flying = !!cfg.flying; this.boss = !!cfg.boss;
