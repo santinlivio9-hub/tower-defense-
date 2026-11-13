@@ -1,5 +1,5 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
-import { VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -503,6 +503,10 @@ export class Game {
       if (r.firstClear && (L.boss || hero)) { const kind = L.boss && !hero ? 'gold' : 'wood'; r.rewards.push(sv.grant({ chest: kind })); }
       r.towers = sv.grantTowers();
     } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
+    let coins = this.endless ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost
+      : (COINS.win + stars * COINS.perStar + wavesDone * COINS.perWave) * (L.boss ? COINS.bossMult : 1) + (r.firstClear ? COINS.firstClear : 0);
+    if (victory && hero) coins *= HEROIC.gemsMult;
+    r.coins = Math.round(coins); d.coins = (d.coins || 0) + r.coins;
     r.record = this.score > r.previous && this.score > 0;
     r.gems = Math.round(gems * this.mods.gemMult); d.gems += r.gems;
     r.xp = Math.round((g.cost * XP.perCost + wavesDone * XP.perWave + (victory ? XP.win + newStars * XP.perStar : 0)) * (hero ? HEROIC.xpMult : 1));

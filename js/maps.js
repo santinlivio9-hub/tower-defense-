@@ -291,11 +291,3 @@ export function drawMapPreview(canvas, theme, field) {
   drawMapAnimated(c, theme, field, mapFlowers(field), 0);
   c.restore();
 }
-
-// Cartes (provisoire : remplacé par la campagne)
-export const MAPS = [
-  { id: 'prairie', name: 'Prairie Pesto', unlock: null, hp: 1, desc: 'Un chemin en lacets. Idéal pour débuter.', theme: 'prairie', layout: 'lacets', slots: 12 },
-  { id: 'desert', name: 'Désert Tiramisu', unlock: 'prairie', hp: 1.25, desc: 'Un long détour entre les dunes.', theme: 'desert', layout: 'detour', slots: 12 },
-  { id: 'volcano', name: 'Volcan Gelato', unlock: 'desert', hp: 1, desc: 'Deux portails, deux chemins qui se rejoignent.', theme: 'volcano', layout: 'fourche', slots: 14 },
-];
-export const getMap = (id) => MAPS.find((m) => m.id === id);
