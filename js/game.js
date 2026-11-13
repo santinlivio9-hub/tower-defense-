@@ -1,5 +1,6 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
-import { COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { icon } from './icons.js';
+import { DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -44,6 +45,7 @@ export class Game {
     // boosts emportés et effets en cours
     this.boosts = boosts.map((id) => ({ id, used: false }));
     this.overT = 0; this.blizzT = 0; this.coins2Until = 0; this.shieldUntil = 0; this.flash = null; this.strikes = [];
+    this.drops = []; this.dropCount = 0; this.lastDrop = -99; this.slowT = 0; this.bolts = []; this.dome = 0;
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
     this._nextCache = null; this.useSlots = true;
@@ -199,6 +201,7 @@ export class Game {
       this.onEvent('combo', this.comboN);
     }
     this.audio.play('death');
+    this.maybeDrop(e);
     if (e.cfg.split) {
       for (let i = 0; i < e.cfg.split.count; i++) {
         const c = this.spawnEnemy(e.cfg.split.type, e.pathIdx, Math.max(0, e.d - i * 14), e.hpScale);
@@ -284,8 +287,9 @@ export class Game {
   }
   // --- boucle ----------------------------------------------------------------
   frame(dtReal) {
-    const dt = Math.min(0.05, dtReal);
-    if (!this.paused) for (let i = 0; i < this.speed; i++) this.update(dt);
+    let dt = Math.min(0.05, dtReal);
+    if (this.slowT > 0 && !this.paused) { this.slowT -= dtReal; dt *= DROPS.slowMo; }
+    if (!this.paused) for (let i = 0; i < (this.slowT > 0 ? 1 : this.speed); i++) this.update(dt);
     this.render();
   }
   update(dt) {
@@ -324,6 +328,9 @@ export class Game {
       this.canBuy = this.money >= min && !this.limitReached;
     }
     for (const p of this.projectiles) p.update(dt, this);
+    for (let i = this.drops.length - 1; i >= 0; i--) { const d = this.drops[i]; d.t += dt; d.y -= 10 * dt; if (d.t > DROPS.life) this.drops.splice(i, 1); }
+    for (let i = this.bolts.length - 1; i >= 0; i--) { this.bolts[i].t -= dt; if (this.bolts[i].t <= 0) this.bolts.splice(i, 1); }
+    this.dome = this.shielded ? Math.min(1, this.dome + dt * 2.5) : Math.max(0, this.dome - dt * 3);
     for (let i = this.delayed.length - 1; i >= 0; i--) { const d = this.delayed[i]; d.t -= dt; if (d.t <= 0) { this.delayed.splice(i, 1); d.fn(); } }
     this.fx.update(dt);
     this.enemies = this.enemies.filter((e) => !e.dead);
@@ -437,17 +444,36 @@ export class Game {
     const b = this.boosts[i];
     if (!b || b.used || this.over || b.id === 'revive') { this.audio.play('error'); return false; }
     const C = BOOSTS[b.id], next = this.queue.length || this.enemies.length ? this.wave : this.wave + 1;
-    if (b.id === 'coins2') this.coins2Until = next;
-    else if (b.id === 'shield') { this.shieldUntil = next; this.fx.ring(this.base.x, this.base.y - 10, 20, 120, '#8fd2ff', 0.6, 10); }
-    else if (b.id === 'heal') { this.lives += C.amount; this.fx.text(this.base.x, this.base.y - 100, `+${C.amount} PV`, '#6dff9a', 28, 1.4); this.fx.burst(this.base.x, this.base.y - 20, '#6dff9a', 20, 200, 6); }
-    else if (b.id === 'free') { this.freeNext = true; this.hintT = 0; }
-    else if (b.id === 'over') { this.overT = C.dur * this.mods.durMult; for (const t of this.towers) this.fx.ring(t.x, t.y, 8, 44, '#ff9f1a', 0.5, 6); }
+    const fx = this.fx, E = this.ext;
+    if (b.id === 'coins2') {
+      this.coins2Until = next;
+      for (let k = 0; k < 70; k++) fx.add({ k: 'coin', x: E.l + Math.random() * (E.r - E.l), y: E.t - Math.random() * 500, vx: (Math.random() - 0.5) * 40, vy: 380 + Math.random() * 260, life: 2.6, max: 2.6, size: 8 + Math.random() * 4, rot: Math.random() * 6, vr: 6 + Math.random() * 8, color: '#ffd23f' });
+      fx.text(VIEW.W / 2, 330, 'PIÈCES x2 !', '#ffd23f', 34, 1.6); this.audio.play('buy'); this.audio.play('coin');
+    } else if (b.id === 'shield') {
+      this.shieldUntil = next; this.dome = 0;
+      fx.ring(this.base.x, this.base.y - 10, 20, 160, '#8fd2ff', 0.7, 12); fx.ring(this.base.x, this.base.y - 10, 10, 260, '#ffffff', 0.5, 6);
+      for (let k = 0; k < 30; k++) { const a = Math.random() * TAU; fx.add({ k: 'spark', x: this.base.x + Math.cos(a) * 110, y: this.base.y - 6 + Math.sin(a) * 110, vx: Math.cos(a) * 90, vy: Math.sin(a) * 90, life: 0.5, max: 0.5, size: 3, color: '#cfe9ff', drag: 2 }); }
+      this.audio.play('upgrade');
+    } else if (b.id === 'heal') {
+      this.lives += C.amount; fx.text(this.base.x, this.base.y - 110, `+${C.amount} PV`, '#6dff9a', 34, 1.6); fx.burst(this.base.x, this.base.y - 20, '#6dff9a', 26, 220, 7);
+      for (let k = 0; k < 14; k++) fx.add({ k: 'heart', x: this.base.x + (Math.random() - 0.5) * 140, y: this.base.y + 10 - Math.random() * 40, vx: (Math.random() - 0.5) * 30, vy: -90 - Math.random() * 90, life: 1.4, max: 1.4, size: 9 + Math.random() * 6, color: '#ff5d6c', drag: 0.5 });
+      fx.ring(this.base.x, this.base.y - 10, 20, 150, '#6dff9a', 0.6, 10); this.audio.play('heal');
+    } else if (b.id === 'free') {
+      this.freeNext = true; this.hintT = 0;
+      for (const sl of this.slots) if (!sl.tower && sl.kind === 'tower') { fx.ring(sl.x, sl.y, 6, 46, '#9dffb4', 0.7, 6); fx.burst(sl.x, sl.y, '#9dffb4', 6, 120, 4); }
+      fx.text(VIEW.W / 2, 330, 'PROCHAINE TOURELLE OFFERTE', '#9dffb4', 24, 1.8);
+    } else if (b.id === 'over') {
+      this.overT = C.dur * this.mods.durMult;
+      for (const t of this.towers) { this.bolts.push({ x: t.x, y: t.y, t: 0.45, seed: Math.random() * 99 }); fx.ring(t.x, t.y, 8, 54, '#ffd23f', 0.5, 7); fx.sparks(t.x, t.y, -Math.PI / 2, '#fff3b0', 8); }
+      this.audio.play('zap'); this.shake(8);
+    }
+    this.slowT = DROPS.slowTime;
     this.consume(b, C);
     return true;
   }
   consume(b, C) {
-    b.used = true;
-    const inv = this.save.data.boosts; inv[b.id] = Math.max(0, (inv[b.id] || 0) - 1); this.save.persist();
+    b.used = true; this.stats.boosts = (this.stats.boosts || 0) + 1;
+    if (!b.free) { const inv = this.save.data.boosts; inv[b.id] = Math.max(0, (inv[b.id] || 0) - 1); this.save.persist(); }
     const rgb = { coins2: '255,220,90', heal: '255,120,140', free: '120,255,160', over: '255,170,60', shield: '140,200,255', revive: '200,140,255' }[b.id];
     this.flashScreen(rgb, 0.55); this.audio.play('boost'); this.shake(4); this.onEvent('haptic', 2);
     this.showBanner(C.name.toUpperCase(), '', C.color, 1.3);
@@ -460,7 +486,42 @@ export class Game {
       else { e.dead = true; this.fx.burst(e.x, e.y, '#c9a6ff', 8, 180, 5); }
     }
     this.fx.ring(this.base.x, this.base.y, 30, 520, '#c9a6ff', 0.9, 14); this.fx.ring(this.base.x, this.base.y, 10, 320, '#ffffff', 0.7, 8);
+    this.slowT = DROPS.slowTime * 1.6;
     this.consume(b, BOOSTS.revive);
+  }
+  // Bon moment pour un boost (le bouton pulse) : beaucoup d'ennemis, château en danger, boss en vue
+  goodMoment(id) {
+    if (this.over || this.wave === 0) return false;
+    const n = this.enemies.length, low = this.lives <= this.maxLives * 0.4, boss = this.enemies.some((e) => e.boss && !e.mini);
+    if (id === 'heal') return this.lives <= this.maxLives * 0.5;
+    if (id === 'shield') return low || (boss && this.enemies.some((e) => e.boss && e.d > this.paths[e.pathIdx].total * 0.6));
+    if (id === 'over') return this.overT <= 0 && (n >= DROPS.crowd || boss || low);
+    if (id === 'coins2') return !this.coins2 && this.queue.length >= 8;
+    if (id === 'free') return !this.freeNext && this.slots.some((s) => !s.tower && s.kind === 'tower');
+    return false;
+  }
+  // Caisse-bulle lâchée par un brainrot : à toucher pour gagner un boost gratuit
+  maybeDrop(e) {
+    if (this.endless && this.dropCount >= DROPS.maxPerLevel * 2) return;
+    if (this.dropCount >= DROPS.maxPerLevel && !this.endless) return;
+    const ch = e.boss ? 1 : e.elite ? DROPS.eliteChance : DROPS.chance;
+    if (this.time - this.lastDrop < DROPS.minGap && !e.boss) return;
+    if (Math.random() >= ch) return;
+    const id = DROPS.pool[Math.floor(Math.random() * DROPS.pool.length)];
+    this.drops.push({ x: Math.max(40, Math.min(VIEW.W - 40, e.x)), y: Math.max(70, e.y - 10), id, t: 0 });
+    this.dropCount++; this.lastDrop = this.time;
+    this.audio.play('card'); this.fx.ring(e.x, e.y, 6, 40, BOOSTS[id].color, 0.4, 5);
+  }
+  dropAt(x, y) { return this.drops.find((d) => Math.hypot(d.x - x, d.y + Math.sin(d.t * 3) * 5 - y) < DROPS.tapRadius); }
+  collectDrop(d) {
+    this.drops.splice(this.drops.indexOf(d), 1);
+    this.fx.burst(d.x, d.y, BOOSTS[d.id].color, 18, 220, 6); this.fx.ring(d.x, d.y, 10, 70, '#fff', 0.4, 6);
+    this.fx.text(d.x, d.y - 40, '+ ' + BOOSTS[d.id].name.toUpperCase(), '#fff', 20, 1.3);
+    this.audio.play('chest'); this.onEvent('haptic', 1);
+    if (this.boosts.length >= DROPS.maxSlots) { const b = { id: d.id, used: false, free: true }; this.boosts.push(b); this.useBoost(this.boosts.length - 1); }
+    else this.boosts.push({ id: d.id, used: false, free: true });
+    this.stats.drops = (this.stats.drops || 0) + 1;
+    this.onEvent('drop', d);
   }
 
   // --- fin de partie ---------------------------------------------------------
@@ -585,11 +646,46 @@ export class Game {
       c.fillStyle = `rgba(255,90,60,${0.15 + k * 0.2})`; c.beginPath(); c.arc(s.x, s.y, s.r * k, 0, TAU); c.fill();
       c.fillStyle = '#3d2c4e'; c.beginPath(); c.ellipse(s.x - 150 * (1 - k), s.y - 420 * (1 - k), 9, 20, 0.35, 0, TAU); c.fill();
     }
-    // bouclier du château
-    if (this.shielded) {
-      const k = Math.sin(this.time * 3) * 0.15;
-      c.fillStyle = `rgba(140,200,255,${0.16 + k * 0.4})`; c.strokeStyle = 'rgba(200,235,255,.9)'; c.lineWidth = 4;
-      c.beginPath(); c.arc(this.base.x, this.base.y - 6, 104, 0, TAU); c.fill(); c.stroke();
+    // dôme lumineux du bouclier
+    if (this.dome > 0) {
+      const k = Math.sin(this.time * 3) * 0.08, R = 112 * (0.6 + 0.4 * this.dome), bx = this.base.x, by = this.base.y + 30;
+      c.save(); c.globalAlpha = this.dome;
+      const g = c.createRadialGradient(bx, by - R * 0.5, R * 0.2, bx, by, R); g.addColorStop(0, `rgba(200,235,255,${0.08 + k})`); g.addColorStop(1, `rgba(120,190,255,${0.35 + k})`);
+      c.fillStyle = g; c.strokeStyle = 'rgba(220,240,255,.95)'; c.lineWidth = 4;
+      c.beginPath(); c.arc(bx, by, R, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2;
+      for (let i = 1; i < 4; i++) { c.beginPath(); c.arc(bx, by, R, Math.PI + i * 0.78 - 0.1 + Math.sin(this.time + i) * 0.04, Math.PI + i * 0.78 + 0.1); c.stroke(); }
+      c.beginPath(); c.ellipse(bx, by - R * 0.45, R * 0.75, R * 0.18, 0, 0, TAU); c.stroke();
+      c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(bx - R * 0.45, by - R * 0.6, R * 0.14, R * 0.07, -0.6, 0, TAU); c.fill();
+      c.restore();
+    }
+    // tourelles en surcharge : halo orange + éclairs à l'activation
+    if (this.overT > 0) {
+      const k = (Math.sin(this.time * 14) + 1) / 2;
+      c.strokeStyle = `rgba(255,190,60,${0.45 + k * 0.4})`; c.lineWidth = 3;
+      for (const t of this.towers) if (t.type !== 'mine') { c.beginPath(); c.arc(t.x, t.y, 30 + k * 4, 0, TAU); c.stroke(); }
+    }
+    for (const bl of this.bolts) {
+      const a = bl.t / 0.45; let x = bl.x + Math.sin(bl.seed) * 30, y = E.t;
+      c.strokeStyle = `rgba(255,250,200,${a})`; c.lineWidth = 7; c.shadowColor = '#ffd23f'; c.shadowBlur = 14;
+      c.beginPath(); c.moveTo(x, y);
+      for (let i = 1; i <= 8; i++) { y = E.t + (bl.y - E.t) * (i / 8); x = (i === 8 ? bl.x : bl.x + Math.sin(bl.seed + i * 2.3) * 26 * (1 - i / 8)); c.lineTo(x, y); }
+      c.stroke(); c.lineWidth = 2.5; c.strokeStyle = `rgba(255,255,255,${a})`; c.stroke(); c.shadowBlur = 0;
+    }
+    // bulles de boost à toucher
+    for (const d of this.drops) {
+      const C = BOOSTS[d.id], y = d.y + Math.sin(d.t * 3) * 5, left = DROPS.life - d.t, blink = left < 2 && Math.sin(d.t * 20) > 0;
+      if (blink) continue;
+      const pop = Math.min(1, d.t * 4), r = 31 * (0.4 + 0.6 * pop) * (1 + Math.sin(d.t * 6) * 0.05);
+      c.save(); c.translate(d.x, y);
+      const ring = (d.t * 1.4) % 1; c.strokeStyle = `rgba(255,255,255,${0.8 * (1 - ring)})`; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, r + 4 + ring * 22, 0, TAU); c.stroke();
+      c.rotate(Math.sin(d.t * 4) * 0.12);
+      const g = c.createRadialGradient(-r * 0.3, -r * 0.35, 2, 0, 0, r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, C.color); g.addColorStop(1, C.color);
+      c.shadowColor = C.color; c.shadowBlur = 18; c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.shadowBlur = 0;
+      c.lineWidth = 3.5; c.strokeStyle = '#3d2c4e'; c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, r - 5, -2.4, -1.5); c.stroke();
+      const im = boostGlyph(d.id); if (im.complete) c.drawImage(im, -r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
+      c.restore();
     }
     if (this.blizzT > 0) { c.fillStyle = `rgba(200,235,255,${Math.min(0.22, this.blizzT * 0.2)})`; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
     this.fx.drawTexts(c);
@@ -630,4 +726,11 @@ export class Game {
     }
     if (this.paused && !this.over) { c.fillStyle = 'rgba(30,14,40,0.35)'; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
   }
+}
+
+// Icône blanche d'un boost, rastérisée une fois (bulles en jeu)
+const glyphCache = {};
+function boostGlyph(id) {
+  if (!glyphCache[id]) { const i = new Image(); i.src = 'data:image/svg+xml,' + encodeURIComponent(icon(BOOSTS[id].icon).replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"').replaceAll('currentColor', '#ffffff')); glyphCache[id] = i; }
+  return glyphCache[id];
 }

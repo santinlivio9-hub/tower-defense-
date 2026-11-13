@@ -1,12 +1,13 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS } from './config.js';
+import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS } from './config.js';
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
 import { End } from './end.js';
 import { Talents } from './talents.js';
 import { Collection } from './collection.js';
+import { BoostUI } from './boosts.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -178,7 +179,8 @@ export class UI {
     else if (name === 'haptic') { if (!this.simulating) this.haptics.pulse(data); }
     else if (name === 'combo') { this.audio.play('combo'); const s = $('#hud-score'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); }
     else if (name === 'intro' && !this.simulating) this.showIntro(data.map((id) => ({ kind: 'enemy', id })));
-    else if ((name === 'ability' || name === 'boost') && this.buildDock) this.cache.dock = null;
+    else if ((name === 'ability' || name === 'boost') && this.buildDock) { this.cache.dock = null; if (name === 'boost') this.boostPop(data); }
+    else if (name === 'drop') { this.cache.dock = null; if (!this.simulating) this.toast('Boost gratuit !', 'Il t\'attend en bas de l\'écran', icon(BOOSTS[data.id].icon)); }
   }
 
   // pièces qui s'envolent de l'ennemi vers le compteur
@@ -317,6 +319,7 @@ export class UI {
     cv.addEventListener('pointerup', (e) => {
       const g = this.game; if (!g || !this.down) return; this.down = null; const p = this.toLogical(e);
       if (g.paused) return;
+      const drop = g.dropAt(p.x, p.y); if (drop) { g.collectDrop(drop); return; }   // bulle de boost
       if (this.aiming) { const id = this.aiming; this.aiming = null; this.cache.dock = null; if (p.y > -40 && g.useAbility(id, p.x, p.y)) this.haptics.pulse(2); return; }   // cible d'une capacité
       const slot = g.slotAt(p.x, p.y);
       this.openMenu(slot && slot !== g.menuSlot ? slot : null);
@@ -501,4 +504,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI);

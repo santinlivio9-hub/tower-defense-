@@ -72,7 +72,7 @@ export const Hub = {
   renderHome() {
     const L = this.nextLevel(), w = WORLDS[L.world];
     $('#play-sub').textContent = `${L.boss ? 'Boss' : 'Niveau'} ${L.id} · ${w.name}`;
-    $('#btn-play').onclick = () => this.playNext ? this.playNext() : this.openPrep(L.n);
+    $('#btn-play').onclick = () => this.playNext();
     const left = $('#home-left'), right = $('#home-right'); left.innerHTML = ''; right.innerHTML = '';
     const side = (box, art, label, fn, badge = 0, cls = '') => {
       const b = el('button', 'side-btn ' + cls, `<span class="sa">${art}</span><small>${label}</small>${badge ? `<em>${badge === true ? '!' : badge}</em>` : ''}`);

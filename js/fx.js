@@ -109,6 +109,8 @@ export class Fx {
       else if (o.k === 'spark') { c.globalAlpha = k; c.strokeStyle = o.color; c.lineWidth = o.size; c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(o.x - o.vx * 0.04, o.y - o.vy * 0.04); c.stroke(); }
       else if (o.k === 'rect') { c.globalAlpha = Math.min(1, k * 3); c.save(); c.translate(o.x, o.y); c.rotate(o.rot); c.fillStyle = o.color; const w = o.w || o.size * 0.6; c.fillRect(-o.size / 2, -w / 2, o.size, w); c.restore(); }
       else if (o.k === 'smoke') { c.globalAlpha = 1; c.fillStyle = o.color + (k * 0.45).toFixed(2) + ')'; c.beginPath(); c.arc(o.x, o.y, o.size * (1.6 - k * 0.8), 0, TAU); c.fill(); }
+      else if (o.k === 'coin') { c.globalAlpha = Math.min(1, k * 3); const w = Math.abs(Math.cos(o.rot)) * o.size + 1.5; c.fillStyle = '#ffcf40'; c.strokeStyle = '#8a5a00'; c.lineWidth = 2; c.beginPath(); c.ellipse(o.x, o.y, w, o.size, 0, 0, TAU); c.fill(); c.stroke(); }
+      else if (o.k === 'heart') { c.globalAlpha = Math.min(1, k * 2); const s = o.size; c.fillStyle = o.color; c.beginPath(); c.moveTo(o.x, o.y + s * 0.8); c.bezierCurveTo(o.x - s * 1.4, o.y - s * 0.2, o.x - s * 0.6, o.y - s * 1.2, o.x, o.y - s * 0.4); c.bezierCurveTo(o.x + s * 0.6, o.y - s * 1.2, o.x + s * 1.4, o.y - s * 0.2, o.x, o.y + s * 0.8); c.fill(); }
       else if (o.k === 'flash') { c.globalAlpha = k; c.fillStyle = o.color; c.beginPath(); c.arc(o.x, o.y, o.size * (1.2 - k * 0.4), 0, TAU); c.fill(); }
     }
     c.globalAlpha = 1;

@@ -252,7 +252,7 @@ export const End = {
     }
     const leave = (fn) => () => { this.game = null; fn(); };
     const main = $('.es-main', f);
-    if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = leave(() => { this.show('world'); this.openPrep(nextN); }); main.append(nx); }
+    if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.playLevel(nextN); }; main.append(nx); }
     else if (!win && !r.endless) { const rt = el('button', 'btn green big', icon('restart') + 'Réessayer'); rt.onclick = () => this.replay(); main.append(rt); }
     else { const rp = el('button', 'btn primary big', icon('restart') + 'Rejouer'); rp.onclick = () => this.replay(); main.append(rp); }
     const round = $('.es-round', f);
