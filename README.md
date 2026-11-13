@@ -51,6 +51,10 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
   inventaire persistant ; on en emporte 2 par niveau (4 en niveau de boss).
 - **Mode infini** débloqué après le monde 2, classement local des 10 meilleurs scores.
 - **Score** partout (multi-kills, vague parfaite, record par niveau), image de score à partager.
+- **Juice** : éclaboussures aux couleurs de chaque brainrot, « pop » qui monte d'un ton quand on enchaîne les kills,
+  compteur de combo (x5, x10, x25 « CARNAGE ! ») avec points bonus, micro-pauses et tremblements sur les gros coups,
+  chiffres de dégâts qui rebondissent, rayon de lumière quand une tourelle monte de niveau, entrée et mort des boss
+  au ralenti, bannière de fin de vague, musique générée qui s'intensifie contre les boss (réglages dans `JUICE` et `MUSIC`).
 - **PWA** : installable sur l'écran d'accueil (« Brainrot TD »), jouable hors ligne.
 - Deux monnaies : pièces (en partie) et gemmes (hors partie). Tout se gagne en jouant, aucun achat réel.
 
@@ -78,6 +82,7 @@ js/fx.js              particules, traînées, textes flottants
 js/sprites.js         sprites SVG des brainrots et des tourelles
 js/icons.js           icônes SVG de l'interface
 js/audio.js           sons Web Audio
+js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
 js/save.js            sauvegarde, migration, progression, XP, coffres
 js/ui.js              HUD, menu radial, tutoriel, fin de partie, partage

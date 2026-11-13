@@ -8,6 +8,7 @@ import { End } from './end.js';
 import { Talents } from './talents.js';
 import { Collection } from './collection.js';
 import { BoostUI } from './boosts.js';
+import { Music } from './music.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -35,6 +36,7 @@ export class UI {
   constructor(save, audio) {
     this.save = save; this.audio = audio; this.game = null;
     this.haptics = new Haptics(save.data.settings, audio);
+    this.music = new Music(audio, save.data.settings);
     this.shopTab = 'chests';
     this.canvas = $('#game'); this.cache = {}; this.last = 0; this.simulating = false;
     this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
@@ -42,7 +44,7 @@ export class UI {
     hydrateIcons();
     preloadSprites(save.data.skin);
     document.addEventListener('pointerdown', (e) => {
-      this.audio.unlock();
+      this.audio.unlock(); if (!this.music.on) this.music.start();
       if (e.target.closest('.btn, .icon-btn, .seg button, .switch, .rb')) { this.audio.play('click'); this.haptics.pulse(0); }
     }, { capture: true });
     $$('[data-go]').forEach((b) => b.addEventListener('click', () => this.show(b.dataset.go)));
@@ -131,11 +133,12 @@ export class UI {
   }
   renderSettings() {
     const s = this.save.data.settings, box = $('#settings-content'); box.innerHTML = '';
-    box.append(this.switchRow('Son', 'Bruitages synthétisés', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); }));
+    box.append(this.switchRow('Son', 'Bruitages synthétisés', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); this.music.apply(); }));
     const vol = el('div', 'setting', `<span class="lab">${icon('sound')}<span>Volume</span></span>`);
     const r = el('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.05; r.value = s.volume;
     r.oninput = () => { this.audio.setVolume(+r.value); this.save.persist(); }; r.onchange = () => this.audio.play('coin');
     vol.append(r); box.append(vol);
+    box.append(this.switchRow('Musique', 'Musique de fond (plus intense contre les boss)', 'sound', 'music', () => this.music.apply()));
     box.append(this.switchRow('Vibrations', 'Retour haptique', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
     box.append(this.switchRow('Tremblement d\'écran', 'Explosions et boss', 'quake', 'shake'));
     box.append(this.switchRow('Chiffres de dégâts', 'Nombres flottants', 'numbers', 'damageNumbers'));
@@ -149,6 +152,25 @@ export class UI {
     rs.append(rb); box.append(rs);
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
   }
+  // Compteur de kills enchaînés sur le côté (x5, x10, x25 « CARNAGE ! »)
+  showCombo(n, tier) {
+    const box = $('#combo'); clearTimeout(this.comboHide);
+    if (n < 3 && !tier) return;
+    box.hidden = false; $('b', box).textContent = 'x' + n;
+    box.className = 'c' + Math.min(4, Math.floor(Math.log2(Math.max(1, n / 3)) + (n >= 25 ? 1 : 0)));
+    const now = performance.now(); if (tier || now - (this._cb || 0) > 70) { this._cb = now; box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
+    if (tier) {
+      const em = $('em', box); em.textContent = `${tier.label} +${tier.bonus}`; em.classList.remove('go'); void em.offsetWidth; em.classList.add('go');
+      this.audio.play('tier'); this.haptics.pulse(n >= 25 ? 2 : 1);
+    }
+    this.comboHide = setTimeout(() => { box.classList.add('out'); setTimeout(() => { box.hidden = true; box.classList.remove('out'); }, 300); }, 1400);
+  }
+  // Intensité de la musique : menus (0), partie (1), boss (2)
+  syncMusic() {
+    const g = this.game, inGame = this.screen === 'game' && g && !g.over;
+    const boss = inGame && (g.enemies.some((e) => e.boss && !e.mini) || (g.nextWave && g.nextWave.boss && !g.nextWave.mini && g.queue.length > 0));
+    this.music.setLevel(!inGame ? 0 : boss ? 2 : g.wave > 0 ? 1 : 0);
+  }
   syncSpeed() { const g = this.game, b = $('#btn-speed'); b.querySelector('b').textContent = 'x' + (g ? g.speed : 1); b.dataset.s = g ? g.speed : 1; }
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
 
@@ -159,6 +181,7 @@ export class UI {
     this.lastArgs = [n, heroic, endless];
     this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
     g.onEvent = (name, data) => this.onGameEvent(name, data);
+    Object.defineProperty(g, 'simulating', { get: () => this.simulating });
     this.closeOverlay(); this.closeMenu();
     this.syncMute(); if (this.buildDock) this.buildDock();
     g.speed = this.save.data.settings.speed || 1; this.syncSpeed(); $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
@@ -179,6 +202,8 @@ export class UI {
     else if (name === 'upgraded' || name === 'placed') { this.cache.radial = null; this.haptics.pulse(name === 'upgraded' ? 2 : 1); }
     else if (name === 'coins') this.flyCoins(data);
     else if (name === 'haptic') { if (!this.simulating) this.haptics.pulse(data); }
+    else if (name === 'kill') { if (!this.simulating) { this.audio.pop(data); this.showCombo(data); } }
+    else if (name === 'chainTier') { if (!this.simulating) this.showCombo(data.n, data); }
     else if (name === 'combo') { this.audio.play('combo'); const s = $('#hud-score'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); }
     else if (name === 'intro' && !this.simulating) this.showIntro(data.map((id) => ({ kind: 'enemy', id })));
     else if ((name === 'ability' || name === 'boost') && this.buildDock) { this.cache.dock = null; if (name === 'boost') this.boostPop(data); }
@@ -382,6 +407,7 @@ export class UI {
     if (g && this.screen === 'game' && !this.simulating) { g.frame(dt); this.updateHud(); }
     else if (this.screen === 'castle') this.tickCastle(ts);
     else if (this.screen === 'menu') this.tickHome(ts);
+    if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
     requestAnimationFrame((t) => this.loop(t));
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }

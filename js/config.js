@@ -458,3 +458,28 @@ export const TABS = [
   { id: 'talents', label: 'Talents', icon: 'talent' },
   { id: 'collection', label: 'Collection', icon: 'book' },
 ];
+
+// ----------------------------------------------------------------------------
+//  JUICE : combos, micro-pauses, couleurs des éclaboussures, musique
+// ----------------------------------------------------------------------------
+export const JUICE = {
+  chainWindow: 1.3,          // s entre deux kills pour garder le combo
+  chainTiers: [              // paliers du compteur de combo : [kills, texte, points bonus]
+    [5, 'COMBO !', 60], [10, 'SUPER !', 160], [25, 'CARNAGE !', 500], [50, 'APOCALYPSE !', 1500], [100, 'LÉGENDAIRE !', 4000],
+  ],
+  hitStop: 0.04,             // micro-pause (s) sur les gros coups
+  hitStopGap: 0.25,          // au plus une micro-pause toutes les 0,25 s
+  bigHit: 0.3,               // un coup « gros » retire au moins 30 % des PV max
+  bossIntro: 2,              // s de cinématique d'entrée du boss
+  bossDeathSlow: 1.4,        // s de ralenti à la mort du boss
+  slime: {                   // couleurs des éclaboussures à la mort de chaque brainrot
+    basic: ['#ffb347', '#e8443c', '#fff3b0'], fast: ['#e8443c', '#ff8a5c', '#3fae7a'], tank: ['#b9b3c6', '#ffd23f', '#8b85a3'],
+    flying: ['#ffe45c', '#ff9dbb', '#fff'], armored: ['#ff7a5c', '#8e9aab', '#ffd23f'], splitter: ['#4cd137', '#ff5d6c', '#1f9a4c'],
+    healer: ['#c58cff', '#6b3e1e', '#fff'], stealth: ['#8fe3ff', '#c9a6ff', '#fff'], mini: ['#4cd137', '#ff5d6c'],
+    boss: ['#ffd23f', '#ff5d8f', '#5fd8ff', '#fff'],
+  },
+};
+export const MUSIC = {
+  volume: 0.55, bpm: 104, bossBpmAdd: 16,
+  chords: [[60, 64, 67], [57, 60, 64], [65, 69, 72], [67, 71, 74]],   // do, la mineur, fa, sol (notes MIDI)
+};

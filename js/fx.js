@@ -49,10 +49,19 @@ export class Fx {
   }
   ring(x, y, r0, r1, color, life = 0.4, lw = 4) { this.rings.push({ x, y, r0, r1, color, life, max: life, lw }); }
   tracer(x1, y1, x2, y2, color = '#fff3b0', width = 2.5, life = 0.09) { this.tracers.push({ x1, y1, x2, y2, color, width, life, max: life }); }
-  text(x, y, text, color = '#fff', size = 14, life = 0.7) {
+  text(x, y, text, color = '#fff', size = 14, life = 0.7, o = {}) {
     if (this.texts.length > 120) this.texts.shift();
-    this.texts.push({ x: Math.max(60, Math.min(540, x + rand(-6, 6))), y, vy: -55, text, color, size, life, max: life });
+    this.texts.push({ x: Math.max(60, Math.min(540, x + rand(-6, 6))), y, y0: y, vy: o.bounce ? -260 - rand(0, 80) : -55, vx: o.bounce ? rand(-50, 50) : 0, bounce: !!o.bounce, shake: !!o.shake, text, color, size, life, max: life });
   }
+  // éclaboussure de slime aux couleurs du brainrot
+  slime(x, y, cols, n = 14, speed = 260) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, TAU), v = rand(0.35, 1) * speed;
+      this.add({ k: 'blob', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 90, g: 620, life: rand(0.45, 0.8), max: 0.8, size: rand(3, 7), color: cols[i % cols.length], drag: 2.2 });
+    }
+    this.ring(x, y, 4, 34, cols[0], 0.3, 6);
+  }
+  beam(x, y, color = '#fff6c8') { this.add({ k: 'beam', x, y, vx: 0, vy: 0, life: 0.7, max: 0.7, size: 46, color }); }
   coinBurst(x, y, n) {
     n = Math.min(n, 8);
     for (let i = 0; i < n; i++) {
@@ -73,7 +82,10 @@ export class Fx {
     for (const arr of [this.tracers, this.rings, this.texts]) {
       for (let i = arr.length - 1; i >= 0; i--) { arr[i].life -= dt; if (arr[i].life <= 0) arr.splice(i, 1); }
     }
-    for (const t of this.texts) { t.y += t.vy * dt; t.vy *= 1 - 2.5 * dt; }
+    for (const t of this.texts) {
+      if (t.bounce) { t.vy += 900 * dt; t.y += t.vy * dt; t.x += t.vx * dt; t.vx *= 1 - 3 * dt; if (t.y > t.y0 && t.vy > 0) { t.y = t.y0; t.vy = Math.abs(t.vy) > 90 ? -t.vy * 0.42 : 0; } }
+      else { t.y += t.vy * dt; t.vy *= 1 - 2.5 * dt; }
+    }
     for (let i = this.coins.length - 1; i >= 0; i--) {
       const c = this.coins[i]; c.t += dt;
       if (c.t < c.delay) { c.vx *= 1 - 4 * dt; c.vy *= 1 - 4 * dt; c.vy += 200 * dt; }
@@ -111,6 +123,8 @@ export class Fx {
       else if (o.k === 'smoke') { c.globalAlpha = 1; c.fillStyle = o.color + (k * 0.45).toFixed(2) + ')'; c.beginPath(); c.arc(o.x, o.y, o.size * (1.6 - k * 0.8), 0, TAU); c.fill(); }
       else if (o.k === 'coin') { c.globalAlpha = Math.min(1, k * 3); const w = Math.abs(Math.cos(o.rot)) * o.size + 1.5; c.fillStyle = '#ffcf40'; c.strokeStyle = '#8a5a00'; c.lineWidth = 2; c.beginPath(); c.ellipse(o.x, o.y, w, o.size, 0, 0, TAU); c.fill(); c.stroke(); }
       else if (o.k === 'heart') { c.globalAlpha = Math.min(1, k * 2); const s = o.size; c.fillStyle = o.color; c.beginPath(); c.moveTo(o.x, o.y + s * 0.8); c.bezierCurveTo(o.x - s * 1.4, o.y - s * 0.2, o.x - s * 0.6, o.y - s * 1.2, o.x, o.y - s * 0.4); c.bezierCurveTo(o.x + s * 0.6, o.y - s * 1.2, o.x + s * 1.4, o.y - s * 0.2, o.x, o.y + s * 0.8); c.fill(); }
+      else if (o.k === 'blob') { c.globalAlpha = Math.min(1, k * 2.5); c.fillStyle = o.color; const sq = 1 + Math.min(0.6, Math.abs(o.vy) / 600); c.beginPath(); c.ellipse(o.x, o.y, o.size / sq, o.size * sq, Math.atan2(o.vy, o.vx) + Math.PI / 2, 0, TAU); c.fill(); }
+      else if (o.k === 'beam') { const a = Math.sin(k * Math.PI); c.globalAlpha = a * 0.85; const g = c.createLinearGradient(o.x - o.size / 2, 0, o.x + o.size / 2, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, o.color); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(o.x - o.size / 2 * (0.6 + a * 0.4), o.y - 900, o.size * (0.6 + a * 0.4), 900 + 20); }
       else if (o.k === 'flash') { c.globalAlpha = k; c.fillStyle = o.color; c.beginPath(); c.arc(o.x, o.y, o.size * (1.2 - k * 0.4), 0, TAU); c.fill(); }
     }
     c.globalAlpha = 1;
@@ -128,11 +142,11 @@ export class Fx {
   drawTexts(c) {
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
     for (const t of this.texts) {
-      const k = t.life / t.max, pop = 1 + Math.max(0, k - 0.8) * 2.5;
+      const k = t.life / t.max, pop = 1 + Math.max(0, k - 0.8) * 2.5, jx = t.shake ? Math.sin(t.life * 90) * 2.5 : 0;
       c.globalAlpha = Math.min(1, k * 2.5);
       c.font = `700 ${Math.round(t.size * pop)}px Fredoka, ui-rounded, system-ui, sans-serif`;
-      c.lineWidth = Math.max(4, t.size * 0.28); c.strokeStyle = '#3d2c4e'; c.strokeText(t.text, t.x, t.y);
-      c.fillStyle = t.color; c.fillText(t.text, t.x, t.y);
+      c.lineWidth = Math.max(4, t.size * 0.28); c.strokeStyle = '#3d2c4e'; c.strokeText(t.text, t.x + jx, t.y);
+      c.fillStyle = t.color; c.fillText(t.text, t.x + jx, t.y);
     }
     c.globalAlpha = 1;
   }

@@ -214,9 +214,9 @@ export class Tower {
   draw(c, skin) {
     const game = this.game, acc = RARITY[this.level - 1].color;
     const sp = towerSprite(this.type, this.level, this.branch, skinFinish(skin));
-    const pop = 1 + Math.sin(this.lvlAnim * Math.PI) * 0.4 + this.spawnAnim * 0.35;
+    const pop = 1 + Math.sin(this.lvlAnim * Math.PI) * 0.55 + this.spawnAnim * 0.35, jump = Math.sin(this.lvlAnim * Math.PI) * 18;
     const h = sp.half, gold = this.level >= 5;
-    c.save(); c.translate(this.x, this.y);
+    c.save(); c.translate(this.x, this.y - jump);
     if (gold) { // halo légendaire
       const g = c.createRadialGradient(0, 0, 14, 0, 0, 52 + Math.sin(this.t * 3) * 4); g.addColorStop(0, 'rgba(255,210,63,.6)'); g.addColorStop(1, 'rgba(255,210,63,0)');
       c.fillStyle = g; c.beginPath(); c.arc(0, 0, 58, 0, TAU); c.fill();

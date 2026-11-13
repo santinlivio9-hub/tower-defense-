@@ -45,6 +45,13 @@ export class AudioSys {
     if (!this.ctx || this.settings.muted || this.ctx.state !== 'running') return;
     this.tone({ type: 'sine', f0: 42, f1: 30, dur: 0.09, gain: 0.5 * strength });
   }
+  // pop d'un kill : monte d'un demi-ton à chaque kill enchaîné (2 octaves max)
+  pop(chain) {
+    if (!this.ctx || this.settings.muted || this.ctx.state !== 'running') return;
+    const now = performance.now(); if (now - (this.last.pop || 0) < 35) return; this.last.pop = now;
+    const f = 420 * Math.pow(2, Math.min(24, chain - 1) / 12);
+    this.tone({ type: 'sine', f0: f, f1: f * 1.9, dur: 0.07, gain: 0.13 }); this.tone({ type: 'triangle', f0: f * 2, dur: 0.05, gain: 0.05, delay: 0.02 });
+  }
   play(name) {
     if (!this.ctx || this.settings.muted || this.ctx.state !== 'running') return;
     const def = SOUNDS[name]; if (!def) return;
@@ -91,5 +98,7 @@ const SOUNDS = {
   chest:        { fn: (a) => { a.noise({ dur: 0.5, gain: 0.3, f0: 300, f1: 5000, type: 'bandpass' }); [523, 784, 1047, 1568].forEach((f, i) => a.tone({ type: 'triangle', f0: f, dur: 0.3, gain: 0.14, delay: 0.1 + i * 0.07 })); } },
   card:         { gap: 60, fn: (a) => { a.noise({ dur: 0.08, gain: 0.12, f0: 2500, type: 'highpass' }); a.tone({ type: 'triangle', f0: 880, f1: 1320, dur: 0.12, gain: 0.1 }); } },
   levelup:      { fn: (a) => [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.2, gain: 0.1, delay: i * 0.08 })) },
+  beam:         { fn: (a) => { a.tone({ type: 'sine', f0: 300, f1: 1800, dur: 0.5, gain: 0.12 }); a.noise({ dur: 0.5, gain: 0.12, f0: 800, f1: 7000, type: 'bandpass' }); [784, 988, 1175, 1568].forEach((f, i) => a.tone({ type: 'triangle', f0: f, dur: 0.14, gain: 0.08, delay: 0.25 + i * 0.05 })); } },
+  tier:         { gap: 120, fn: (a) => [659, 880, 1109, 1319, 1760].forEach((f, i) => a.tone({ type: 'square', f0: f, dur: 0.12, gain: 0.08, delay: i * 0.04 })) },
   star:         { gap: 10, fn: (a) => a.tone({ type: 'triangle', f0: 1200, f1: 2000, dur: 0.2, gain: 0.14 }) },
 };
