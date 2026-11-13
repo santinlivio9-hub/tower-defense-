@@ -9,16 +9,16 @@ export const GAME = {
   sellRatio: 0.7,          // revente : 70 % de l'investissement
   critChance: 0.08,        // chance de critique de base
   critMult: 2,             // multiplicateur de critique de base
-  interWaveTime: 12,       // secondes avant le lancement auto de la vague suivante
-  overlapTime: 40,         // si des ennemis restent : la vague suivante part quand même après ce délai
-  earlyBonusPerSec: 2,     // pièces par seconde restante si on lance en avance
+  interWaveTime: 5,        // secondes avant le lancement auto de la vague suivante (désactivable)
+  overlapTime: 20,         // si des ennemis restent : la vague suivante part quand même après ce délai
+  earlyBonusPerSec: 3,     // pièces par seconde restante si on lance en avance
   earlyBonusAlive: 15,     // bonus si on lance alors que des ennemis sont encore en vie
-  waveBonusBase: 24,       // pièces de fin de vague = base + parVague * n
-  waveBonusPerWave: 4,
+  waveBonusBase: 30,       // pièces de fin de vague = base + parVague * n
+  waveBonusPerWave: 6,
   pathWidth: 64,
   towerRadius: 26,
   bossEvery: 10,           // mode infini : un boss toutes les 10 vagues
-  rewardMult: 0.85,        // multiplicateur global des pièces par kill
+  rewardMult: 1,           // multiplicateur global des pièces par kill
   stealthRevealRange: 85,  // toute tourelle révèle les invisibles à bout portant (px)
   stealthRevealOnHit: 1.5, // secondes de révélation après un dégât (zone, brûlure, cryo)
 };
@@ -44,7 +44,7 @@ export const RARITY = [
 //          burn (dégâts/s), burnDur, barrels, homing, knockback, stun,
 //          freezeChance, freezeDur, vuln, cluster, spinUp, minRate, projSpeed
 // ----------------------------------------------------------------------------
-const UP = (cost, d = 1.35, r = 1.1, g = 1.06) => ({ cost, damageMul: d, rateMul: r, rangeMul: g });
+const UP = (cost, d = 1.5, r = 1.12, g = 1.07) => ({ cost, damageMul: d, rateMul: r, rangeMul: g });
 
 export const TOWERS = {
   assault: {
@@ -183,15 +183,15 @@ export const ENEMIES = {
   stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, from: 5, interval: 0.8, stealth: true },
   mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
   // Boss de monde. Leurs PV sont multipliés par le niveau (CAMPAIGN.hpWorld), pas par la vague.
-  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 15000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
+  boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 9000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
            ability: { kind: 'summon', every: 6, type: 'fast', count: 3 }, title: 'Il souffle des sbires !' },
-  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 24000, speed: 22, reward: 400, leak: 99, r: 50, boss: true, armor: 4, unlock: 999,
+  boss2: { name: 'Gorilla Lavatrice',    tag: 'BOSS', hp: 9000,  speed: 22, reward: 400, leak: 99, r: 50, boss: true, armor: 4, unlock: 999,
            ability: { kind: 'emp', every: 8, radius: 190, dur: 2.5 }, title: 'Son essorage coupe tes tourelles !' },
-  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 29000, speed: 20, reward: 500, leak: 99, r: 56, boss: true, unlock: 999,
+  boss3: { name: 'Drago Cannolone',      tag: 'BOSS', hp: 12000, speed: 20, reward: 500, leak: 99, r: 56, boss: true, unlock: 999,
            ability: { kind: 'rage', every: 10, dur: 3, heal: 0.03 }, title: 'Bouclier de crème et rage finale !' },
-  boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 33000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
+  boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 10000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
            ability: { kind: 'combo', every: 7, list: [{ kind: 'emp', radius: 220, dur: 3 }, { kind: 'summon', type: 'armored', count: 3 }] }, title: 'Il gèle tes tourelles et appelle ses crabes !' },
-  boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 30000, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
+  boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 11500, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
            ability: { kind: 'combo', every: 6, rage: true, list: [{ kind: 'summon', type: 'tank', count: 2 }, { kind: 'rage', dur: 3, heal: 0.025 }, { kind: 'emp', radius: 200, dur: 2.5 }] }, title: 'Le roi des brainrots : sbires, bouclier et rugissement !' },
 };
 
@@ -204,7 +204,8 @@ export const WAVES = {
   hpScale: (m) => 1 + 0.16 * (m - 1) + 0.018 * (m - 1) * (m - 1),  // multiplicateur de PV par vague
   maxGroups: 5,
   maxPerGroup: 28,
-  maxSpan: 30,              // durée max (s) des apparitions d'une vague : au-delà, les groupes sont resserrés
+  maxSpan: 18,              // durée max (s) des apparitions d'une vague : au-delà, les groupes sont resserrés
+  spawnPace: 1,             // écart entre deux apparitions (x l'intervalle de chaque ennemi)
   bossEscortBudget: 0.5,    // part du budget normal qui accompagne un boss ou un mini-boss
   finalWaveBudget: 1.1,     // dernière vague d'un niveau normal
   bossHpGrowth: 1.6,        // mode infini : PV des boss x1,6 à chaque boss
@@ -223,11 +224,11 @@ export const WORLDS = [
   { id: 'candy',   name: 'Cité Meringue',          theme: 'candy',   boss: 'boss5', color: '#f070a8' },
 ];
 export const CAMPAIGN = {
-  waves:     [15, 16, 17, 18, 20],        // niveaux 1 à 5 d'un monde
-  bossWaves: [30, 33, 36, 40, 45],        // niveau 6 (boss) du monde 1 à 5
-  bossPaceTo: 28,                         // un niveau de boss finit à la difficulté d'une « vague 28 »
+  waves:     [10, 11, 12, 13, 14],        // niveaux 1 à 5 d'un monde (~5 min)
+  bossWaves: [20, 22, 24, 25, 26],        // niveau 6 (boss) du monde 1 à 5 (15 à 20 min)
+  bossPaceTo: 20,                         // un niveau de boss finit à la difficulté d'une « vague 20 »
   pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
-  money:     [200, 200, 190, 190, 180, 260],   // pièces de départ par niveau du monde
+  money:     [260, 260, 250, 250, 240, 320],   // pièces de départ par niveau du monde
   lives: 20,
   slots:     [10, 11, 12, 12, 13, 16],    // emplacements de tourelles par niveau du monde
   mines: 5,
@@ -238,8 +239,8 @@ export const CAMPAIGN = {
     ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'serpent'],
     ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
   ],
-  hpWorld:    [1.4, 1.45, 1.9, 2.55, 3.0], // PV des ennemis par monde...
-  bossLevelHp: [1.28, 1.5, 1.7, 1.3, 1.25],      // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1], // PV des ennemis par monde...
+  bossLevelHp: [1.1, 1.2, 1.35, 1.1, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.015,                      // ...puis +1,5 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12],

@@ -35,7 +35,7 @@ export function buildWave(n, level, pathCount) {
     let count = Math.max(1, Math.min(WAVES.maxPerGroup, Math.round((budget * weights[i]) / wSum / cfg.cost)));
     const elite = lvl >= WAVES.eliteFrom && n > 4 && rnd() < WAVES.eliteChance;
     if (elite) count = Math.max(1, Math.round(count / WAVES.eliteHp));
-    const interval = cfg.interval * 1.35 * Math.max(0.5, 1 - m * 0.012) * (elite ? 1.6 : 1);
+    const interval = cfg.interval * WAVES.spawnPace * Math.max(0.5, 1 - m * 0.012) * (elite ? 1.6 : 1);
     const path = pathCount > 1 ? (rnd() < 0.5 ? 'alt' : Math.floor(rnd() * pathCount)) : 0;
     groups.push({ type, count, interval, delay: t, path, elite });
     t += count * interval * 0.55 + 1;

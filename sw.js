@@ -1,5 +1,5 @@
 /* Brainrot Bastion — service worker : jeu jouable hors ligne une fois chargé. */
-const CACHE = 'brainrot-td-v12';
+const CACHE = 'brainrot-td-v13';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/main.js', 'js/config.js', 'js/game.js', 'js/maps.js', 'js/waves.js', 'js/enemies.js', 'js/towers.js',

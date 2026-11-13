@@ -358,6 +358,7 @@ export class Game {
         if (!this.endless && this.wave >= this.totalWaves) { this.end(true); return; }
         this.countdown = Math.min(this.countdown ?? Infinity, GAME.interWaveTime);
       } else if (this.countdown !== null) {
+        if (this.save.data.settings.autoWave === false && !this.endless) return;   // attend le bouton
         this.countdown -= dt;
         if (this.countdown <= 0) this.startNextWave(false);
       }

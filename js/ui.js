@@ -1,6 +1,6 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS } from './config.js';
+import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS } from './config.js';
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
@@ -140,6 +140,7 @@ export class UI {
     box.append(this.switchRow('Tremblement d\'écran', 'Explosions et boss', 'quake', 'shake'));
     box.append(this.switchRow('Chiffres de dégâts', 'Nombres flottants', 'numbers', 'damageNumbers'));
     box.append(this.switchRow('Indicateurs', 'Flèche UP et socles achetables', 'up', 'hints'));
+    box.append(this.switchRow('Vague suivante automatique', `Elle part ${GAME.interWaveTime} s après la fin de la précédente`, 'wave', 'autoWave'));
     const tut = el('div', 'setting', `<span class="lab">${icon('book')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
     const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('book')); }; tut.append(tb); box.append(tut);
     const rs = el('div', 'setting', `<span class="lab">${icon('trash')}<span>Réinitialiser<small>Efface toute la progression</small></span></span>`);
@@ -148,6 +149,7 @@ export class UI {
     rs.append(rb); box.append(rs);
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
   }
+  syncSpeed() { const g = this.game, b = $('#btn-speed'); b.querySelector('b').textContent = 'x' + (g ? g.speed : 1); b.dataset.s = g ? g.speed : 1; }
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
 
   // ------------------------------------------------------------------ partie
@@ -159,7 +161,7 @@ export class UI {
     g.onEvent = (name, data) => this.onGameEvent(name, data);
     this.closeOverlay(); this.closeMenu();
     this.syncMute(); if (this.buildDock) this.buildDock();
-    $('#btn-speed b').textContent = 'x1'; $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
+    g.speed = this.save.data.settings.speed || 1; this.syncSpeed(); $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
     if (g.heroic) this.toast('Défi héroïque : ' + g.heroic.name, g.heroic.desc, icon('crown'));
@@ -328,7 +330,7 @@ export class UI {
     window.addEventListener('pointercancel', () => { this.down = null; });
 
     $('#btn-wave').addEventListener('click', () => { const g = this.game; if (g && !g.paused && g.startNextWave(true)) this.haptics.pulse(1); });
-    $('#btn-speed').addEventListener('click', () => { const g = this.game; if (!g) return; g.speed = (g.speed % 3) + 1; $('#btn-speed b').textContent = 'x' + g.speed; });
+    $('#btn-speed').addEventListener('click', () => { const g = this.game; if (!g) return; g.speed = (g.speed % 3) + 1; this.save.data.settings.speed = g.speed; this.save.persist(); this.syncSpeed(); this.audio.play('tick'); this.haptics.pulse(0); });
     $('#btn-pause').addEventListener('click', () => this.togglePause());
     $('#btn-mute').addEventListener('click', () => { const s = this.save.data.settings; this.audio.setMuted(!s.muted); this.save.persist(); this.syncMute(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.game && !this.game.over && !this.game.paused && this.screen === 'game') this.togglePause(); });
@@ -409,7 +411,7 @@ export class UI {
     else {
       const bonus = g.earlyBonus;
       label = `<span class="l">${icon('play')}${g.wave === 0 ? 'Lancer la vague 1' : 'Lancer la vague ' + nw.n}</span>`
-        + (g.countdown != null ? `<small>Départ auto dans ${Math.ceil(g.countdown)} s${bonus > 0 ? ` · +${bonus}${coin()}` : ''}</small>` : bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '');
+        + (g.countdown != null && this.save.data.settings.autoWave === false && g.cleared >= g.wave ? (bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '') : g.countdown != null ? `<small>Départ auto dans ${Math.ceil(g.countdown)} s${bonus > 0 ? ` · +${bonus}${coin()}` : ''}</small>` : bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '');
     }
     this.set('waveLabel', label, (v) => { btn.innerHTML = v; btn.style.visibility = v ? '' : 'hidden'; btn.disabled = !g.canStartNext; btn.classList.toggle('ready', g.canStartNext); btn.classList.toggle('busy', !g.canStartNext); });
     this.set('preview', g.over || !nw ? 0 : nw.n, (n) => {
