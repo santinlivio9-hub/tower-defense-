@@ -401,3 +401,32 @@ export const ACHIEVEMENTS = [
   { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 30 },
   { id: 'early20',   name: 'Pressé',             desc: 'Lancer 20 vagues en avance',     stat: 'earlyStarts', goal: 20, gems: 10 },
 ];
+
+// Séquence de fin de niveau : messages de défaite, conseils (selon l'ennemi qui a fait le plus de dégâts au château)
+export const END = {
+  maxBadges: 3,              // succès affichés au maximum (puis « +N autres »)
+  starGap: 0.42,             // secondes entre deux étoiles
+  cheers: [
+    'Presque ! Encore un essai et c\'est gagné.',
+    'Belle résistance ! Tu y es presque.',
+    'Les brainrots ont eu de la chance. Revanche ?',
+    'Pas mal du tout ! Change une tourelle et retente.',
+  ],
+  tips: {
+    basic: 'La Mitraillette nettoie les vagues de Lumaca en un clin d\'œil.',
+    fast: 'La Tourelle cryo ralentit les Peperoncino : place-la au début du chemin.',
+    tank: 'Le Sniper est efficace contre les Tanks.',
+    flying: 'Les mines ne touchent pas les volants : la Minigun et le Sniper, si.',
+    armored: 'Le Lance-roquettes et le Sniper percent les blindés.',
+    splitter: 'Les dégâts de zone (Pompe, roquettes) détruisent les Anguria et leurs minis.',
+    healer: 'Élimine les Polpo en premier : Sniper ou visée « Plus fort ».',
+    stealth: 'Les explosions révèlent les Medusa invisibles.',
+    boss: 'Garde la frappe aérienne et la Surcharge pour l\'arrivée du boss.',
+    upgrade: 'Améliore tes tourelles : un niveau 3 vaut mieux que trois niveaux 1.',
+  },
+  generic: [
+    'Utilise tes boosts : ceux que tu n\'utilises pas reviennent dans l\'inventaire.',
+    'Lance les vagues en avance pour gagner des pièces bonus.',
+    'Les virages sont les meilleurs emplacements : les ennemis y restent plus longtemps.',
+  ],
+};

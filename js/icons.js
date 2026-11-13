@@ -46,6 +46,8 @@ const ICONS = {
   bag: `<path d="M6 8h12l1.500 11.500a1 1 0 0 1-1 1.100H5.500a1 1 0 0 1-1-1.100zM9 8V6.500a3 3 0 0 1 6 0V8" ${S}/>`,
   talent: `<circle cx="12" cy="5.500" r="2.500" ${S}/><circle cx="5.500" cy="18" r="2.500" ${S}/><circle cx="18.500" cy="18" r="2.500" ${S}/><path d="M12 8v4m0 0l-5 4m5-4l5 4" ${S}/>`,
   plus: `<path d="M12 5v14M5 12h14" ${S}/>`,
+  chart: `<path d="M4 20h16" ${S}/><rect x="5.5" y="11" width="3.4" height="7" rx="1" ${F}/><rect x="10.3" y="6" width="3.4" height="12" rx="1" ${F}/><rect x="15.1" y="9" width="3.4" height="9" rx="1" ${F}/>`,
+  bulb: `<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" ${S}/>`,
   home: `<path d="M4 11l8-7 8 7M6 10v9.500h12V10" ${S}/>`,
 };
 
