@@ -230,7 +230,7 @@ export const CAMPAIGN = {
   pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
   money:     [260, 260, 250, 250, 240, 320],   // pièces de départ par niveau du monde
   lives: 20,
-  slots:     [10, 11, 12, 12, 13, 16],    // emplacements de tourelles par niveau du monde
+  slots:     [10, 11, 12, 12, 13, 14],    // emplacements de tourelles par niveau du monde
   mines: 5,
   layouts: [                              // tracé de chaque niveau ('!' = en miroir), voir LAYOUTS dans js/maps.js
     ['lacets', 'escalier', 'boucle', 'detour', 'zigzag', 'fourche'],
