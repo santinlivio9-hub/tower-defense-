@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
 import { PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
-import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers } from './maps.js';
+import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
@@ -643,6 +643,9 @@ export class Game {
     const skin = this.save.data.skin;
     c.save(); c.translate(this.base.x, this.base.y); c.scale(this.castleK, this.castleK); drawCastle(c, this.save.data.castle, { time: this.time, aim: this.cannon.aim, recoil: this.cannon.recoil }); if (this.night) drawCastleLights(c, this.save.data.castle, { time: this.time, night: this.night }); c.restore();
     c.lineWidth = 1; c.lineJoin = 'round'; c.lineCap = 'round';
+    // zones de mine : croix discrète, seulement si on peut poser une mine (ou zone touchée)
+    const mineOk = this.save.towerUnlocked('mine') && !this.banned.includes('mine') && this.money >= TOWERS.mine.cost;
+    for (const sl of this.slots) if (sl.kind === 'mine' && !sl.tower && (mineOk || sl === this.menuSlot)) drawMineSpot(c, sl, sl === this.menuSlot ? 1 : 0.55 + Math.sin(this.time * 3) * 0.15);
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
     const ground = this.enemies.filter((e) => !e.flying).sort((a, b) => a.gy - b.gy);
     for (const e of ground) e.draw(c);
@@ -656,9 +659,9 @@ export class Game {
     const hints = this.save.data.settings.hints !== false && !this.over;
     // socles libres : léger pulse quand on peut acheter
     if (hints && this.canBuy) {
-      const k = (Math.sin(this.time * 4) + 1) / 2;
-      c.lineWidth = 3 + k * 2; c.strokeStyle = `rgba(120,255,160,${0.35 + k * 0.45})`;
-      for (const sl of this.slots) if (!sl.tower && sl.kind === 'tower' && sl !== this.menuSlot) { c.beginPath(); c.arc(sl.x, sl.y, GAME.towerRadius + 4 + k * 3, 0, TAU); c.stroke(); }
+      const k = (Math.sin(this.time * 3) + 1) / 2;
+      c.lineWidth = 2.5 + k * 1.5; c.strokeStyle = `rgba(160,255,190,${0.25 + k * 0.4})`;
+      for (const sl of this.slots) if (!sl.tower && sl.kind === 'tower' && sl !== this.menuSlot) { c.beginPath(); c.ellipse(sl.x, sl.y + 1, SLOT_R + 5 + k * 2, (SLOT_R + 5 + k * 2) * 0.86, 0, 0, TAU); c.stroke(); }
     }
     // flèche UP au-dessus des tourelles améliorables
     if (hints) for (const t of this.towers) if (t.canUp && t.slot !== this.menuSlot) {

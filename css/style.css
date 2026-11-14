@@ -1368,3 +1368,7 @@ html, body { background: #3a2a6e; }
 #talents-scroll { padding-bottom: 24px; }
 .troot small { padding: 1px 8px; border-radius: 999px; background: #241640; border: 2px solid var(--ink); color: #fff; }
 .tn.can .tn-rk { background: #157a3a; } .tn.max .tn-rk { background: #9a5a08; }
+/* HUD : chaque case à la largeur de son contenu, espaces répartis */
+#hud { justify-content: space-between; gap: 4px; }
+.stat.score { flex: 0 0 auto; min-width: 0; padding: 0 9px 0 6px; }
+.hud-btns { margin-left: 0; }

@@ -77,36 +77,64 @@ export function mulberry32(seed) {
 export function hashStr(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
 
 // ------------------------------------------------------------------ emplacements
-// Les socles sont choisis automatiquement là où ils couvrent le plus de chemin
-// (intérieur des virages, croisements), en évitant les doublons de couverture.
+// Placement réfléchi : des candidats dans chaque virage (intérieur et extérieur) et des deux côtés
+// des lignes droites, à intervalle régulier ; jamais collés au bord, ni sur le portail, le château
+// ou la bande du bas. Choix glouton (couverture du chemin + bonus de virage) avec un écart minimal
+// et un quota par bande horizontale, pour une répartition harmonieuse sur toute la carte.
 function makeSlots(paths, n) {
-  const pw = GAME.pathWidth / 2, base = paths[0].end, reach = 135;
+  const pw = GAME.pathWidth / 2, base = paths[0].end, reach = 135, off = pw + 34, M = 52, TOP = 74, BOT = VIEW.H - 118;
   const samples = [];
   for (const p of paths) for (let d = 30; d < p.total - 60; d += 12) {
     const q = p.pointAt(d);
     if (!samples.some((s) => Math.abs(s.x - q.x) + Math.abs(s.y - q.y) < 8)) samples.push(q);
   }
   const cands = [];
-  for (let y = 70; y <= VIEW.H - 130; y += 10) for (let x = 40; x <= VIEW.W - 40; x += 10) {
+  const add = (x, y, bonus) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < M || x > VIEW.W - M || y < TOP || y > BOT) return;
     let dmin = Infinity; for (const p of paths) dmin = Math.min(dmin, p.nearest(x, y).dist);
-    if (dmin < pw + 27 || dmin > pw + 46) continue;
-    if (Math.hypot(x - base.x, y - base.y) < 120) continue;
-    if (paths.some((p) => Math.hypot(x - p.startPt.x, y - p.startPt.y) < 80)) continue;
-    cands.push({ x, y, near: samples.filter((s) => Math.hypot(s.x - x, s.y - y) < reach) });
-  }
-  const out = [], covered = new Set();
-  while (out.length < n) {
-    let best = null, bv = -1;
-    for (const c of cands) {
-      if (out.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 74)) continue;
-      let v = 0; for (const s of c.near) v += covered.has(s) ? 0.3 : 1;
-      if (v > bv) { bv = v; best = c; }
+    if (dmin < pw + 26 || dmin > pw + 60) return;
+    if (Math.hypot(x - base.x, y - base.y) < 125) return;
+    if (paths.some((p) => Math.hypot(x - p.startPt.x, y - p.startPt.y) < 90)) return;
+    if (cands.some((c) => Math.hypot(c.x - x, c.y - y) < 14)) return;
+    cands.push({ x, y, bonus, near: samples.filter((s) => Math.hypot(s.x - x, s.y - y) < reach) });
+  };
+  for (const p of paths) {
+    // virages : sur la bissectrice, côté intérieur (meilleure couverture) et côté extérieur
+    for (let i = 1; i < p.pts.length - 1; i++) {
+      const A = p.pts[i - 1], P = p.pts[i], C = p.pts[i + 1];
+      const u = { x: A.x - P.x, y: A.y - P.y }, v = { x: C.x - P.x, y: C.y - P.y }, lu = Math.hypot(u.x, u.y), lv = Math.hypot(v.x, v.y);
+      let bx = u.x / lu + v.x / lv, by = u.y / lu + v.y / lv; const lb = Math.hypot(bx, by) || 1; bx /= lb; by /= lb;
+      add(P.x + bx * off * 1.35, P.y + by * off * 1.35, 1.6);
+      add(P.x - bx * off * 1.05, P.y - by * off * 1.05, 0.5);
     }
-    if (!best) break;
-    out.push({ x: best.x, y: best.y, kind: 'tower', rank: out.length });   // rank 0 = meilleure couverture
-    for (const s of best.near) covered.add(s);
+    // lignes droites : des deux côtés, en quinconce, tous les ~95 px
+    for (const sg of p.segs) {
+      const nx = -Math.sin(sg.ang), ny = Math.cos(sg.ang), k = Math.max(1, Math.floor(sg.len / 48));
+      for (let j = 1; j < k; j++) {
+        const t = j / k, x = sg.a.x + (sg.b.x - sg.a.x) * t, y = sg.a.y + (sg.b.y - sg.a.y) * t, side = j % 2 ? 1 : -1;
+        for (const o of [off, off + 16]) { add(x + nx * o * side, y + ny * o * side, 0.6); add(x - nx * o * side, y - ny * o * side, 0.4); }
+      }
+    }
   }
-  return out.sort((a, b) => a.y - b.y || a.x - b.x);
+  const bands = 4, bandOf = (y) => Math.min(bands - 1, Math.floor(((y - TOP) / (BOT - TOP)) * bands)), quota = Math.ceil(n / bands) + 1, perBand = Array(bands).fill(0);
+  const out = [], covered = new Set();
+  for (let pass = 0; pass < 2 && out.length < n; pass++) {
+    while (out.length < n) {
+      let best = null, bv = -1;
+      for (const c of cands) {
+        if (out.includes(c) || out.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < (pass ? 70 : 80))) continue;
+        if (pass === 0 && perBand[bandOf(c.y)] >= quota) continue;
+        let v = c.bonus * 6; for (const s of c.near) v += covered.has(s) ? 0.25 : 1;
+        const close = out.filter((o) => Math.hypot(o.x - c.x, o.y - c.y) < 140).length; v -= close * 4;   // pas de grappe
+        if (v > bv) { bv = v; best = c; }
+      }
+      if (!best) break;
+      out.push(best); perBand[bandOf(best.y)]++;
+      for (const s of best.near) covered.add(s);
+    }
+  }
+  return out.map((c, i) => ({ x: c.x, y: c.y, kind: 'tower', rank: i })).sort((a, b) => a.y - b.y || a.x - b.x);
 }
 // Zones de mines : points marqués sur le chemin, répartis régulièrement
 function makeMineSpots(paths, n) {
@@ -184,29 +212,41 @@ export function mapFlowers(field, ext = FULL()) {
   return decoSpots(field, mulberry32(field.seed + 77), Math.round(14 * area), 20, ext);
 }
 
-// Socle en pierre d'un emplacement de tourelle
-function drawSlot(c, s) {
-  const R = GAME.towerRadius;
+// Dalle d'un emplacement de tourelle, intégrée au biome (≈ 70 % de l'ancienne taille)
+const SLAB = {
+  meadow:  { top: '#c9c3d6', side: '#8f88a6', crack: 'rgba(61,44,78,.35)', tuft: '#4ea832' },
+  desert:  { top: '#f0c98a', side: '#c48a4a', crack: 'rgba(120,70,20,.35)', tuft: '#c9a050' },
+  volcano: { top: '#5c4f6e', side: '#3a2f4a', crack: '#ff7a3c', tuft: null },
+  ice:     { top: '#e6f6ff', side: '#9cc4e6', crack: 'rgba(85,103,154,.35)', tuft: null },
+  candy:   { top: '#ffe6f0', side: '#e8a3c4', crack: 'rgba(201,87,127,.35)', tuft: '#3fae7a' },
+};
+export const SLOT_R = Math.round(GAME.towerRadius * 0.72);
+function drawSlot(c, s, deco = 'meadow') {
+  const R = SLOT_R, S = SLAB[deco] || SLAB.meadow;
   c.save(); c.translate(s.x, s.y);
-  c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(0, 6, R + 5, R * 0.86, 0, 0, 7); c.fill();
-  c.lineWidth = 3.5; c.strokeStyle = INK;
-  c.fillStyle = '#6f6a85'; c.beginPath(); c.arc(0, 3, R + 2, 0, 7); c.fill(); c.stroke();
-  const g = c.createLinearGradient(0, -R, 0, R); g.addColorStop(0, '#d5d1e0'); g.addColorStop(1, '#a29cb8');
-  c.fillStyle = g; c.beginPath(); c.arc(0, 0, R + 2, 0, 7); c.fill(); c.stroke();
-  c.fillStyle = '#8b85a3'; c.beginPath(); c.arc(0, 0, R - 7, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(61,44,78,.35)'; c.lineWidth = 2; c.stroke();
-  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + 0.39; c.beginPath(); c.moveTo(Math.cos(a) * (R - 7), Math.sin(a) * (R - 7)); c.lineTo(Math.cos(a) * (R + 2), Math.sin(a) * (R + 2)); c.stroke(); }
-  c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2.5; c.beginPath(); c.arc(0, 0, R - 2, -2.5, -1.3); c.stroke();
-  c.strokeStyle = 'rgba(61,44,78,.4)'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(-6, 0); c.lineTo(6, 0); c.moveTo(0, -6); c.lineTo(0, 6); c.stroke();
+  // ombre douce
+  c.fillStyle = 'rgba(0,0,0,.16)'; c.beginPath(); c.ellipse(1, 6, R + 5, R * 0.75, 0, 0, 7); c.fill();
+  // dalle irrégulière (octogone usé) : tranche puis dessus
+  const poly = (dy, r) => { c.beginPath(); for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + 0.2, k = r * (0.9 + ((i * 37 + s.x) % 7) / 50); i ? c.lineTo(Math.cos(a) * k, Math.sin(a) * k * 0.86 + dy) : c.moveTo(Math.cos(a) * k, Math.sin(a) * k * 0.86 + dy); } c.closePath(); };
+  c.lineWidth = 3; c.strokeStyle = INK; c.lineJoin = 'round';
+  c.fillStyle = S.side; poly(4, R); c.fill(); c.stroke();
+  c.fillStyle = S.top; poly(0, R); c.fill(); c.stroke();
+  // fissures et reflet
+  c.strokeStyle = S.crack; c.lineWidth = deco === 'volcano' ? 2 : 1.8; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(-R * 0.55, -R * 0.1); c.lineTo(-R * 0.15, R * 0.1); c.lineTo(-R * 0.05, R * 0.45); c.moveTo(R * 0.25, -R * 0.5); c.lineTo(R * 0.45, -R * 0.15); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2.2; c.beginPath(); c.arc(0, 0, R * 0.72, -2.6, -1.6); c.stroke();
+  // petit symbole discret
+  c.strokeStyle = 'rgba(61,44,78,.28)'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(-4, 0); c.lineTo(4, 0); c.moveTo(0, -4); c.lineTo(0, 4); c.stroke();
+  // touffes autour (herbe, sable...)
+  if (S.tuft) { c.strokeStyle = S.tuft; c.lineWidth = 2.4; for (const a of [2.3, 0.6, 4]) { const x = Math.cos(a) * (R + 3), y = Math.sin(a) * (R + 1) * 0.86 + 4; c.beginPath(); c.moveTo(x - 3, y); c.lineTo(x - 4, y - 6); c.moveTo(x, y); c.lineTo(x, y - 8); c.moveTo(x + 3, y); c.lineTo(x + 4, y - 6); c.stroke(); } }
   c.restore();
 }
-// Zone de mine : disque hachuré sur le chemin
-function drawMineSpot(c, s) {
-  c.save(); c.translate(s.x, s.y);
-  c.fillStyle = 'rgba(61,44,78,.22)'; c.beginPath(); c.arc(0, 0, 21, 0, 7); c.fill();
-  c.setLineDash([9, 7]); c.lineWidth = 4; c.strokeStyle = INK; c.beginPath(); c.arc(0, 0, 21, 0, 7); c.stroke();
-  c.lineWidth = 2.5; c.strokeStyle = '#ffd23f'; c.stroke(); c.setLineDash([]);
-  c.strokeStyle = 'rgba(61,44,78,.5)'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(-6, -6); c.lineTo(6, 6); c.moveTo(6, -6); c.lineTo(-6, 6); c.stroke();
+// Zone de mine : petite croix peinte au sol (dessinée seulement quand on peut en poser une)
+export function drawMineSpot(c, s, a = 1) {
+  c.save(); c.translate(s.x, s.y); c.globalAlpha = a;
+  c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 5; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(-8, -8); c.lineTo(8, 8); c.moveTo(8, -8); c.lineTo(-8, 8); c.stroke();
+  c.strokeStyle = '#e8283f'; c.lineWidth = 3; c.stroke();
   c.restore();
 }
 
@@ -236,7 +276,7 @@ export function drawMapBackground(c, theme, field, ext = FULL(), opts = {}) {
     c.beginPath(); c.ellipse(q.x - Math.sin(q.ang) * o, q.y + Math.cos(q.ang) * o, 3 + rnd() * 3, 2 + rnd() * 2, rnd() * 3, 0, 7); c.fill();
   }
   c.setLineDash([3, 20]); strokePaths(c, paths, 4, 'rgba(0,0,0,.12)'); c.setLineDash([]);
-  if (opts.slots !== false) { for (const s of field.mines) drawMineSpot(c, s); for (const s of field.slots) drawSlot(c, s); }
+  if (opts.slots !== false) for (const s of field.slots) drawSlot(c, s, t.deco);
   // décor (plus dense hors de la zone jouable, pour encadrer le terrain)
   const set = DECO_SETS[t.deco];
   for (const s of decoSpots(field, rnd, Math.round(30 * area), 30, ext)) {
