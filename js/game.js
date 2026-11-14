@@ -7,7 +7,7 @@ import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
-import { drawCastle } from './castle.js';
+import { drawCastle, drawCastleLights, castleGunY, castleBounds, nightLevel } from './castle.js';
 
 const TAU = Math.PI * 2;
 
@@ -43,7 +43,9 @@ export class Game {
     this.selected = null; this.hoverTower = null; this.menuSlot = null; this.preview = null; this.freeNext = false;
     this.hintT = 0; this.canBuy = false;
     // château : apparence, canon, capacités actives
-    this.castleTier = save.castleTier();
+    this.castleTier = save.castleTier(); this.night = nightLevel();
+    // le château garde à peu près la même emprise sur le terrain, quel que soit son palier
+    { const B = castleBounds(cs); this.castleK = Math.min(1, 230 / (B.bottom - B.top)); this.gunY = castleGunY(cs) * this.castleK; }
     this.cannon = { lvl: cs.cannon, cd: 0, aim: -Math.PI / 2, recoil: 0 };
     this.abilities = Object.keys(CASTLE.abilities).filter((id) => cs[id] > 0).map((id) => { const max = CASTLE.abilities[id].cd[cs[id]] * m.cdMult; return { id, lvl: cs[id], cd: Math.min(15, max), max }; });
     // boosts emportés et effets en cours
@@ -421,7 +423,7 @@ export class Game {
     if (this.blizzT > 0 && Math.random() < dt * 60) this.fx.add({ k: 'dot', x: this.ext.l + Math.random() * (this.ext.r - this.ext.l), y: this.ext.t, vx: -30, vy: 260 + Math.random() * 160, life: 3, max: 3, size: 2.5 + Math.random() * 2, color: '#ffffff' });
     const c = this.cannon; c.recoil *= Math.exp(-dt * 14);
     if (!c.lvl) return;
-    const U = CASTLE.upgrades.cannon, cx = this.base.x, cy = this.base.y - 34;
+    const U = CASTLE.upgrades.cannon, cx = this.base.x, cy = this.base.y + this.gunY;
     c.cd -= dt;
     const e = this.nearestEnemy(cx, cy, U.range[c.lvl]);
     if (!e) { if (c.cd < 0) c.cd = 0; return; }
@@ -429,7 +431,10 @@ export class Game {
     if (c.cd <= 0) {
       c.cd = 1 / U.rate[c.lvl]; c.recoil = 7;
       this.damage(e, U.damage[c.lvl] * this.level.hp, null, { ignoreArmor: true });
-      this.fx.tracer(cx + Math.cos(c.aim) * 30, cy + Math.sin(c.aim) * 30, e.x, e.y, '#ffe9a0', 4, 0.12); this.fx.sparks(e.x, e.y, c.aim, '#fff3b0', 4);
+      // 2 canons : ils tirent chacun leur tour ; grosse tourelle : canon plus long, tir plus épais
+      const ox = c.lvl >= 5 ? 0 : c.lvl >= 3 ? (c.side = -(c.side || 1)) * 22 : 0, len = c.lvl >= 5 ? 46 : 30;
+      this.fx.tracer(cx + ox + Math.cos(c.aim) * len, cy + Math.sin(c.aim) * len, e.x, e.y, '#ffe9a0', c.lvl >= 5 ? 6 : 4, 0.12);
+      if (c.lvl >= 5) this.fx.sparks(cx + Math.cos(c.aim) * len, cy + Math.sin(c.aim) * len, c.aim, '#ffd23f', 6); this.fx.sparks(e.x, e.y, c.aim, '#fff3b0', 4);
       this.audio.play('shot_shotgun');
     }
   }
@@ -636,7 +641,7 @@ export class Game {
     if (this.baseFlash > 0) { c.fillStyle = `rgba(255,40,60,${this.baseFlash * 0.5})`; c.beginPath(); c.arc(this.base.x, this.base.y, 105, 0, TAU); c.fill(); }
 
     const skin = this.save.data.skin;
-    c.save(); c.translate(this.base.x, this.base.y); drawCastle(c, this.castleTier, { time: this.time, cannon: this.cannon.lvl > 0, aim: this.cannon.aim, recoil: this.cannon.recoil }); c.restore();
+    c.save(); c.translate(this.base.x, this.base.y); c.scale(this.castleK, this.castleK); drawCastle(c, this.save.data.castle, { time: this.time, aim: this.cannon.aim, recoil: this.cannon.recoil }); if (this.night) drawCastleLights(c, this.save.data.castle, { time: this.time, night: this.night }); c.restore();
     c.lineWidth = 1; c.lineJoin = 'round'; c.lineCap = 'round';
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
     const ground = this.enemies.filter((e) => !e.flying).sort((a, b) => a.gy - b.gy);
