@@ -1333,3 +1333,38 @@ html, body { height: 100%; height: 100dvh; }
 #tabbar { padding-bottom: var(--tab-pad); background: linear-gradient(180deg, #4d3786 0, #3a2a6e 68px, #3a2a6e 100%); }
 #tabbar::after { background: #3a2a6e; }
 html, body { background: #3a2a6e; }
+/* ------------------------------------------------------------- talents (de haut en bas) */
+.thint { margin: 0 0 4px; text-align: center; font-size: 14px; font-weight: 700; color: var(--text-soft); } .thint b { color: var(--gold); }
+.ttree { height: auto; margin: 0 0 12px; }
+.tlines path { vector-effect: non-scaling-stroke; }
+.troot { z-index: 1; } .troot .lvl { width: 54px; height: 54px; font-size: 22px; }
+.tbranch { z-index: 1; transform: translate(-50%, -50%); padding: 5px 10px; border: 2.5px solid var(--ink); background: var(--bc); color: #fff; text-shadow: var(--ol); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+.tbranch .ico { width: 22px; height: 22px; }
+.tn { z-index: 2; width: 62px; height: 62px; padding: 0; border: 0; border-radius: 50%; background: none; box-shadow: none; overflow: visible; color: #fff; filter: none; }
+.tn::after { display: none; }
+.tn .tn-ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--bc) calc(var(--p) * 360deg), rgba(20, 10, 40, .85) 0); border: 3px solid var(--ink); }
+.tn .tn-in { position: absolute; inset: 6px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #6a55a0, #3a2a68); border: 2.5px solid var(--ink); }
+.tn .tn-in .ico { width: 32px; height: 32px; }
+.tn .tn-rk { position: absolute; z-index: 3; left: 50%; top: calc(100% - 6px); bottom: auto; transform: translateX(-50%); padding: 0 8px; border-radius: 999px; font-style: normal; font-size: 13px; font-weight: 700; line-height: 1.5; color: #fff; background: #241640; border: 2.5px solid var(--ink); text-shadow: none; white-space: nowrap; }
+.tn .tn-name { position: absolute; z-index: 3; left: 50%; top: calc(100% + 18px); width: 104px; transform: translateX(-50%); font-size: 13px; font-weight: 700; line-height: 1.1; color: #fff; text-align: center; text-shadow: var(--ol); }
+.tn .tn-badge { position: absolute; z-index: 3; right: -6px; top: -6px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 2.5px solid var(--ink); }
+.tn .tn-badge .ico { width: 16px; height: 16px; }
+.tn .tn-badge.lock { background: #241640; } .tn .tn-badge.star { background: var(--gold); color: #fff; } .tn .tn-badge.star .ico { color: #fff; }
+.tn.locked .tn-in { background: #2a1f46; } .tn.locked .tn-in .ico { opacity: .45; filter: grayscale(1); } .tn.locked .tn-ring { background: rgba(20, 10, 40, .7); border-style: dashed; } .tn.locked .tn-name { color: var(--text-soft); }
+.tn.has .tn-in, .tn.open .tn-in { background: radial-gradient(circle at 50% 30%, #7a63b8, #4a3684); }
+.tn.can .tn-ring { box-shadow: 0 0 0 0 var(--gold); animation: tn-can 1.2s ease-in-out infinite; }
+.tn.can .tn-rk { background: #23a958; }
+@keyframes tn-can { 50% { box-shadow: 0 0 0 7px rgba(255, 210, 63, .55), 0 0 18px var(--gold); } }
+.tn.max .tn-ring { background: conic-gradient(var(--gold) 360deg, var(--gold) 0); } .tn.max .tn-in { background: radial-gradient(circle at 50% 30%, #fff6c8, #ffb224); } .tn.max .tn-rk { background: #c9780a; }
+.tn.sel { transform: translate(-50%, -50%) scale(1.1); outline: none; } .tn.sel .tn-ring { box-shadow: 0 0 0 4px #fff; }
+.tbubble { position: absolute; z-index: 6; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 18px; background: #2e2156; border: 3px solid var(--ink); box-shadow: 0 0 0 2px rgba(255, 255, 255, .25), 0 12px 24px rgba(0, 0, 0, .45); animation: sheet-up .2s ease-out; }
+.tb-arrow { position: absolute; top: -12px; width: 18px; height: 12px; margin-left: -9px; background: var(--ink); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tbubble.up .tb-arrow { top: auto; bottom: -12px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.tb-head { display: flex; align-items: center; gap: 8px; text-align: left; }
+.tb-ico { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--bc); border: 2.5px solid var(--ink); } .tb-ico .ico { width: 30px; height: 30px; }
+.tb-head b { display: block; font-size: 16px; } .tb-head small { display: block; font-size: 13px; font-weight: 700; color: var(--text-soft); line-height: 1.2; }
+.tb-need { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #ffc4cf; text-align: left; } .tb-need .ico { width: 18px; height: 18px; flex: none; }
+.tbubble .btn, .tbubble .owned { width: 100%; }
+#talents-scroll { padding-bottom: 24px; }
+.troot small { padding: 1px 8px; border-radius: 999px; background: #241640; border: 2px solid var(--ink); color: #fff; }
+.tn.can .tn-rk { background: #157a3a; } .tn.max .tn-rk { background: #9a5a08; }
