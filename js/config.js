@@ -435,6 +435,16 @@ export const SCORE = {
 };
 
 // Étoiles : part des PV restants nécessaire
+// Menu radial d'un emplacement (px écran)
+export const RADIAL = {
+  rTower: 64,        // rayon autour d'une tourelle posée (UP en haut, ciblage à gauche, vente en bas)
+  rTower2: 74,       // ...quand 2 branches sont proposées (elles ne se touchent pas)
+  rBuild: 62,        // rayon minimal du choix de tourelle...
+  buildGap: 60,      // ...agrandi pour laisser cet espace entre deux boutons
+  ringPad: 44,       // marge autour des boutons (prix, libellés) que le panneau ne recouvre pas
+  pathNear: 260,     // le panneau évite le chemin dans ce rayon autour de l'emplacement (unités du terrain)
+  pathHalf: 30,      // demi-largeur du chemin prise en compte (unités du terrain)
+};
 // Qualité graphique automatique : si les images mettent trop de temps à se calculer, on descend d'un cran
 // (définition du canvas et nombre de particules). On ne remonte pas en cours de session, pour éviter les à-coups.
 export const QUALITY = {

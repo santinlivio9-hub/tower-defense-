@@ -2,12 +2,12 @@
    À l'installation, tous les fichiers du jeu sont téléchargés d'un coup (sans passer par le cache HTTP) dans un
    cache propre à la version. Le jeu est ensuite servi depuis ce cache : jamais de mélange entre anciens et
    nouveaux fichiers après une mise à jour. Changer VERSION à chaque publication (tools/check.cjs le vérifie). */
-const VERSION = 'v37';
+const VERSION = 'v38';
 const CACHE = 'brainrot-td-' + VERSION, FONTS = 'brainrot-td-fonts';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/main.js', 'js/viewport.js', 'js/config.js', 'js/game.js', 'js/maps.js', 'js/waves.js', 'js/enemies.js', 'js/towers.js',
-  'js/projectiles.js', 'js/fx.js', 'js/sprites.js', 'js/icons.js', 'js/audio.js', 'js/haptics.js', 'js/save.js', 'js/ui.js', 'js/castle.js', 'js/meta.js', 'js/hub.js', 'js/loot.js', 'js/end.js', 'js/talents.js', 'js/collection.js', 'js/boosts.js', 'js/music.js', 'js/daily.js', 'js/reveal.js', 'js/economy.js',
+  'js/projectiles.js', 'js/fx.js', 'js/sprites.js', 'js/icons.js', 'js/audio.js', 'js/haptics.js', 'js/save.js', 'js/ui.js', 'js/castle.js', 'js/meta.js', 'js/hub.js', 'js/loot.js', 'js/end.js', 'js/talents.js', 'js/collection.js', 'js/boosts.js', 'js/music.js', 'js/daily.js', 'js/reveal.js', 'js/economy.js', 'js/radial.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
 ];
 
