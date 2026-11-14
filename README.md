@@ -44,17 +44,27 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
 - **8 tourelles** qui changent d'apparence à chaque niveau : niveaux 1 à 3, **2 branches au look distinct** au niveau 4,
   maîtrise dorée au niveau 5. Elles se débloquent au fil de la campagne, avec une carte de présentation.
 - **8 ennemis + 5 boss**, groupes « élite » dans les derniers mondes.
-- **Hub** façon jeu mobile : accueil avec le château animé, barre de ressources (niveau, pièces, gemmes), gros bouton
-  JOUER, barre d'onglets Boutique | Château | Jouer | Talents | Collection avec badges de notification.
-- **Château** amélioré avec les pièces : murs, réparation, trésorerie, canon, et 3 capacités actives
-  (frappe aérienne, blizzard, pluie d'or). Son apparence évolue : bois → pierre → forteresse → citadelle dorée.
+- **Hub** façon jeu mobile : accueil avec le château animé (brainrots qui marchent, nuages, oiseaux, nuit de 20 h à 7 h),
+  blasons colorés (cadeau, quêtes, coffres, roue, passe, défi) avec leur info (« Prêt ! », « 2/3 », « 4 h 12 »),
+  gros bouton JOUER, barre d'onglets Boutique | Château | Accueil | Talents | Collection ; badges uniquement quand
+  une récompense est à récupérer.
+- **Château évolutif** amélioré avec les pièces : murs, réparation, trésorerie, canon, et 3 capacités actives
+  (frappe aérienne, blizzard, pluie d'or). Chaque amélioration ajoute un élément visible (palissade, créneaux,
+  remparts doubles, atelier et forgeron, sacs et coffre, 2 canons puis tourelle, antenne, avion, cristal de glace…),
+  sur 5 paliers : Fortin en bois → Château de pierre → Forteresse → Citadelle → Palais doré. Écran Château : toucher
+  une partie ouvre sa fiche avec aperçu avant/après ; animation de chantier à chaque achat.
+- **Carte de campagne** : nœuds en blasons, décor propre à chaque monde, rivière et pont, panneaux de monde,
+  chemin continu du départ au trophée final.
+- **Icônes illustrées** (SVG en volume, contour épais) et code couleur fixe des récompenses : pièce or, gemme cyan,
+  coffre bois / doré / légendaire violet, boost orange, XP vert, ticket du passe rose.
 - **Niveau de joueur** (XP), **arbre de talents** visuel à 3 branches, **collection** (tourelles, brainrots, boosts, succès).
 - **Boosts** en cartes à collectionner (pièces x2, +5 PV, tourelle gratuite, surcharge, bouclier, seconde chance) :
   3 emplacements rapides en partie, bulles de boost lâchées par les brainrots, activation au ralenti.
 - **Fin de niveau** en séquence animée (étoiles, score, récompenses, montées de niveau, succès, écran final compact).
 - **Chaque jour** : cadeau du jour (calendrier de 7 jours, coffre doré le 7e, série affichée), 3 quêtes du jour et une
   quête de la semaine, roue de la chance (1 tour gratuit), défi du jour (un niveau + un modificateur fun),
-  passe de progression gratuit de 30 paliers, coffres à ouvrir en 3 touchers. Tout est gratuit, sans minuteur.
+  passe de progression gratuit de 30 paliers (piste verticale), coffres à ouvrir en 3 touchers, offre du jour en
+  boutique (-40 % sur un article). Tout est gratuit, aucun achat réel.
 - **Mode infini** débloqué après le monde 2, classement local des 10 meilleurs scores.
 - **Score** partout (multi-kills, vague parfaite, record par niveau), image de score à partager.
 - **Juice** : éclaboussures aux couleurs de chaque brainrot, « pop » qui monte d'un ton quand on enchaîne les kills,
@@ -83,11 +93,11 @@ js/maps.js            thèmes, tracés, emplacements de tourelles, décor
 js/waves.js           génération procédurale des vagues d'un niveau
 js/enemies.js         ennemis et boss
 js/towers.js          tourelles (stats, améliorations, ciblage, tir, dessin)
-js/castle.js          dessin du château (4 apparences)
+js/castle.js          château évolutif (un élément par amélioration, 5 paliers, éclairage de nuit)
 js/projectiles.js     roquettes
 js/fx.js              particules, traînées, textes flottants
 js/sprites.js         sprites SVG des brainrots et des tourelles
-js/icons.js           icônes SVG de l'interface
+js/icons.js           icônes SVG illustrées (objets, récompenses) et pictogrammes d'interface
 js/audio.js           sons Web Audio
 js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
@@ -131,7 +141,9 @@ Tout se règle dans **`js/config.js`** (et un multiplicateur par carte dans `js/
 | Cadeau du jour, quêtes, roue, défi du jour, passe | `DAILY`, `PASS` |
 | Combos, micro-pauses, musique | `JUICE`, `MUSIC` |
 | Textes et conseils de l'écran de fin | `END` |
-| XP, récompenses de niveau, talents, coffres | `XP`, `TALENTS`, `CHESTS` |
+| XP, récompenses de niveau, talents, coffres | `XP`, `TALENTS`, `CHESTS`, `CHEST_ORDER` |
+| Offre du jour de la boutique | `OFFER` |
+| Paliers d'apparence du château | `CASTLE.tiers` |
 | Revente, critiques, bonus de vague, bonus « en avance », délais entre vagues | `GAME` |
 | Skins | `SHOP` |
 | Seuils des étoiles, succès | `STARS`, `ACHIEVEMENTS` |
@@ -172,4 +184,5 @@ __ui.startGame(12);          // lancer directement le niveau 12
 Pour repartir de zéro : Paramètres → Réinitialiser.
 
 `tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
-et enregistre des captures en 390 × 844.
+et, en 390 px, la lisibilité : texte ≥ 14 px (13 px en gras pour les labels), zones tactiles ≥ 44 px, contraste
+WCAG AA sur fond uni, contour foncé sur les textes posés sur un décor. Il enregistre des captures en 390 × 844.

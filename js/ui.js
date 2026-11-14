@@ -115,8 +115,8 @@ export class UI {
     const g = el('div', 'cgrid');
     for (const s of SHOP.skins) {
       const has = d.skins.includes(s.id), on = d.skin === s.id;
-      const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"></span><b>${s.name}</b>`);
-      $('.cc-art', card).append(towerImg('assault', 64, s.id, 3), towerImg('shotgun', 64, s.id, 4, 0));
+      const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"><i class="pad"></i></span><b>${s.name}</b>`);
+      $('.cc-art', card).append(towerImg('assault', 84, s.id, 4, 0));   // aperçu sur une vraie tourelle, posée sur son socle
       if (on) card.append(owned('Équipé'));
       else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
       else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id); }));

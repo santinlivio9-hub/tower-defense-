@@ -58,7 +58,8 @@ export const Collection = {
     } else {
       for (const a of ACHIEVEMENTS) {
         const done = d.achievements.includes(a.id), prog = Math.min(a.goal, this.save.achievementProgress(a)); total++; if (done) got++;
-        grid.append(el('div', 'ach' + (done ? ' done' : ''), `<span class="es-medal">${icon(done ? 'medal' : 'lock')}</span><span class="ach-t"><b>${a.name}</b><small>${a.desc}</small><span class="progress"><i style="width:${(prog / a.goal) * 100}%"></i></span></span><span class="val">${done ? icon('check') : `${short(prog)}/${short(a.goal)}`}<em>+${a.gems}${gem()}</em></span>`));
+        const ACH_ICO = { kills: 'skull', bossKills: 'crown', towersBuilt: 'cannon', legendaries: 'star', wins: 'trophy', perfectWins: 'heart', heroicWins: 'crown', bestEndless: 'infinity', earlyStarts: 'bolt', games: 'playgold', bestScore: 'trophy', chests: 'chest' };
+        grid.append(el('div', 'ach' + (done ? ' done' : ''), `<span class="ach-ico">${icon(ACH_ICO[a.stat] || 'medal', a.stat === 'legendaries' ? 'gold' : '')}${done ? `<i>${icon('check')}</i>` : ''}</span><span class="ach-t"><b>${a.name}</b><small>${a.desc}</small><span class="qbar"><i style="width:${(prog / a.goal) * 100}%"></i></span></span><span class="val">${done ? icon('check') : `${short(prog)}/${short(a.goal)}`}<em>+${a.gems}${gem()}</em></span>`));
       }
     }
     $('#col-count').innerHTML = `${icon('book')}<b>${got}/${total}</b>`;

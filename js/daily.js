@@ -5,6 +5,7 @@ import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { icon, coin, gem } from './icons.js';
 import { chestSvg } from './loot.js';
 import { boostArt } from './boosts.js';
+import { enemyImg, towerImg } from './sprites.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -29,7 +30,7 @@ export function rewardChips(r) {
   const out = [];
   if (r.coins) out.push(`<span class="rw">${coin()}<b>${fmt(r.coins)}</b></span>`);
   if (r.gems) out.push(`<span class="rw">${gem()}<b>${r.gems}</b></span>`);
-  if (r.chest) out.push(`<span class="rw chest">${chestSvg(r.chest)}<b>${r.chest === 'gold' ? 'Doré' : 'Bois'}</b></span>`);
+  if (r.chest) out.push(`<span class="rw chest">${chestSvg(r.chest)}<b>${{ wood: 'Bois', gold: 'Doré', legend: 'Légendaire' }[r.chest]}</b></span>`);
   if (typeof r.boosts === 'object') for (const [id, n] of Object.entries(r.boosts)) out.push(`<span class="rw">${icon(BOOSTS[id].icon)}<b>×${n}</b></span>`);
   else if (r.boosts) out.push(`<span class="rw">${icon('boost')}<b>×${r.boosts}</b></span>`);
   if (r.talent) out.push(`<span class="rw">${icon('talent')}<b>${r.talent}</b></span>`);
@@ -116,17 +117,19 @@ export const Daily = {
     const grid = el('div', 'cal-grid');
     DAILY.calendar.forEach((r, i) => {
       const got = i < cur || (!ready && i === cur - 1) || (!ready && cur === 0 && D.cal > 0 && i === 6);
-      const today = ready && i === cur;
-      const c = el('button', 'cal' + (i === 6 ? ' big' : '') + (got ? ' got' : '') + (today ? ' today' : ''), `<small>Jour ${i + 1}</small><span class="cal-art">${rewardArt(r)}</span><span class="cal-rw">${rewardChips(r)}</span>${got ? `<i class="ok">${icon('check')}</i>` : ''}`);
+      const today = ready && i === cur, next = !ready && i === cur;
+      // case illustrée : boîte-cadeau avec ruban, le jour actuel brille
+      const c = el('button', 'cal' + (i === 6 ? ' big' : '') + (got ? ' got' : today ? ' today' : ' later'), `${today ? '<i class="cal-rays"></i>' : ''}<span class="cal-day">Jour ${i + 1}</span>
+        <span class="cal-art">${rewardArt(r)}</span><span class="cal-rw">${rewardChips(r)}</span>${got ? `<i class="ok">${icon('check')}</i>` : ''}${next ? `<i class="cal-next">${untilMidnight()}</i>` : ''}`);
       c.onclick = () => {
-        if (!today) { this.audio.play(got ? 'tick' : 'error'); if (!got) this.toast('Pas encore', 'Reviens demain pour ce cadeau', icon('calendar')); return; }
+        if (!today) { this.audio.play(got ? 'tick' : 'error'); if (!got) this.toast('Pas encore', 'Reviens demain pour ce cadeau', icon('gift')); return; }
         const res = sv.claimCalendar(); if (!res) return;
-        c.classList.add('claim'); this.afterClaim(res.text, rewardArt(res.r));
+        c.classList.add('claim'); this.afterClaim(res.text, rewardArt(res.r), $('.cal-art', c));
         setTimeout(() => this.openDaily('calendar'), 700);
       };
       grid.append(c);
     });
-    m.append(grid, el('p', 'sub', ready ? 'Touche le cadeau qui brille pour le récupérer.' : 'Reviens demain pour le cadeau suivant. Le 7e jour : un coffre doré !'));
+    m.append(grid, el('p', 'sub', ready ? 'Touche le cadeau qui brille pour le récupérer.' : `Prochain cadeau dans ${untilMidnight()}. Le 7e jour : un coffre doré !`));
   },
 
   // ------------------------------------------------------------------ quêtes
@@ -217,15 +220,26 @@ export const Daily = {
 
   // ------------------------------------------------------------------ défi du jour
   daily_challenge(m) {
-    const sv = this.save, ch = sv.challenge(), L = LEVELS[ch.n - 1], w = WORLDS[L.world];
-    m.append(el('h2', 'win', 'DÉFI DU JOUR'), el('div', 'ch-mod', `${icon('target')}<span><b>${ch.mod.name}</b>${ch.mod.desc}</span>`));
-    const top = el('div', 'prep-top');
-    const cv = el('canvas', 'thumb'); cv.width = 264; cv.height = 414; drawMapPreview(cv, THEMES[w.theme], buildField(L.layout, L.mirror, L.slots, CAMPAIGN.mines));
-    top.append(cv, el('div', 'prep-info', `<div>${icon('map')}Niveau <b>${L.id}</b></div><div>${icon('wave')}<b>${L.waves}</b> vagues</div><div class="ch-rw"><small>Récompense</small>${rewardChips(DAILY.challengeReward)}<span class="rw pass">${icon('ticket')}<b>+${DAILY.challengePass}</b></span></div>`));
-    m.append(top);
-    if (ch.done) m.append(el('div', 'heroic-box', `${icon('check')}<span><b>Défi réussi !</b>Un nouveau défi t'attend demain. Tu peux rejouer pour le plaisir.</span>`));
-    const go = el('button', 'btn big ' + (ch.done ? 'ghost' : 'primary'), icon('play') + (ch.done ? 'Rejouer' : 'Relever le défi'));
-    go.onclick = () => this.startGame(ch.n, false, false, this.loadoutFor(L), ch.mod);
+    const sv = this.save, ch = sv.challenge(), L = LEVELS[ch.n - 1], w = WORLDS[L.world], mod = ch.mod;
+    m.classList.add('poster');
+    m.append(el('div', 'po-top', `<span class="po-kick">DÉFI DU JOUR</span><b class="po-name">${mod.name}</b>`));
+    // illustration du modificateur
+    const art = el('div', 'po-art po-' + mod.id);
+    const foe = (t, s) => { const i = enemyImg(t, s); i.className = 'po-foe'; return i; };
+    const gun = (t) => { const i = towerImg(t, 96, sv.data.skin, 3); i.className = 'po-gun'; return i; };
+    if (mod.id === 'giant') art.append(foe('tank', 120), foe('basic', 44));
+    else if (mod.id === 'double') art.append(foe('basic', 64), foe('basic', 64), el('b', 'po-tag', '×2'));
+    else if (mod.id === 'pump') art.append(gun('shotgun'));
+    else if (mod.id === 'sniper') art.append(gun('sniper'));
+    else if (mod.id === 'rush') art.append(el('i', 'po-speed'), foe('fast', 90));
+    else if (mod.id === 'tiny') for (let k = 0; k < 9; k++) art.append(foe(['basic', 'fast', 'healer'][k % 3], 34));
+    else art.append(foe('basic', 80));
+    m.append(art, el('p', 'po-desc', mod.desc));
+    m.append(el('div', 'po-info', `<span>${icon('map')}Niveau <b>${L.id}</b></span><span>${icon('wave')}<b>${L.waves}</b> vagues</span><span class="po-world">${w.name}</span>`));
+    m.append(el('div', 'po-rw', `<small>Récompense</small><div>${rewardChips(DAILY.challengeReward)}<span class="rw pass">${icon('ticket')}<b>+${DAILY.challengePass}</b></span></div>`));
+    if (ch.done) m.append(el('div', 'po-done', `${icon('check')}<span><b>Défi réussi !</b>Nouveau défi dans ${untilMidnight()}. Tu peux rejouer pour le plaisir.</span>`));
+    const go = el('button', 'btn big ' + (ch.done ? 'ghost' : 'primary cta'), icon(ch.done ? 'restart' : 'playgold') + (ch.done ? 'Rejouer' : 'Relever le défi'));
+    go.onclick = () => this.startGame(ch.n, false, false, this.loadoutFor(L), mod);
     m.append(go);
   },
 

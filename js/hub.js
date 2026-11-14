@@ -53,7 +53,7 @@ export const Hub = {
   tabBadges() {
     const sv = this.save, d = sv.data, set = (id, v) => { const e = $(`#tabbar .tab-${id} em`); if (!e) return; e.hidden = !v; e.textContent = v; };
     set('talents', d.talentPts || 0);
-    set('shop', (d.chests.wood + d.chests.gold) || (this.dailyBadge ? this.dailyBadge('shop') : 0));
+    set('shop', sv.chestCount());
     set('castle', this.castleAffordable());
     set('collection', sv.collectionNew());
     set('menu', this.dailyBadge ? this.dailyBadge('menu') : 0);
@@ -94,7 +94,7 @@ export const Hub = {
       const b = el('button', 'crest' + (o.cls ? ' ' + o.cls : ''), `<span class="cs">${crestSvg(o.color)}${o.art}</span><small>${o.label}</small>${o.info ? `<i class="info${o.go ? ' go' : ''}">${o.info}</i>` : ''}${o.badge ? `<em>${o.badge}</em>` : ''}`);
       b.setAttribute('aria-label', o.label); b.onclick = o.fn; box.append(b); return b;
     };
-    const d = this.save.data, nc = d.chests.wood + d.chests.gold;
+    const d = this.save.data, nc = this.save.chestCount();
     if (this.homeDaily) this.homeDaily(left, right, crest);
     crest(left, { art: icon('chest'), label: 'Coffres', color: 'chest', fn: () => { this.shopTab = 'chests'; this.show('shop'); },
       badge: nc, info: nc ? 'Ouvrir' : 'Boutique', go: !!nc, cls: nc ? 'ready' : '' });

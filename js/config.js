@@ -355,6 +355,16 @@ export const TALENTS = {
 export const CHESTS = {
   wood: { name: 'Coffre en bois', cost: 30, cards: 3, coins: [80, 160], gems: [6, 14], boostChance: 0.6, rare: 0.15 },
   gold: { name: 'Coffre doré',    cost: 75, cards: 5, coins: [220, 420], gems: [15, 35], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
+  legend: { name: 'Coffre légendaire', cost: 180, cards: 7, coins: [500, 900], gems: [30, 60], boostChance: 0.75, rare: 0.7 },
+};
+export const CHEST_ORDER = ['wood', 'gold', 'legend'];
+// Offre du jour (boutique) : un article tiré au sort chaque jour, remisé, achetable une fois
+export const OFFER = {
+  discount: 0.4,
+  pool: [
+    { chest: 'gold' }, { chest: 'legend' }, { boost: 'shield', n: 2 }, { boost: 'revive', n: 2 },
+    { boost: 'over', n: 3 }, { boost: 'coins2', n: 3 }, { skin: 'neon' }, { skin: 'lava' }, { skin: 'candy' }, { skin: 'gold' },
+  ],
 };
 
 // ----------------------------------------------------------------------------
@@ -532,6 +542,6 @@ export const PASS = {
   perStar: 40,                // points par étoile gagnée (en plus de l'XP gagnée)
   cycle: [{ coins: 150 }, { gems: 5 }, { boosts: 1 }, { coins: 250 }],
   every5: { chest: 'gold' },  // paliers 5, 10, 15...
-  final: { coins: 1000, gems: 50, chest: 'gold' },
+  final: { coins: 1000, gems: 50, chest: 'legend' },
 };
 export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);
