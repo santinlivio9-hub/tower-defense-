@@ -65,6 +65,8 @@ export class UI {
     this.buildTabbar();
 
     this.show('menu');
+    if (save.recovered === 'backup') setTimeout(() => this.toast('Sauvegarde récupérée', 'Elle était abîmée : la copie de secours a été chargée', icon('check')), 900);
+    else if (save.recovered === 'lost') setTimeout(() => this.toast('Sauvegarde illisible', 'Elle est mise de côté, rien n\'est effacé. Importe une copie dans les Paramètres.', icon('trash')), 900);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.resize());
     requestAnimationFrame((ts) => this.loop(ts));
   }
@@ -153,12 +155,50 @@ export class UI {
     box.append(this.switchRow('Vague suivante automatique', `Elle part ${GAME.interWaveTime} s après la fin de la précédente`, 'wave', 'autoWave'));
     const tut = el('div', 'setting', `<span class="lab">${icon('bulb')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
     const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('bulb')); }; tut.append(tb); box.append(tut);
+    // sauvegarde : export / import (texte à garder ailleurs), réinitialisation avec annulation
+    const sync = () => { this.audio.settings = this.haptics.settings = this.music.settings = this.save.data.settings; this.audio.applyVolume(); this.music.apply(); preloadSprites(this.save.data.skin); this.show('settings', true); };
+    const ex = el('div', 'setting', `<span class="lab">${icon('share')}<span>Sauvegarde<small>Garde une copie, ou reprends-la sur un autre appareil</small></span></span>`);
+    const eb = el('button', 'btn sm ghost', 'Exporter'); eb.onclick = () => this.exportSave();
+    const ib = el('button', 'btn sm ghost', 'Importer'); ib.onclick = () => this.importSave(sync);
+    const eg = el('span', 'set-btns'); eg.append(eb, ib); ex.append(eg); box.append(ex);
     const rs = el('div', 'setting', `<span class="lab">${icon('trash')}<span>Réinitialiser<small>Efface toute la progression</small></span></span>`);
     const rb = el('button', 'btn sm red', 'Effacer');
-    rb.onclick = () => { if (confirm('Effacer toute la progression (gemmes, déblocages, étoiles, records) ?')) { this.save.reset(); this.audio.settings = this.haptics.settings = this.save.data.settings; this.audio.applyVolume(); this.renderSettings(); this.toast('Progression effacée', '', icon('trash')); } };
+    rb.onclick = () => this.ask('Tout effacer ?', 'Gemmes, pièces, château, talents, étoiles et records repartent de zéro. Tu pourras annuler juste après.', 'Effacer', () => { this.save.reset(); sync(); this.toast('Progression effacée', 'Bouton « Annuler » dans les Paramètres', icon('trash')); }, 'red');
     rs.append(rb); box.append(rs);
+    if (this.save.hasUndo()) {
+      const un = el('div', 'setting', `<span class="lab">${icon('restart')}<span>Annuler<small>Revenir à la progression d'avant l'effacement ou l'import</small></span></span>`);
+      const ub = el('button', 'btn sm green', 'Restaurer'); ub.onclick = () => { if (this.save.restoreUndo()) { sync(); this.toast('Progression restaurée', '', icon('check')); } };
+      un.append(ub); box.append(un);
+    }
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
     box.append(el('p', 'hint version', `Version ${window.__version || 'locale'} · 5 tapes sur le logo de l'accueil : mode debug affichage`));
+  }
+  // Boîte de confirmation dans le style du jeu (remplace confirm() du navigateur)
+  ask(title, text, okLabel, onOk, cls = 'primary') {
+    const m = el('div', 'panel glass ask', `<h2 class="lose"></h2><p class="sub"></p>`);
+    $('h2', m).textContent = title; $('.sub', m).textContent = text;
+    const row = el('div', 'btn-row');
+    const no = el('button', 'btn ghost', 'Annuler'); no.onclick = () => this.closeOverlay();
+    const ok = el('button', 'btn ' + cls, okLabel); ok.onclick = () => { this.closeOverlay(); onOk(); };
+    row.append(no, ok); m.append(row); this.openOverlay(m);
+  }
+  exportSave() {
+    const txt = this.save.exportText();
+    const m = el('div', 'panel glass ask', `<h2 class="win">Exporter</h2><p class="sub">Copie ce texte et garde-le (Notes, Fichiers, message à toi-même). Il contient toute ta progression.</p><textarea readonly class="save-txt"></textarea>`);
+    $('textarea', m).value = txt;
+    const row = el('div', 'btn-row');
+    const cp = el('button', 'btn primary', 'Copier');
+    cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = 'Copié !'; } catch (e) { const t = $('textarea', m); t.focus(); t.select(); try { document.execCommand('copy'); cp.textContent = 'Copié !'; } catch (e2) { cp.textContent = 'Sélectionne et copie'; } } };
+    const ok = el('button', 'btn ghost', 'Fermer'); ok.onclick = () => this.closeOverlay();
+    row.append(ok, cp); m.append(row); this.openOverlay(m);
+  }
+  importSave(after) {
+    const m = el('div', 'panel glass ask', `<h2 class="win">Importer</h2><p class="sub">Colle ici le texte exporté. Il remplace la progression actuelle (annulable ensuite).</p><textarea class="save-txt" placeholder="BRAINROT1:..."></textarea><p class="ask-err" hidden>Ce texte n'est pas une sauvegarde valide.</p>`);
+    const row = el('div', 'btn-row');
+    const no = el('button', 'btn ghost', 'Annuler'); no.onclick = () => this.closeOverlay();
+    const ok = el('button', 'btn primary', 'Importer');
+    ok.onclick = () => { if (this.save.importText($('textarea', m).value)) { this.closeOverlay(); after(); this.toast('Sauvegarde importée', '', icon('check')); } else { $('.ask-err', m).hidden = false; this.audio.play('error'); } };
+    row.append(no, ok); m.append(row); this.openOverlay(m);
   }
   // Compteur de kills enchaînés sur le côté (x5, x10, x25 « CARNAGE ! »)
   showCombo(n, tier) {
@@ -462,7 +502,7 @@ export class UI {
   }
   // « Oups, un bug ! » : la progression est sauvegardée, on propose de reprendre ou de revenir au menu
   crash(err, where = '') {
-    try { console.error('[Brainrot TD]', where, err); } catch (e) { /* ignore */ }
+    try { console.error('[Brainrot Bastion]', where, err); } catch (e) { /* ignore */ }
     const msg = String((err && (err.message || err.reason)) || err || 'erreur inconnue');
     if (/ResizeObserver|AbortError|NotAllowedError|Script error|play\(\) request|The operation was aborted/i.test(msg + ' ' + ((err && err.name) || ''))) return;
     (window.__errors = window.__errors || []).push(`${where} : ${msg}`);
@@ -512,6 +552,7 @@ export class UI {
     // (le château d'un niveau ne change pas en cours de route : le chantier se termine au retour au hub)
     if (this.save.data.build && this.screen !== 'game' && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
+    if (this.save.saveFailed && !this._sfWarn) { this._sfWarn = true; this.toast('Sauvegarde impossible', 'Le stockage du téléphone est plein ou bloqué : exporte ta progression dans les Paramètres', icon('trash')); }
     if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
@@ -626,10 +667,10 @@ export class UI {
   }
   async shareScore(r) {
     const g = this.game, url = location.origin + location.pathname;
-    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot TD (${this.levelLabel(g)}) ! Tu fais mieux ?`;
+    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot Bastion (${this.levelLabel(g)}) ! Tu fais mieux ?`;
     try {
-      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot TD', text: text + ' ' + url }); return; }
-      if (navigator.share) { await navigator.share({ title: 'Brainrot TD', text, url }); return; }
+      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot Bastion', text: text + ' ' + url }); return; }
+      if (navigator.share) { await navigator.share({ title: 'Brainrot Bastion', text, url }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     if (this.shareFile) { const a = document.createElement('a'); a.href = URL.createObjectURL(this.shareFile); a.download = this.shareFile.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
     try { await navigator.clipboard.writeText(text + ' ' + url); this.toast('Image enregistrée', 'Texte et lien copiés dans le presse-papier', icon('share')); }

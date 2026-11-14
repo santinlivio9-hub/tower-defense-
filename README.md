@@ -229,3 +229,11 @@ La boucle de jeu se reprogramme avant de travailler, la fin de niveau est toujou
 la sauvegarde échoue, chaque étape de la séquence de fin est protégée, et un écran de fin de secours s'affiche si
 rien n'apparaît 3,5 s après le moment prévu. Toute erreur non rattrapée ouvre « Oups, un bug ! » (progression
 sauvegardée, Reprendre ou Retour au menu). `ui.clearGame()` remet tout à zéro entre deux parties.
+
+### Sauvegarde
+
+Une seule clé `localStorage` (`brainrot-bastion-save-v1`), plus des copies : `-bak1` (début de la session du jour),
+`-bak2` (un jour précédent), `-broken` (sauvegarde illisible mise de côté, jamais effacée) et `-undo` (état d'avant
+une réinitialisation ou un import). Une sauvegarde illisible est remplacée par la copie de secours la plus récente.
+Paramètres : Exporter / Importer (texte `BRAINROT1:...`), Effacer (annulable). `node tools/save-test.cjs` vérifie
+la conversion des anciennes versions, la réparation des valeurs abîmées, la récupération, l'export / import.

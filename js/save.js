@@ -33,16 +33,34 @@ const defaults = () => ({
   settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
 });
 
+// Copies de secours : BAK1 = état au début de la session du jour, BAK2 = celui d'un jour précédent,
+// BROKEN = sauvegarde illisible mise de côté (jamais effacée en silence), UNDO = état d'avant une réinitialisation ou un import.
+const BAK1 = KEY + '-bak1', BAK2 = KEY + '-bak2', BROKEN = KEY + '-broken', UNDO = KEY + '-undo';
+const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+const parse = (txt) => { try { const o = JSON.parse(txt || 'null'); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch (e) { return null; } };
+
 export class Save {
   constructor() {
-    this.data = defaults();
+    this.data = defaults(); this.recovered = null; this.saveFailed = false;
+    const main = ls.get(KEY);
+    let raw = parse(main), from = 'main';
+    if (!raw && main) {   // sauvegarde illisible : mise de côté, puis on essaie les copies de secours
+      ls.set(BROKEN, main);
+      for (const k of [BAK1, BAK2]) { raw = parse(ls.get(k)); if (raw) { from = k; break; } }
+      this.recovered = raw ? 'backup' : 'lost';
+    }
     try {
-      const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (raw && raw.v === 2) this.merge(raw);
-      else if (raw) { this.migrate(raw); this.persist(); }
-    } catch (e) { /* sauvegarde illisible : on repart de zéro */ }
+      else if (raw) this.migrate(raw);
+    } catch (e) { console.error(e); this.data = defaults(); this.recovered = 'lost'; }
+    // copie de secours du jour : faite à partir d'une sauvegarde saine, une fois par jour
+    if (raw && from === 'main') {
+      const prev = parse(ls.get(BAK1)), day = today();
+      if (!prev || prev._bakDay !== day) { const b1 = ls.get(BAK1); if (b1) ls.set(BAK2, b1); ls.set(BAK1, JSON.stringify({ ...raw, _bakDay: day })); }
+    }
     // calendrier de déblocage : on ne retire rien de ce qui est déjà possédé, on ajoute ce que la progression donne
     try { this.grantUnlocks(); this.syncTierCap(); } catch (e) { /* ignore */ }
+    if (raw && (from !== 'main' || raw.v !== 2)) this.persist();
   }
   merge(raw) {
     const d = this.data, def = defaults();
@@ -79,8 +97,35 @@ export class Save {
     if (gems || xp || beaten) d.notice = { gems, xp, stars, chests: beaten, levels: ups.length };
     d.legacy = { maps: raw.maps, perks: raw.perks };
   }
-  persist() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) { /* stockage indisponible */ } }
-  reset() { this.data = defaults(); this.persist(); }
+  // Écrit la sauvegarde. Un échec (stockage plein ou indisponible) est mémorisé pour prévenir le joueur.
+  persist() {
+    let txt; try { txt = JSON.stringify(this.data); } catch (e) { console.error(e); this.saveFailed = true; return false; }
+    this.saveFailed = !ls.set(KEY, txt); return !this.saveFailed;
+  }
+  // Réinitialisation : l'état d'avant est gardé pour pouvoir l'annuler (restoreUndo)
+  reset() { ls.set(UNDO, JSON.stringify(this.data)); this.data = defaults(); this.persist(); }
+  hasUndo() { return !!parse(ls.get(UNDO)); }
+  restoreUndo() { const raw = parse(ls.get(UNDO)); if (!raw) return false; return this.load(raw, false); }
+  // Remplace la progression par un objet de sauvegarde (import, annulation) ; renvoie false s'il n'est pas valide
+  load(raw, keepUndo = true) {
+    if (!raw || typeof raw !== 'object' || (raw.v !== 2 && !raw.maps && raw.gems == null)) return false;
+    const before = JSON.stringify(this.data), old = this.data;
+    try {
+      this.data = defaults();
+      if (raw.v === 2) this.merge(raw); else this.migrate(raw);
+      this.grantUnlocks(); this.syncTierCap();
+    } catch (e) { console.error(e); this.data = old; return false; }
+    if (keepUndo) ls.set(UNDO, before); else { try { localStorage.removeItem(UNDO); } catch (e) { /* ignore */ } }
+    this.persist(); return true;
+  }
+  // Texte d'export (à garder dans Notes, Fichiers...) et import depuis ce texte
+  exportText() { return 'BRAINROT1:' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data)))); }
+  importText(txt) {
+    txt = String(txt || '').trim(); let raw = null;
+    if (txt.startsWith('BRAINROT1:')) { try { raw = parse(decodeURIComponent(escape(atob(txt.slice(10).replace(/\s+/g, ''))))); } catch (e) { raw = null; } }
+    else raw = parse(txt);
+    return this.load(raw);
+  }
 
   // ------------------------------------------------------------- campagne
   levelData(n) { return (this.data.levels[n] ||= { stars: 0, best: 0, heroic: 0, heroicBest: 0 }); }
