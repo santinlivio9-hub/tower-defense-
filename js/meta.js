@@ -13,7 +13,8 @@ const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
-const NODE_X = [28, 64, 78, 40, 22, 50], SEC_H = 680;
+// BAND = bande réservée en bas de chaque monde pour son panneau (le chemin y monte tout droit)
+const NODE_X = [28, 64, 78, 40, 22, 50], BAND = 128, SEC_H = 680 + BAND;
 const INK = '#3d2c4e';
 // Décor propre à chaque monde (SVG inline), posé loin du chemin
 const DECO = {
@@ -48,7 +49,7 @@ const EXTRA = {
 const RIVER = { prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
 const ROCK = { prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
 const BUSH = { prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
-const nodeY = (i) => SEC_H - 92 - i * 94 - (i === 5 ? 14 : 0);
+const nodeY = (i) => SEC_H - BAND - 92 - i * 94 - (i === 5 ? 14 : 0);
 const RIVER_Y = Math.round((nodeY(2) + nodeY(3)) / 2) + 4;
 // petit générateur pseudo-aléatoire stable (même décor à chaque ouverture)
 const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -65,6 +66,8 @@ function sampleRoad(pts) {
   return out;
 }
 const roadD = (pts) => { let d = `M${pts[0][0]} ${pts[0][1]}`; for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], my = (y0 + y1) / 2; d += ` C${x0} ${my} ${x1} ${my} ${x1} ${y1}`; } return d; };
+// largeur d'un texte en Fredoka gras (pour dimensionner les bulles sans les tronquer)
+const measure = (() => { let c = null; return (t, px) => { c = c || document.createElement('canvas').getContext('2d'); c.font = `700 ${px}px Fredoka, ui-rounded, system-ui, sans-serif`; return c.measureText(t).width; }; })();
 const crestNode = (fill, dark) => `<svg class="nc" viewBox="0 0 60 66" aria-hidden="true"><path d="M5 4h50v28c0 16-11 25-25 31C16 57 5 48 5 32z" fill="${fill}" stroke="#3d2c4e" stroke-width="4" stroke-linejoin="round"/><path d="M7.5 34c2 13 11 20 22.5 25 11.5-5 20.5-12 22.5-25v4c-1.5 12-10 19-22.5 24C17.5 57 9 50 7.5 38z" fill="${dark}"/><path d="M9.5 8.5h41v11c-13 5-28 5-41 0z" fill="#fff" opacity=".3"/></svg>`;
 
 export const Meta = {
@@ -88,7 +91,7 @@ export const Meta = {
       const sec = el('section', 'wsec' + (open ? '' : ' locked'));
       sec.style.cssText = `--c1:${th.g1};--c2:${th.g2};--c3:${th.g3};--road:${th.path};--edge:${th.edge};height:${SEC_H}px`;
       // chemin continu : départ en bas du monde 1, arrivée en haut du dernier monde
-      const pts = [[W / 2, wi === 0 ? SEC_H - 34 : SEC_H + 2], ...NODE_X.map((x, i) => [X(x), nodeY(i)]), [W / 2, -2]];
+      const pts = [[W / 2, wi === 0 ? SEC_H - 30 : SEC_H + 2], [W / 2, SEC_H - BAND + 6], ...NODE_X.map((x, i) => [X(x), nodeY(i)]), [W / 2, -2]];
       const road = sampleRoad(pts), d = roadD(pts);
       // rivière + pont là où le chemin la traverse
       const [rc, rl] = RIVER[w.theme] || RIVER.prairie;
@@ -107,9 +110,46 @@ export const Meta = {
         <path d="M-27 -20H27M-27 20H27" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M-27 -20H27M-27 20H27" stroke="#c98a4b" stroke-width="3.5" stroke-linecap="round"/></g></svg>`;
       // panneau du monde, à l'entrée du monde
       const ws = LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + (sv.data.levels[l.n] ? sv.data.levels[l.n].stars : 0), 0);
-      const signX = 75, signY = SEC_H - 56;
-      const sign = el('div', 'wsign', `<div class="ws-board"><small>Monde ${wi + 1}</small><b>${w.name}</b><span>${open ? icon('star', 'on') + ws + '/18' : icon('lock') + 'Termine le monde ' + wi}</span></div><i></i><i></i>`);
-      sign.style.cssText = `left:${signX}%;top:${signY}px`; sec.append(sign);
+      // obstacles de la section (rectangles en px) : nœuds (+ étoiles dessous), jauge d'étoiles, avatar, bulles…
+      const obst = [];
+      const nodeRect = (i) => { const x = X(NODE_X[i]), y = nodeY(i), big = i === 5; return { x: x - (big ? 50 : 34), y: y - (big ? 50 : 36), w: big ? 100 : 68, h: big ? 112 : 92 }; };
+      for (let i = 0; i < 6; i++) obst.push(nodeRect(i));
+      { const cur = LEVELS.find((l) => l.world === wi && sv.levelUnlocked(l.n) && !sv.levelDone(l.n)); if (cur) obst.push({ x: X(NODE_X[cur.idx]) - 34, y: nodeY(cur.idx) - 128, w: 68, h: 96 }); }   // avatar au-dessus du nœud actuel
+      const roadHit = (r, m = 22) => road.some(([rx, ry]) => rx > r.x - m && rx < r.x + r.w + m && ry > r.y - m && ry < r.y + r.h + m);
+      const hit = (r) => obst.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y);
+      const inside = (r) => r.x >= 6 && r.x + r.w <= W - 6 && r.y >= 6 && r.y + r.h <= SEC_H - BAND;
+      const bubbles = [];
+      // ordre de priorité : niveau actuel, puis le boss, puis les suivants
+      const todo = LEVELS.filter((l) => l.world === wi && !sv.levelDone(l.n)).sort((p, q) => (sv.levelUnlocked(q.n) - sv.levelUnlocked(p.n)) || (p.n - q.n));
+      // bulle normale (libellé « DÉBLOQUE » + nom) ; s'il n'y a pas la place : bulle compacte (icône + nom)
+      const placeBubble = (L) => {
+        const info = this.levelBubble(L); if (!info) return;
+        const x = X(NODE_X[L.idx]), y = nodeY(L.idx), big = L.boss, gap = big ? 50 : 38;
+        const own = nodeRect(L.idx), others = obst.filter((o) => o.x !== own.x || o.y !== own.y);
+        for (const compact of [false, true]) {
+          const bw = Math.ceil((compact ? 52 : 60) + (compact ? measure(info.name, 14) : Math.max(measure(info.kick, 13) * 1.08, measure(info.name, 15)))), bh = compact ? 40 : 50;
+          const cands = [];
+          for (const dy of [0, -26, 26, -52, 52, -78, 78]) cands.push({ side: 'right', x: x + gap, y: y - bh / 2 + dy }, { side: 'left', x: x - gap - bw, y: y - bh / 2 + dy });
+          for (const dx of [0, -50, 50, -100, 100]) { const bx = Math.max(8, Math.min(W - bw - 8, x - bw / 2 + dx)); cands.push({ side: 'down', x: bx, y: y + (big ? 66 : 60) }, { side: 'up', x: bx, y: y - (big ? 62 : 52) - bh }); }
+          const ok = (c) => { const r = { x: c.x, y: c.y, w: bw, h: bh }; return inside(r) && !others.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y); };
+          const c = cands.find(ok); if (!c) continue;
+          obst.push({ x: c.x, y: c.y, w: bw, h: bh });
+          const e = el('div', 'nbub ' + c.side + (compact ? ' compact' : ''), `${info.art}<span>${compact ? '' : `<small>${info.kick}</small>`}<b>${info.name}</b></span>`);
+          e.style.cssText = `left:${c.x}px;top:${c.y}px;width:${bw}px;height:${bh}px;--ay:${Math.max(10, Math.min(bh - 10, y - c.y))}px;--ax:${Math.max(12, Math.min(bw - 12, x - c.x))}px`;
+          bubbles.push(e); return;
+        }   // aucune place : pas de bulle plutôt qu'un chevauchement
+      };
+      // le niveau actuel garde toujours sa bulle (placée avant le panneau)
+      if (open || wi === sv.worldsDone()) todo.filter((L) => sv.levelUnlocked(L.n)).forEach(placeBubble);
+      // panneau du monde : dans la bande réservée du bas, à droite du chemin (qui y monte tout droit)
+      const SW = Math.min(W / 2 - 34, 200), SH = BAND - 14;
+      const sr = { x: W / 2 + 26, y: SEC_H - BAND + 6, w: SW, h: SH };
+      obst.push(sr);
+      const sign = el('div', 'wsign', `<div class="ws-board"><small>Monde ${wi + 1}</small><b>${w.name}</b></div>`);
+      sign.style.cssText = `left:${sr.x}px;top:${sr.y}px;--sw:${SW}px`; if (open) sec.append(sign);
+      // bulles « DÉBLOQUE … » (niveaux pas encore terminés) : côté libre du nœud, petite flèche vers lui
+      const showBubbles = open || wi === sv.worldsDone();
+      if (showBubbles) todo.forEach((L) => { if (!sv.levelUnlocked(L.n)) placeBubble(L); });
       // décor dense, généré hors du chemin, des nœuds, du panneau et de la rivière
       const R = rng(1234 + wi * 977), keep = [];
       const free = (x, y, r) => {
@@ -117,7 +157,8 @@ export const Meta = {
         if (Math.abs(y - RIVER_Y) < 22 + r * 0.5) return false;
         if (road.some(([rx, ry]) => (rx - x) ** 2 + (ry - y) ** 2 < (30 + r) ** 2)) return false;
         if (NODE_X.some((nx, i) => (X(nx) - x) ** 2 + (nodeY(i) - y) ** 2 < (58 + r) ** 2)) return false;
-        if (Math.abs(x - X(signX)) < 92 && Math.abs(y - signY) < 52) return false;
+        if (obst.slice(6).some((o) => x > o.x - r && x < o.x + o.w + r && y > o.y - r && y < o.y + o.h + r)) return false;   // bulles, avatar
+        if (open && x > sr.x - r && x < sr.x + sr.w + r && y > sr.y - r && y < sr.y + sr.h + r) return false;
         return !keep.some(([kx, ky, kr]) => (kx - x) ** 2 + (ky - y) ** 2 < (kr + r) ** 2 * 0.72);
       };
       const kinds = DECO[w.theme];
@@ -139,7 +180,7 @@ export const Meta = {
         const x = 30 + R() * (W - 60), y = 60 + R() * (SEC_H - 120); if (!free(x, y, 24)) continue;
         keep.push([x, y, 24]); const im = enemyImg(foes[fk++], 44); im.className = 'wdeco'; im.style.cssText = `left:${x - 22}px;top:${y - 22}px`; sec.append(im);
       }
-      if (wi === 0) sec.append(Object.assign(el('div', 'wmark start', `${EXTRA.sign(40)}<b>Départ</b>`), { style: `left:${W / 2}px;top:${SEC_H - 24}px` }));
+      if (wi === 0) sec.append(Object.assign(el('div', 'wmark start', `${EXTRA.sign(40)}<b>Départ</b>`), { style: `left:${W / 2 - 70}px;top:${SEC_H - 60}px` }));
       // nœuds : blasons (doré = terminé, rose = à jouer, sombre = verrouillé), gros nœud pour le boss
       LEVELS.filter((l) => l.world === wi).forEach((L) => {
         const ld = sv.data.levels[L.n], done = sv.levelDone(L.n), unlocked = sv.levelUnlocked(L.n);
@@ -154,10 +195,9 @@ export const Meta = {
         b.onclick = () => { if (!unlocked) { this.audio.play('error'); this.toast('Niveau verrouillé', 'Termine le niveau précédent', icon('lock')); return; } this.playLevel(L.n); };
         if (unlocked && !done) current = b;
         sec.append(b);
-        // bulle « Débloque : … » sur les niveaux qui rapportent quelque chose (tant qu'ils ne sont pas terminés)
-        const bub = !done && this.levelBubble(L);
-        if (bub) { const e = el('div', 'nbub' + (NODE_X[L.idx] > 50 ? ' left' : ''), bub); e.style.cssText = `left:${NODE_X[L.idx]}%;top:${nodeY(L.idx)}px`; sec.append(e); }
+
       });
+      for (const e of bubbles) sec.append(e);
       // coffre d'étoiles du monde : jauge et paliers 6 / 12 / 18
       const sc = sv.starChests(wi), wst = sv.worldStars(wi);
       const gauge = el('div', 'wstars', `<span class="ws-n">${icon('star', 'on')}<b>${wst}/18</b></span><span class="ws-bar"><i style="width:${(wst / 18) * 100}%"></i></span>`);
@@ -172,7 +212,7 @@ export const Meta = {
         };
         $('.ws-bar', gauge).append(b);
       });
-      if (open) sec.append(gauge);
+      $('.ws-board', sign).append(gauge);
       // monde verrouillé : visible, mais dans le brouillard, avec son nom et sa condition
       if (!open) sec.append(el('div', 'wfog', `<i></i><i></i><i></i><i></i><div class="wf-lab">${icon('lock')}<small>Monde ${wi + 1}</small><b>${w.name}</b><span>Bats le boss du monde ${wi} pour l'ouvrir</span></div>`));
       box.append(sec);
@@ -191,7 +231,8 @@ export const Meta = {
     // mode infini : petit blason (verrouillé avec sa condition)
     const eb = $('#btn-endless'), eo = sv.endlessUnlocked();
     eb.className = 'endless-crest' + (eo ? ' ready' : ' locked');
-    eb.innerHTML = `<span class="cs">${crestNode(eo ? "#b05cff" : "#4a3b6e", eo ? "#7a2fd0" : "#2f2450")}${icon(eo ? "infinity" : "lock")}</span><span class="lab"><small>Infini</small><em>${eo ? "Jouer" : `Après M${CAMPAIGN.endlessAfter / 6}`}</em></span>`;
+    eb.innerHTML = `<span class="cs">${crestNode(eo ? "#b05cff" : "#4a3b6e", eo ? "#7a2fd0" : "#2f2450")}${icon(eo ? "infinity" : "lock")}</span>`;
+    eb.setAttribute('aria-label', eo ? 'Mode infini' : 'Mode infini (verrouillé)');
     requestAnimationFrame(() => {
       const sc = $('#world-scroll');
       if (this.panToWorld != null && current) { // panoramique : du boss vaincu jusqu'au premier niveau du nouveau monde
@@ -202,7 +243,8 @@ export const Meta = {
         requestAnimationFrame(step); return;
       }
       if (!current) { sc.scrollTop = prog >= LEVELS.length ? 0 : sc.scrollHeight; return; }
-      const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.5;
+      // le nœud actuel, son avatar (au-dessus) et sa bulle restent entièrement visibles : nœud vers 62 % de la hauteur
+      const goal = current.offsetParent.offsetTop + current.offsetTop - Math.max(150, sc.clientHeight * 0.62);
       sc.scrollTop = Math.min(sc.scrollHeight, goal + sc.clientHeight * 0.4);   // part d'un peu plus bas…
       requestAnimationFrame(() => sc.scrollTo({ top: goal, behavior: 'smooth' }));   // … et remonte le chemin
     });
@@ -210,13 +252,14 @@ export const Meta = {
 
   // Bulle d'un nœud de la carte : ce que rapporte la 1re victoire (ou le nouveau brainrot qu'on y rencontre)
   levelBubble(L) {
-    const u = unlocksOf(L.n), sil = (img) => { img.className = 'sil'; return img.outerHTML; };
-    if (u.towers.length) return `${sil(towerImg(u.towers[0], 34))}<span><small>Débloque</small><b>${TOWERS[u.towers[0]].name}</b></span>`;
-    if (L.boss) return `${chestSvg('legend')}<span><small>Fin du monde</small><b>Coffre légendaire</b></span>`;
-    if (u.legend.length) return `${icon('crown')}<span><small>Débloque</small><b>Légendaires</b></span>`;
+    const u = unlocksOf(L.n), veil = (img) => `<span class="nb-art">${img.outerHTML}<i>?</i></span>`;
+    const SHORT = { assault: 'Fusil', smg: 'Mitraillette', shotgun: 'Pompe', sniper: 'Sniper', rocket: 'Roquettes', minigun: 'Minigun', cryo: 'Cryo', mine: 'Mine' };
+    if (u.towers.length) return { art: veil(towerImg(u.towers[0], 34)), kick: 'DÉBLOQUE', name: SHORT[u.towers[0]] || TOWERS[u.towers[0]].name };
+    if (L.boss) return { art: `<span class="nb-art">${chestSvg('legend')}</span>`, kick: 'BOSS', name: 'Coffre' };
+    if (u.legend.length) return { art: `<span class="nb-art">${icon('crown')}</span>`, kick: 'DÉBLOQUE', name: 'Légendaires' };
     const foe = Object.keys(ENEMIES).find((k) => ENEMIES[k].unlock === L.n && !this.save.data.seen.enemies.includes(k));
-    if (foe) return `${sil(enemyImg(foe, 34))}<span><small>Nouveau</small><b>Brainrot</b></span>`;
-    return '';
+    if (foe) return { art: veil(enemyImg(foe, 34)), kick: 'NOUVEAU', name: 'Brainrot' };
+    return null;
   },
   // Toucher un niveau ouvre sa fiche ; le gros bouton JOUER de l'accueil lance directement le prochain niveau
   playLevel(n) { this.openPrep(n); },

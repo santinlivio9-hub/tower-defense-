@@ -1556,3 +1556,34 @@ html.standalone #screen-game::after { content: ""; position: absolute; left: 0; 
 .tnext { display: flex; align-items: center; gap: 8px; margin: 0 4px 6px; padding: 6px 10px; border-radius: 16px; background: rgba(20, 10, 40, .5); border: 1.5px solid rgba(255, 255, 255, .2); }
 .tnext > .ico { width: 30px; height: 30px; flex: none; } .tnext > span { flex: 1; display: flex; flex-direction: column; gap: 3px; } .tnext small { font-size: 13px; font-weight: 700; }
 .tnext .qbar i { background: linear-gradient(180deg, #9dffb4, #2fbf63); }
+/* bulles de la carte : position calculée (côté libre), flèche vers le nœud, jamais tronquées */
+.nbub { transform: none !important; animation: none; height: 50px; gap: 6px; padding: 4px 8px 4px 5px; white-space: nowrap; justify-content: flex-start; box-sizing: border-box; }
+.nbub::before { content: ""; position: absolute; width: 0; height: 0; border: 8px solid transparent; }
+.nbub.right::before { left: -14px; right: auto; top: var(--ay); margin-top: -8px; border-right: 7px solid var(--ink); border-left: 0; }
+.nbub.left::before { right: -14px; left: auto; top: var(--ay); margin-top: -8px; border-left: 7px solid var(--ink); border-right: 0; }
+.nbub.down::before { top: -14px; left: var(--ax); margin-left: -8px; border-bottom: 7px solid var(--ink); border-top: 0; }
+.nbub.up::before { bottom: -14px; top: auto; left: var(--ax); margin-left: -8px; border-top: 7px solid var(--ink); border-bottom: 0; }
+.nbub .nb-art { position: relative; flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: #e8dcc0; }
+.nbub .nb-art img { width: 34px; height: 34px; filter: grayscale(.85) brightness(.85) contrast(.9); opacity: .9; }
+.nbub .nb-art i { position: absolute; right: -5px; bottom: -5px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); border: 2px solid #fff6dc; }
+.nbub .nb-art .chest-svg, .nbub .nb-art .ico { width: 32px; height: 32px; }
+.nbub small { font-size: 13px; letter-spacing: .06em; } .nbub b { font-size: 15px; }
+/* en-tête de la carte : petit blason Infini, condition au toucher */
+.endless-crest { padding: 0; min-width: 44px; justify-content: center; }
+.endless-crest .cs { width: 40px; height: 44px; }
+/* panneau du monde avec la jauge des coffres d'étoiles */
+.wsign { pointer-events: auto; }
+.wsign .ws-board { width: var(--sw); padding: 6px 12px 10px; }
+.ws-board .wstars { position: static; width: 100%; padding: 4px 4px 16px; margin-top: 4px; background: rgba(26, 14, 46, .55); border-radius: 12px; border-width: 1.5px; }
+.ws-board .ws-n { text-shadow: var(--ol); }
+.node.boss .stars { bottom: -32px; }
+.wsign .ws-board { box-sizing: border-box; }
+/* panneau du monde : bande réservée en bas, coin haut-gauche positionné */
+.wsign { transform: none; }
+.wsign .ws-board { width: var(--sw); padding: 5px 8px 6px; }
+.wsign .ws-board b { font-size: 15px; white-space: normal; line-height: 1.05; text-align: center; }
+.ws-board .wstars { padding: 3px 3px 15px; gap: 4px; }
+.ws-board .ws-bar { margin: 0 14px 0 4px; }
+.wmark.start { transform: translate(-50%, -50%); }
+.nbub { padding: 4px 6px 4px 4px; gap: 5px; }
+.nbub.compact .nb-art { width: 30px; height: 30px; } .nbub.compact .nb-art img { width: 28px; height: 28px; } .nbub.compact b { font-size: 14px; }
