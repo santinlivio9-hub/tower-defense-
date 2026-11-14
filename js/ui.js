@@ -1,6 +1,6 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS } from './config.js';
+import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
 import { Meta } from './meta.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
@@ -118,6 +118,7 @@ export class UI {
       const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"><i class="pad"></i></span><b>${s.name}</b>`);
       $('.cc-art', card).append(towerImg('assault', 84, s.id, 4, 0));   // aperçu sur une vraie tourelle, posée sur son socle
       if (on) card.append(owned('Équipé'));
+      else if (s.exclusive && !has) { const n = UNLOCKS.skins[s.id]; card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('lock')}Boss ${LEVELS[n - 2].id}`)); }
       else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
       else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id); }));
       g.append(card);
@@ -258,6 +259,11 @@ export class UI {
     }
     const cur = this.statRows(t.type, t.stats);
     for (const o of t.upgradeOptions()) {
+      if (o.locked) { // amélioration légendaire pas encore débloquée par la campagne
+        const n = UNLOCKS.legend[t.type], at = LEVELS[Math.max(0, n - 2)].id;
+        items.push({ key: 'lock', cls: 'up branch locked', art: towerImg(t.type, 46, skin, o.level, o.branch), label: 'Légendaire', tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
+        continue;
+      }
       const ns = computeStats(t.type, o.level, o.branch, g.mods), nxt = this.statRows(t.type, ns);
       const diff = cur.map((r, i) => (nxt[i][1] !== r[1] ? `${r[0]} <b>${r[1]}</b> → <b class="g">${nxt[i][1]}</b>` : null)).filter(Boolean).join(' · ');
       items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (g.money < o.cost ? ' poor' : ''),

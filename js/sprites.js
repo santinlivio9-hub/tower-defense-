@@ -31,6 +31,14 @@ const gradDefs = () => [...grads].map((hex) => {
   if (finish === 'gold') { const g = shade('#f2b51d', (luma(hex) - 0.5) * 0.7); return linear(id, [[0, '#fffbe6'], [0.2, shade(g, 0.45)], [0.42, g], [0.55, shade(g, -0.3)], [0.7, shade(g, 0.25)], [1, shade(g, -0.45)]]); }
   if (finish === 'lava') { const l = luma(hex); return linear(id, [[0, '#ffe27a'], [0.22, mix('#ff8a1a', '#ffd23f', l * 0.6)], [0.6, mix('#b81d12', '#ff5a1f', l)], [1, '#3a0d0d']]); }
   if (finish === 'candy') { const pal = ['#ff8fc7', '#8fe3ff', '#c9a6ff', '#fff3a8', '#a8f0c0']; return vinyl(id, mix(pal[parseInt(hex.slice(1, 3), 16) % pal.length], '#ffffff', luma(hex) * 0.35)); }
+  const TINT = { emerald: '#2fbf63', royal: '#7a3fd8', obsidian: '#2f2a44', frost: '#8fd8f5', galaxy: '#3a2a86' };
+  if (TINT[finish]) { // finitions exclusives des boss : teinte + reflet doré (royal) ou étoilé (galaxie)
+    const base = mix(hex, TINT[finish], finish === 'frost' ? 0.55 : 0.7), l = luma(hex);
+    if (finish === 'royal') return linear(id, [[0, '#fff6c8'], [0.18, shade(base, 0.35)], [0.5, base], [0.62, l > 0.6 ? '#ffd23f' : shade(base, -0.2)], [1, shade(base, -0.45)]]);
+    if (finish === 'galaxy') return linear(id, [[0, '#ff9dbb'], [0.25, mix(base, '#b05cff', 0.4)], [0.6, base], [0.85, '#1a1240'], [1, '#5fd8ff']]);
+    if (finish === 'obsidian') return linear(id, [[0, shade(base, 0.5)], [0.3, base], [0.7, shade(base, -0.3)], [0.92, '#ff7a3c'], [1, '#3a0d0d']]);
+    return vinyl(id, base);
+  }
   if (finish === 'camo') {
     const base = mix(hex, '#7d9a5c', 0.6), dark = shade(base, -0.42), pale = mix(base, '#e6edc8', 0.5);
     const blobs = [[dark, 'M.05 .15C.2 .05 .35 .2 .3 .35S.1 .45 .05 .3Z'], [pale, 'M.45 .05C.6 0 .75 .12 .68 .25S.45 .3 .45 .05Z'], [dark, 'M.6 .45C.8 .38 .95 .55 .88 .7S.62 .72 .6 .45Z'], [pale, 'M.15 .6C.3 .52 .45 .65 .38 .8S.12 .82 .15 .6Z'], ['#3b4a2a', 'M.4 .38C.5 .32 .58 .42 .52 .5S.38 .5 .4 .38Z'], [pale, 'M.62 .82C.75 .76 .88 .86 .8 .96S.6 .95 .62 .82Z']];

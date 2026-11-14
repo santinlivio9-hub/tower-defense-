@@ -1,6 +1,6 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { SHOP, ACHIEVEMENTS, LEVELS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 
 // date locale « AAAA-MM-JJ » (le jour change à minuit, heure du téléphone)
@@ -22,6 +22,7 @@ const defaults = () => ({
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
+  starChests: {},
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
   legacyStars: 0, notice: null,
@@ -38,6 +39,8 @@ export class Save {
       if (raw && raw.v === 2) this.merge(raw);
       else if (raw) { this.migrate(raw); this.persist(); }
     } catch (e) { /* sauvegarde illisible : on repart de zéro */ }
+    // calendrier de déblocage : on ne retire rien de ce qui est déjà possédé, on ajoute ce que la progression donne
+    try { this.grantUnlocks(); } catch (e) { /* ignore */ }
   }
   merge(raw) {
     const d = this.data, def = defaults();
@@ -83,11 +86,22 @@ export class Save {
   addEndless(entry) { const e = this.data.endless; e.push(entry); e.sort((a, b) => b.score - a.score); e.length = Math.min(e.length, 10); return e.indexOf(entry); }
   towerUnlocked(t) { return this.data.towers.includes(t); }
   // Tourelles offertes par la progression ; renvoie celles qui viennent d'être débloquées
-  grantTowers() {
-    const p = this.progress(), got = [];
-    for (const [t, n] of Object.entries(CAMPAIGN.towerUnlocks)) if (p >= n && !this.data.towers.includes(t)) { this.data.towers.push(t); got.push(t); }
+  // Déblocages de la campagne (UNLOCKS) : tourelles et skins exclusifs ; renvoie ce qui vient d'être obtenu
+  grantUnlocks() {
+    const p = this.progress(), d = this.data, got = { towers: [], skins: [], legend: [] };
+    for (const [t, n] of Object.entries(UNLOCKS.towers)) if (p >= n - 1 && !d.towers.includes(t)) { d.towers.push(t); got.towers.push(t); }
+    for (const [s, n] of Object.entries(UNLOCKS.skins)) if (p >= n - 1 && !d.skins.includes(s)) { d.skins.push(s); got.skins.push(s); }
+    for (const [t, n] of Object.entries(UNLOCKS.legend)) if (p === n - 1) got.legend.push(t);
     return got;
   }
+  grantTowers() { return this.grantUnlocks().towers; }
+  // amélioration légendaire (5e niveau) disponible pour cette tourelle ?
+  legendOk(t) { return this.progress() >= (UNLOCKS.legend[t] || 1) - 1; }
+  // coffres d'étoiles d'un monde : étoiles, paliers prêts / déjà pris
+  worldStars(wi) { return LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + ((this.data.levels[l.n] || {}).stars || 0), 0); }
+  starChests(wi) { const got = this.data.starChests[wi] || [], st = this.worldStars(wi); return STAR_CHESTS.map(([need, chest], k) => ({ k, need, chest, got: got.includes(k), ready: st >= need && !got.includes(k) })); }
+  starChestsReady() { return WORLDS.reduce((s, w, wi) => s + this.starChests(wi).filter((c) => c.ready).length, 0); }
+  claimStarChest(wi, k) { const c = this.starChests(wi)[k]; if (!c || !c.ready) return null; (this.data.starChests[wi] = this.data.starChests[wi] || []).push(k); const text = this.grant({ chest: c.chest }); this.persist(); return { text, chest: c.chest }; }
   // nombre de nouveautés pas encore vues dans la collection
   collectionNew() { const d = this.data; return Math.max(0, d.towers.length - (d.viewed.towers || 0)) + Math.max(0, d.seen.enemies.length - (d.viewed.enemies || 0)); }
   spend(n, cur = 'gems') { if (this.data[cur] < n) return false; this.data[cur] -= n; this.persist(); return true; }

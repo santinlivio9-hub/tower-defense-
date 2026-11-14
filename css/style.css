@@ -1372,3 +1372,46 @@ html, body { background: #3a2a6e; }
 #hud { justify-content: space-between; gap: 4px; }
 .stat.score { flex: 0 0 auto; min-width: 0; padding: 0 9px 0 6px; }
 .hud-btns { margin-left: 0; }
+/* ------------------------------------------------------------- carte : déblocages, coffres d'étoiles, brouillard */
+.nbub { position: absolute; z-index: 3; display: flex; align-items: center; gap: 5px; padding: 4px 9px 4px 5px; border-radius: 14px; transform: translate(34px, -50%); pointer-events: none;
+  background: #fff6dc; color: var(--ink); border: 2.5px solid var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .3); text-shadow: none; white-space: nowrap; animation: hop 1s ease-in-out infinite alternate; }
+.nbub.left { transform: translate(calc(-100% - 34px), -50%); }
+.nbub::before { content: ""; position: absolute; left: -9px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-right-color: var(--ink); border-left: 0; }
+.nbub.left::before { left: auto; right: -9px; border: 7px solid transparent; border-left-color: var(--ink); border-right: 0; }
+.nbub img, .nbub .ico, .nbub .chest-svg { width: 30px; height: 30px; flex: none; }
+.nbub .sil { filter: brightness(0) opacity(.85); }
+.nbub span { display: flex; flex-direction: column; line-height: 1.05; } .nbub small { font-size: 13px; font-weight: 700; color: #8a5530; } .nbub b { font-size: 14px; }
+.wstars { position: absolute; z-index: 4; left: 8px; top: 10px; width: 176px; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 18px; border-radius: 16px; background: rgba(26, 14, 46, .82); border: 2px solid rgba(255, 255, 255, .25); }
+.ws-n { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; } .ws-n .ico { width: 18px; height: 18px; } .ws-n .ico.on { color: var(--gold); }
+.ws-bar { position: relative; height: 10px; margin: 0 12px 0 2px; border-radius: 999px; background: rgba(255, 255, 255, .18); border: 2px solid var(--ink); }
+.ws-bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(180deg, #ffe27a, #ffb224); }
+.ws-chest { position: absolute; top: 50%; width: 34px; height: 44px; margin: -20px 0 0 -17px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.ws-chest .chest-svg { width: 32px; height: auto; } .ws-chest small { font-size: 13px; font-weight: 700; line-height: 1; color: #fff; text-shadow: var(--ol); }
+.ws-chest.got .chest-svg { filter: grayscale(1) brightness(.7); } .ws-chest.ready .chest-svg { animation: crest-glow 1s ease-in-out infinite; }
+.wfog { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; overflow: hidden; pointer-events: none; background: linear-gradient(180deg, rgba(235, 235, 250, .35), rgba(200, 200, 230, .55)); }
+.wfog i { position: absolute; width: 360px; height: 160px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)); animation: fog 14s ease-in-out infinite alternate; }
+.wfog i:nth-child(1) { left: -120px; top: 60px; } .wfog i:nth-child(2) { right: -140px; top: 220px; animation-delay: -4s; } .wfog i:nth-child(3) { left: -60px; top: 420px; animation-delay: -8s; } .wfog i:nth-child(4) { right: -100px; top: 540px; animation-delay: -2s; }
+@keyframes fog { to { transform: translateX(80px); } }
+.wf-lab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 20px; border-radius: 20px; text-align: center; background: rgba(26, 14, 46, .85); border: 3px solid var(--ink); color: #fff; text-shadow: var(--ol); }
+.wf-lab .ico { width: 34px; height: 34px; } .wf-lab small { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-soft); } .wf-lab b { font-size: 22px; } .wf-lab span { font-size: 14px; font-weight: 700; }
+.mb-badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; background: #e8283f; border: 2.5px solid var(--ink); }
+.map-btn { position: relative; }
+/* fiche de niveau */
+.foes { flex-wrap: wrap; gap: 6px; }
+.foe { position: relative; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: rgba(255, 255, 255, .1); border: 2px solid rgba(255, 255, 255, .2); }
+.foe.boss { width: 58px; height: 58px; border-color: #e8283f; background: rgba(232, 40, 63, .2); }
+.foe.new { border-color: var(--gold); box-shadow: 0 0 10px rgba(255, 210, 63, .5); }
+.foe em { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); padding: 0 5px; border-radius: 999px; font-style: normal; font-size: 13px; font-weight: 700; line-height: 1.3; color: #fff; background: #e8283f; border: 2px solid var(--ink); text-shadow: var(--ol); }
+.prep-rw { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.pr-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 8px; border-radius: 14px; background: rgba(255, 255, 255, .08); border: 1.5px solid rgba(255, 255, 255, .18); text-align: left; }
+.pr-row small { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); } .pr-row small .ico { width: 16px; height: 16px; }
+.pr-row > div { display: flex; flex-wrap: wrap; gap: 4px; } .pr-row.done { opacity: .7; } .pr-ok { font-size: 14px; color: #8dffae; }
+.pr-row .rw img, .pr-row .rw .chest-svg { width: 24px; height: auto; } .pr-row .rw.big { background: rgba(255, 210, 63, .25); }
+.hidden-seg { display: none; }
+.ccard.skin.excl { box-shadow: 0 0 0 2px var(--gold) inset; }
+.nbub { animation: none; }
+.wsec.locked .nbub { display: none; }
+.foe em { white-space: nowrap; font-size: 13px; padding: 0 6px; } .foe img { position: relative; }
+.foe { width: 70px; } .foe.boss { width: 74px; } .foes { gap: 8px 6px; padding-bottom: 12px; }
+.mb-badge { text-shadow: var(--ol); }
+.ws-chest { width: 44px; margin-left: -22px; }

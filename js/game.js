@@ -275,7 +275,7 @@ export class Game {
     const cost = this.costOf(type);
     if (this.money < cost || (type !== 'mine' && this.limitReached)) { this.audio.play('error'); return null; }
     this.money -= cost; if (cost === 0) this.freeNext = false;
-    const t = new Tower(this, type, slot.x, slot.y);
+    const t = new Tower(this, type, slot.x, slot.y); t.legendLocked = !this.save.legendOk(type);
     t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
     this.towers.push(t); this.stats.built++; this.hintT = 0;
     this.fx.ring(t.x, t.y, 6, 46, '#ffffff', 0.3, 5); this.fx.burst(t.x, t.y, '#d9c7a0', 12, 150, 5);
@@ -284,6 +284,7 @@ export class Game {
     return t;
   }
   upgradeTower(t, opt) {
+    if (opt.locked) return false;
     if (this.over || !opt || this.money < opt.cost) { this.audio.play('error'); return false; }
     this.money -= opt.cost; t.invested += opt.cost;
     t.level = opt.level; t.branch = opt.branch; t.refresh(); t.lvlAnim = 1;
@@ -349,7 +350,7 @@ export class Game {
     this.hintT -= dt;
     if (this.hintT <= 0) { // indicateurs « UP » et socles achetables
       this.hintT = 0.3;
-      for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => u.cost <= this.money); }
+      for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => !u.locked && u.cost <= this.money); }
       let min = Infinity; for (const k of TOWER_ORDER) if (k !== 'mine' && this.save.towerUnlocked(k)) min = Math.min(min, this.costOf(k));
       this.canBuy = this.money >= min && !this.limitReached;
     }
@@ -599,7 +600,7 @@ export class Game {
       if (!hero) { newStars = Math.max(0, stars - ld.stars); ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
       else { ld.heroic = 1; ld.heroicBest = Math.max(ld.heroicBest, this.score); }
       if (r.firstClear && (L.boss || hero)) { const kind = L.boss && !hero ? 'gold' : 'wood'; r.rewards.push(sv.grant({ chest: kind })); }
-      r.towers = sv.grantTowers();
+      { const u = sv.grantUnlocks(); r.towers = u.towers; r.skins = u.skins; r.legend = u.legend; }
     } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
     let coins = this.endless || this.challenge ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost
       : (COINS.win + stars * COINS.perStar + wavesDone * COINS.perWave) * (L.boss ? COINS.bossMult : 1) + (r.firstClear ? COINS.firstClear : 0);
