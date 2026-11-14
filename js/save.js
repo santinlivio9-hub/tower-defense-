@@ -1,7 +1,8 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
+import { setTierCap } from './castle.js';
 
 // date locale « AAAA-MM-JJ » (le jour change à minuit, heure du téléphone)
 export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -22,6 +23,7 @@ const defaults = () => ({
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
+  build: null,
   starChests: {}, hintTowers: [], placedTypes: [], castleFree: 0, pendingWorld: null, skinShown: [],
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
@@ -40,7 +42,7 @@ export class Save {
       else if (raw) { this.migrate(raw); this.persist(); }
     } catch (e) { /* sauvegarde illisible : on repart de zéro */ }
     // calendrier de déblocage : on ne retire rien de ce qui est déjà possédé, on ajoute ce que la progression donne
-    try { this.grantUnlocks(); } catch (e) { /* ignore */ }
+    try { this.grantUnlocks(); this.syncTierCap(); } catch (e) { /* ignore */ }
   }
   merge(raw) {
     const d = this.data, def = defaults();
@@ -109,12 +111,36 @@ export class Save {
 
   // ------------------------------------------------------------- château
   castleSum() { return Object.values(this.data.castle).reduce((a, b) => a + b, 0); }
-  castleTier() { const s = this.castleSum(); let t = 0; CASTLE.tiers.forEach((v, i) => { if (s >= v) t = i; }); return t; }
+  // mondes terminés (boss battus à la suite) et monde atteint (1 à 5)
+  worldsDone() { return Math.floor(this.progress() / 6); }
+  worldReached() { return Math.min(WORLDS.length, this.worldsDone() + 1); }
+  // palier d'apparence : selon le nombre d'améliorations ET les boss battus (palier k => boss du monde k)
+  castleTier() { const s = this.castleSum(); let t = 0; CASTLE.tiers.forEach((v, i) => { if (s >= v) t = i; }); return Math.min(t, this.worldsDone()); }
+  // rang maximum autorisé pour une amélioration selon le monde atteint
+  castleCap(id) { const ab = !!CASTLE.abilities[id], caps = ab ? CASTLE.rankCap.abilities : CASTLE.rankCap.upgrades; return caps[this.worldReached() - 1]; }
+  castleDef(id) { return CASTLE.upgrades[id] || CASTLE.abilities[id]; }
+  // construction en cours : { id, end (ms), dur } ; une seule à la fois, en temps réel
+  buildTime(id) { const lvl = this.data.castle[id], ab = !!CASTLE.abilities[id]; return (ab ? CASTLE.build.abilities : CASTLE.build.upgrades)[lvl] * 60000; }
+  startBuild(id, instant = false) {
+    const d = this.data; if (d.build && !instant) return false;
+    if (instant) { d.castle[id]++; this.syncTierCap(); this.persist(); return true; }
+    const dur = this.buildTime(id); d.build = { id, end: Date.now() + dur, dur }; this.persist(); return true;
+  }
+  // termine la construction si son temps est écoulé ; renvoie l'id terminé
+  checkBuild(now = Date.now()) {
+    const b = this.data.build; if (!b || now < b.end) return null;
+    this.data.castle[b.id]++; this.data.build = null; this.syncTierCap(); this.persist(); return b.id;
+  }
+  speedCost() { const b = this.data.build; if (!b) return 0; return Math.max(1, Math.ceil(((b.end - Date.now()) / 60000) * CASTLE.speedGemsPerMin)); }
+  speedUp() { const c = this.speedCost(); if (!this.data.build || !this.spend(c, 'gems')) return false; this.data.build.end = Date.now(); return this.checkBuild(); }
+  syncTierCap() { setTierCap(this.worldsDone()); }
 
   // ------------------------------------------------------------- talents
   talent(id) { return this.data.talents[id] || 0; }
   branchPoints(b) { return TALENTS[b].nodes.reduce((s, n) => s + this.talent(n.id), 0); }
-  talentOpen(b, node) { const ns = TALENTS[b].nodes, i = ns.indexOf(node); return (i <= 0 || this.talent(ns[i - 1].id) > 0) && this.branchPoints(b) >= (node.need || 0); }
+  // rangée de l'arbre ouverte au niveau de joueur requis (TALENT_ROWS), nœud précédent pris, points de branche suffisants
+  talentRowOk(b, node) { return this.data.level >= TALENT_ROWS[TALENTS[b].nodes.indexOf(node)]; }
+  talentOpen(b, node) { const ns = TALENTS[b].nodes, i = ns.indexOf(node); return this.talentRowOk(b, node) && (i <= 0 || this.talent(ns[i - 1].id) > 0) && this.branchPoints(b) >= (node.need || 0); }
   canTalent(b, node) { return this.data.talentPts > 0 && this.talent(node.id) < node.max && this.talentOpen(b, node); }
   // Effets cumulés des talents
   mods() {
@@ -135,7 +161,7 @@ export class Save {
     while (d.xp >= XP.need(d.level)) {
       d.xp -= XP.need(d.level); d.level++;
       const r = { ...XP.rewards[(d.level - 2) % XP.rewards.length] };
-      if (d.level % 10 === 0) r.chest = 'gold';
+      if (d.level % 10 === 0) r.chest = 'gold'; else if (d.level % 5 === 0) r.chest = 'wood';
       ups.push({ level: d.level, reward: r, text: this.grant(r) });
     }
     return ups;

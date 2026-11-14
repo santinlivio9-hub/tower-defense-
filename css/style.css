@@ -1537,3 +1537,22 @@ html.standalone #screen-game::after { content: ""; position: absolute; left: 0; 
 .chest-stage.end .chest, .chest-stage.end .taps, .chest-stage.end .tap { display: none; }
 .chest-stage.end .fan { margin-top: 0; }
 @media (max-height: 740px) { .chest-stage { padding-top: 10px; gap: 8px; } .chest-stage .chest { width: 140px; } .fan.two { height: 252px; } .fan .lcard { width: 74px; height: 104px; margin-left: -37px; } }
+/* chantier en cours */
+.cs-build { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 16px; background: rgba(26, 14, 46, .85); border: 2px solid rgba(255, 255, 255, .3); color: #fff; }
+.cs-build > .ico { width: 30px; height: 30px; flex: none; animation: hop .6s ease-in-out infinite alternate; }
+.cs-build > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cs-build small { font-size: 13px; font-weight: 700; text-shadow: var(--ol); }
+.cs-build .qbar i { background: linear-gradient(180deg, #8fd2ff, #3d9dfc); }
+.cs-lock { display: inline-flex; align-items: center; gap: 4px; color: #ffc4cf !important; font-weight: 700 !important; } .cs-lock .ico { width: 16px; height: 16px; }
+.btn.speed { flex-direction: row; justify-content: space-between; gap: 6px; padding: 0 10px; }
+.btn.speed .sp-t, .btn.speed .sp-c { display: inline-flex; align-items: center; gap: 3px; font-size: 14px; white-space: nowrap; }
+.btn.speed .sp-t .ico { width: 16px; height: 16px; } .btn.speed .sp-c { padding: 2px 7px; border-radius: 999px; background: rgba(20, 10, 40, .35); }
+.btn.speed.big { width: 100%; min-height: 52px; } .btn.speed.big .sp-t, .btn.speed.big .sp-c { font-size: 17px; }
+.up-tile.building { border-color: #8fd2ff; box-shadow: 0 0 14px rgba(61, 157, 252, .5); }
+.up-tile.capped .ut-ico { filter: grayscale(.4); }
+.up-tile .btn.locked { font-size: 13px; line-height: 1.15; padding: 4px 8px; text-align: center; }
+/* talents : rangée verrouillée par niveau */
+.tn .tn-badge.lvl { width: auto; height: 22px; right: -14px; top: -8px; padding: 0 6px; border-radius: 999px; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; background: #241640; text-shadow: none; }
+.tnext { display: flex; align-items: center; gap: 8px; margin: 0 4px 6px; padding: 6px 10px; border-radius: 16px; background: rgba(20, 10, 40, .5); border: 1.5px solid rgba(255, 255, 255, .2); }
+.tnext > .ico { width: 30px; height: 30px; flex: none; } .tnext > span { flex: 1; display: flex; flex-direction: column; gap: 3px; } .tnext small { font-size: 13px; font-weight: 700; }
+.tnext .qbar i { background: linear-gradient(180deg, #9dffb4, #2fbf63); }

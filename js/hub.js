@@ -81,7 +81,8 @@ export const Hub = {
   },
   castleAffordable() {
     const cs = this.save.data.castle, c = this.save.data.coins || 0;
-    return [...Object.entries(CASTLE.upgrades), ...Object.entries(CASTLE.abilities)].filter(([id, u]) => cs[id] < u.costs.length && u.costs[cs[id]] <= c).length;
+    if (this.save.data.build) return 0;
+    return [...Object.entries(CASTLE.upgrades), ...Object.entries(CASTLE.abilities)].filter(([id, u]) => cs[id] < Math.min(u.costs.length, this.save.castleCap(id)) && u.costs[cs[id]] <= c).length;
   },
   // Bouton d'achat (pièces ou gemmes)
   buyButton(cost, currency, label, fn, cls = '') {
@@ -243,11 +244,43 @@ export const Hub = {
     }
     return '';
   },
-  // améliorations offertes par la fin d'un monde
+  // Bouton d'une amélioration selon son état : max / rang plafonné par le monde / en chantier / gratuit / achat
+  castleAction(id, sheet = false) {
+    const sv = this.save, d = sv.data, u = this.castleDef(id), lvl = d.castle[id], cap = sv.castleCap(id), big = sheet ? ' big' : '';
+    if (lvl >= u.costs.length) return el('span', 'owned' + (sheet ? ' wide' : ''), icon('check') + (sheet ? 'Niveau maximum' : 'Max'));
+    if (d.build && d.build.id === id) {
+      const b = el('button', 'btn sm blue speed' + big, `<span class="sp-t">${icon('hourglass')}<span class="bt-left">${this.buildLeft()}</span></span><span class="sp-c">Finir ${gem()}<b class="sp-n">${sv.speedCost()}</b></span>`);
+      b.onclick = (e) => { e.stopPropagation(); const c = sv.speedCost(); if (d.gems < c) { this.audio.play('error'); this.toast('Pas assez de gemmes', `Il faut ${c} gemmes pour finir tout de suite`, gem()); return; } const done = sv.speedUp(); if (done) { if (sheet) this.closeOverlay(); this.onBuildDone(done); } };
+      return b;
+    }
+    if (lvl >= cap) return el('span', 'btn sm locked' + big, `${icon('lock')}Rang ${cap} max · bats le boss ${sv.worldReached()}`);
+    if (d.castleFree > 0) return this.castleFreeBtn(id, sheet);
+    if (d.build) return el('span', 'btn sm locked' + big, `${icon('hourglass')}Un chantier à la fois`);
+    const mins = sv.buildTime(id) / 60000;
+    return this.buyButton(u.costs[lvl], 'coins', sheet ? `Construire (${mins} min)` : '', () => { if (sheet) this.closeOverlay(); this.castleStart(id); }, (sheet ? 'big' : '') + (lvl || !CASTLE.abilities[id] ? '' : ' pink'));
+  },
+  buildLeft() { const b = this.save.data.build; if (!b) return ''; const s = Math.max(0, Math.ceil((b.end - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; },
+  // lance une construction (temps réel) : l'échafaudage reste visible sur l'élément jusqu'à la fin
+  castleStart(id) {
+    if (!this.save.startBuild(id)) { this.audio.play('error'); return; }
+    this.audio.play('place'); this.haptics.pulse(1);
+    let n = 0; const iv = setInterval(() => { this.audio.play(n % 2 ? 'hit' : 'place'); if (++n > 4) clearInterval(iv); }, 170);
+    $('#castle-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+    this.toast('Construction lancée', `${this.castleDef(id).name} : prêt dans ${this.buildLeft()}`, icon('hourglass'));
+    this.show('castle', true); this.tabBadges();
+  },
+  // fin d'une construction : « pop » de l'élément, confettis, son (ou simple message hors de l'écran Château)
+  onBuildDone(id) {
+    this.castleBuild(id, true);
+    if (this.screen !== 'castle') this.toast('Construction terminée !', this.castleDef(id).name, icon('castle'));
+    if (this.screen === 'castle') this.show('castle', true);
+    this.tabBadges();
+  },
+  // améliorations offertes par la fin d'un monde (immédiates)
   castleFreeBtn(id, sheet = false) {
     const d = this.save.data; if (!(d.castleFree > 0)) return null;
     const b = el('button', 'btn sm green cta' + (sheet ? ' big' : ''), `${icon('gift')}Gratuit (${d.castleFree})`);
-    b.onclick = (e) => { e.stopPropagation(); if (!(d.castleFree > 0)) return; d.castleFree--; this.save.persist(); if (sheet) this.closeOverlay(); this.castleBuild(id); this.show('castle', true); this.tabBadges(); };
+    b.onclick = (e) => { e.stopPropagation(); if (!(d.castleFree > 0)) return; d.castleFree--; this.save.startBuild(id, true); if (sheet) this.closeOverlay(); this.castleBuild(id, true); this.show('castle', true); this.tabBadges(); };
     return b;
   },
   castleDef(id) { return CASTLE.upgrades[id] || CASTLE.abilities[id]; },
@@ -255,11 +288,12 @@ export const Hub = {
     const sv = this.save, cs = sv.data.castle, box = $('#castle-content'), tier = sv.castleTier(), sum = sv.castleSum();
     const keep = $('#castle-scroll').scrollTop;
     box.innerHTML = '';
-    const next = CASTLE.tiers[tier + 1], N = CASTLE_LOOKS.length;
-    const hero = el('div', 'castle-stage', `<canvas></canvas><span class="cs-tap">${icon('arrowup')}Touche une partie du château</span>`);
+    const next = CASTLE.tiers[tier + 1], N = CASTLE_LOOKS.length, bossLock = next != null && sum >= next && tier >= sv.worldsDone();
+    const bd = sv.data.build;
+    const hero = el('div', 'castle-stage', `<canvas></canvas>${bd ? `<div class="cs-build">${icon('hourglass')}<span><small>Chantier : ${this.castleDef(bd.id).name} ${cs[bd.id] + 1}</small><span class="qbar"><i></i><em class="bt-left">${this.buildLeft()}</em></span></span></div>` : `<span class="cs-tap">${icon('arrowup')}Touche une partie du château</span>`}`);
     box.append(hero);
     const name = el('div', 'cs-name', `<div class="cs-txt"><small>Palier ${tier + 1}/${N}</small><b>${CASTLE_LOOKS[tier].name}</b>
-      ${next ? `<div class="progress"><i style="width:${((sum - CASTLE.tiers[tier]) / (next - CASTLE.tiers[tier])) * 100}%"></i></div><span>Encore <b>${next - sum}</b> amélioration${next - sum > 1 ? 's' : ''}</span>` : '<span>Apparence maximale atteinte !</span>'}</div>
+      ${bossLock ? `<div class="progress"><i style="width:100%"></i></div><span class="cs-lock">${icon('lock')}Bats le boss du monde ${tier + 1} pour ce palier</span>` : next ? `<div class="progress"><i style="width:${((sum - CASTLE.tiers[tier]) / (next - CASTLE.tiers[tier])) * 100}%"></i></div><span>Encore <b>${next - sum}</b> amélioration${next - sum > 1 ? 's' : ''}</span>` : '<span>Apparence maximale atteinte !</span>'}</div>
       ${next ? `<div class="cs-next"><canvas width="132" height="120"></canvas><small>Prochainement</small><b>${CASTLE_LOOKS[tier + 1].name}</b></div>` : ''}`);
     box.append(name);
     if (next) drawCastleSilhouette($('.cs-next canvas', name), tier + 1, '#8a78c4');
@@ -276,7 +310,9 @@ export const Hub = {
         tile.style.setProperty('--ac', isAb ? u.color : colors[id]); tile.dataset.id = id;
         tile.innerHTML = `<span class="ut-ico">${icon(u.icon)}</span><b>${u.name}</b>
           <div class="fx-big">${done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`}</div>${pips(lvl, max)}`;
-        tile.append(done ? el('span', 'owned', icon('check') + 'Max') : this.castleFreeBtn(id) || this.buyButton(u.costs[lvl], 'coins', '', () => this.castleBuild(id), lvl || !isAb ? '' : 'pink'));
+        if (!done && lvl >= sv.castleCap(id)) tile.classList.add('capped');
+        if (sv.data.build && sv.data.build.id === id) tile.classList.add('building');
+        tile.append(this.castleAction(id));
         tile.onclick = (e) => { if (!e.target.closest('button')) this.castleSheet(id); };
         grid.append(tile);
       }
@@ -313,15 +349,15 @@ export const Hub = {
     const cvB = done ? null : view(lvl + 1, `Niveau ${lvl + 1}`);
     m.append(ba);
     m.append(el('div', 'fx-big huge', done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`));
-    m.append(done ? el('span', 'owned wide', icon('check') + 'Niveau maximum') : this.castleFreeBtn(id, true) || this.buyButton(u.costs[lvl], 'coins', 'Améliorer', () => { this.closeOverlay(); this.castleBuild(id); }, 'big'));
+    m.append(this.castleAction(id, true));
     const anim = () => { if (!m.isConnected) return; zoom(cvA, lvl); if (cvB) zoom(cvB, lvl + 1); requestAnimationFrame(anim); };
     this.openOverlay(m); requestAnimationFrame(anim);
   },
   // Achat : échafaudage, poussière et marteaux, puis « pop » de l'élément, confettis, son
-  castleBuild(id) {
-    const sv = this.save, before = sv.castleTier();
-    sv.data.castle[id]++;
-    const after = sv.castleTier();
+  castleBuild(id, already = false) {
+    const sv = this.save, after = sv.castleTier();
+    if (!already) sv.data.castle[id]++;
+    const before = (() => { const cs = { ...sv.data.castle }; cs[id]--; const s = Object.values(cs).reduce((a, b) => a + b, 0); let t = 0; CASTLE.tiers.forEach((v, i) => { if (s >= v) t = i; }); return Math.min(t, sv.worldsDone()); })();
     this.buildFx = { id, t0: performance.now(), dur: 1300, tierUp: after > before, boom: false };
     $('#castle-scroll').scrollTo({ top: 0, behavior: 'smooth' });
     let n = 0; const iv = setInterval(() => { this.audio.play(n % 2 ? 'hit' : 'place'); this.haptics.pulse(0); if (++n > 6) clearInterval(iv); }, 170);
@@ -335,7 +371,12 @@ export const Hub = {
     const c = cv.getContext('2d'), t = ts / 1000, night = this.nightNow(ts);
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     const fx = this.buildFx, bt = fx ? (ts - fx.t0) / fx.dur : 9;
-    const building = bt >= 0 && bt < 1;
+    const building = bt >= 0 && bt < 1, bd = this.save.data.build;
+    if (bd && (!this._btT || ts - this._btT > 250)) { // barre et minuteur du chantier en cours
+      this._btT = ts; const left = this.buildLeft(), f = 1 - Math.max(0, bd.end - Date.now()) / bd.dur;
+      document.querySelectorAll('.bt-left').forEach((e) => { e.textContent = left; }); const bar = $('.cs-build .qbar i'); if (bar) bar.style.width = f * 100 + '%';
+      document.querySelectorAll('.speed .sp-n').forEach((e) => { e.textContent = this.save.speedCost(); });
+    }
     // pendant le chantier, l'élément acheté n'est pas encore visible
     const cs = { ...this.save.data.castle }; if (building) cs[fx.id] = Math.max(0, cs[fx.id] - 1);
     const B = castleBounds(cs), ground = H - 26;
@@ -351,7 +392,7 @@ export const Hub = {
     const sh = building ? Math.sin(t * 60) * 1.5 : 0;
     c.save(); c.translate(cx + sh, oy); c.scale(k, k);
     if (fx && bt >= 1 && bt < 1.25 && fx.tierUp) { const p = (bt - 1) / 0.25; c.scale(1 + Math.sin(p * Math.PI) * 0.08, 1 - Math.sin(p * Math.PI) * 0.04); }
-    drawCastle(c, cs, { time: t, aim: -Math.PI / 2 + Math.sin(t) * 0.9, build: fx && bt < 1.4 ? { id: fx.id, p: bt } : null });
+    drawCastle(c, cs, { time: t, aim: -Math.PI / 2 + Math.sin(t) * 0.9, build: fx && bt < 1.4 ? { id: fx.id, p: bt } : bd ? { id: bd.id, p: 0.5 } : null });
     c.restore();
     if (night > 0) { c.fillStyle = `rgba(16,18,60,${0.4 * night})`; c.fillRect(0, 0, W, H); c.save(); c.translate(cx, oy); c.scale(k, k); drawCastleLights(c, cs, { time: t, night }); c.restore(); }
     if (!fx) return;

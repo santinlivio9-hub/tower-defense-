@@ -431,6 +431,8 @@ export class UI {
     const g = this.game;
     if (g && this.screen === 'game' && !this.simulating) { g.frame(dt); this.updateHud(); }
     else if (this.screen === 'castle') this.tickCastle(ts);
+    // construction du château terminée (temps réel), vérifiée chaque seconde
+    if (this.save.data.build && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     else if (this.screen === 'menu') this.tickHome(ts);
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
     requestAnimationFrame((t) => this.loop(t));

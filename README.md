@@ -150,7 +150,9 @@ Tout se règle dans **`js/config.js`** (et un multiplicateur par carte dans `js/
 | Textes et conseils de l'écran de fin | `END` |
 | XP, récompenses de niveau, talents, coffres | `XP`, `TALENTS`, `CHESTS`, `CHEST_ORDER` |
 | Offre du jour de la boutique | `OFFER` |
-| Paliers d'apparence du château | `CASTLE.tiers` |
+| Paliers d'apparence du château, rangs max par monde, temps de construction | `CASTLE.tiers`, `CASTLE.rankCap`, `CASTLE.build` |
+| Gains de fin de niveau (gemmes, pièces, XP, passe) | `CAMPAIGN.gems*`, `COINS`, `XP`, `PASS` (formule : `js/economy.js`) |
+| Rangées de talents par niveau de joueur | `TALENT_ROWS` |
 | Revente, critiques, bonus de vague, bonus « en avance », délais entre vagues | `GAME` |
 | Skins | `SHOP` |
 | Seuils des étoiles, succès | `STARS`, `ACHIEVEMENTS` |
@@ -189,6 +191,12 @@ __ui.startGame(12);          // lancer directement le niveau 12
 ```
 
 Pour repartir de zéro : Paramètres → Réinitialiser.
+
+`tools/progression.cjs` simule un joueur régulier (3 niveaux, quêtes, roue et passe chaque jour) avec la vraie logique
+de sauvegarde et la même formule de gains que le jeu (`js/economy.js`), et affiche jour par jour niveau, gemmes,
+talents, château et campagne : `node tools/progression.cjs [jours] [parties par jour] [graine]`.
+Repères visés : monde 1 fini vers le jour 2-3, palier 2 du château vers le jour 4-5, campagne vers le jour 20-25,
+tout maxé (talents et château) après 5-6 semaines.
 
 `tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
 et, en 390 px, la lisibilité : texte ≥ 14 px (13 px en gras pour les labels), zones tactiles ≥ 44 px, contraste

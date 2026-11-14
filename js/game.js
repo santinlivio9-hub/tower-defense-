@@ -1,6 +1,7 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
+import { levelRewards } from './economy.js';
 import { WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
@@ -583,43 +584,38 @@ export class Game {
     s.kills += g.kills; s.bossKills += g.bossKills; s.towersBuilt += g.built; s.legendaries += g.legendaries; s.earlyStarts += g.early; s.games++;
     s.bestScore = Math.max(s.bestScore || 0, this.score);
     const ld = sv.levelData(L.n), hero = !!this.heroic;
-    let gems = 0, newStars = 0;
-    r.firstClear = false; r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;
+    let newStars = 0;
+    r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;
     r.rewards = [];
+    const E = levelRewards({ victory, stars, prevStars: ld.stars, wavesDone, boss: L.boss, hero, heroDone: !!ld.heroic, endless: this.endless, challenge: !!this.challenge, killCost: g.cost, gemMult: this.mods.gemMult });
+    r.firstClear = E.firstClear;
     if (this.challenge) {
-      gems = victory ? CAMPAIGN.gemsWin : 0;
       if (victory) {
         r.challengeWin = !sv.challenge().done;
         if (r.challengeWin) { d.daily.chDay = sv.challengeDay(); r.rewards.push(sv.grant(DAILY.challengeReward)); sv.addPass(DAILY.challengePass); }
       }
     } else if (this.endless) {
-      gems = wavesDone * CAMPAIGN.gemsPerWaveEndless;
       s.bestEndless = Math.max(s.bestEndless, wavesDone);
       if (this.score > 0 && this.result) r.rank = sv.addEndless({ score: this.score, wave: wavesDone, world: L.world, t: Date.now() });
     } else if (victory) {
-      r.firstClear = hero ? !ld.heroic : ld.stars === 0;
-      gems = (CAMPAIGN.gemsWin + stars * CAMPAIGN.gemsPerStar) * (L.boss ? CAMPAIGN.gemsBossMult : 1) + (r.firstClear ? CAMPAIGN.gemsFirstClear : 0);
-      if (hero) gems *= HEROIC.gemsMult;
       s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (hero) s.heroicWins++;
-      if (!hero) { newStars = Math.max(0, stars - ld.stars); ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
+      if (!hero) { newStars = E.newStars; ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
       else { ld.heroic = 1; ld.heroicBest = Math.max(ld.heroicBest, this.score); }
-      if (r.firstClear && hero) r.rewards.push(sv.grant({ chest: 'wood' }));
+      if (r.firstClear && hero) r.rewards.push(sv.grant({ chest: 'wood', talent: E.talent }));
       if (r.firstClear && L.boss && !hero) { // fin de monde : grosse récompense (montrée par worldReward)
         const W = WORLD_REWARD; sv.grant({ chest: W.chest, gems: W.gems, boosts: W.boosts }); d.castleFree = (d.castleFree || 0) + W.castleFree;
         d.pendingWorld = L.world; r.worldDone = L.world;
       }
-      { const u = sv.grantUnlocks(); r.towers = u.towers; r.skins = u.skins; r.legend = u.legend; }
-    } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
-    let coins = this.endless || this.challenge ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost
-      : (COINS.win + stars * COINS.perStar + wavesDone * COINS.perWave) * (L.boss ? COINS.bossMult : 1) + (r.firstClear ? COINS.firstClear : 0);
-    if (victory && hero) coins *= HEROIC.gemsMult;
-    r.coins = Math.round(coins); d.coins = (d.coins || 0) + r.coins;
+      { const u = sv.grantUnlocks(); sv.syncTierCap(); r.towers = u.towers; r.skins = u.skins; r.legend = u.legend; }
+    }
+    void newStars;
+    r.coins = E.coins; d.coins = (d.coins || 0) + r.coins;
     r.record = this.score > r.previous && this.score > 0;
-    r.gems = Math.round(gems * this.mods.gemMult); d.gems += r.gems;
-    r.xp = Math.round((g.cost * XP.perCost + wavesDone * XP.perWave + (victory ? XP.win + newStars * XP.perStar : 0)) * (hero ? HEROIC.xpMult : 1));
+    r.gems = E.gems; d.gems += r.gems;
+    r.xp = E.xp;
     r.xpBefore = { level: d.level, xp: d.xp };
     r.levelUps = sv.addXp(r.xp);
-    sv.addPass(r.xp + (victory && !this.challenge ? stars * PASS.perStar : 0));
+    sv.addPass(E.pass);
     sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? stars : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone });
     r.achievements = sv.checkAchievements();
     sv.persist();

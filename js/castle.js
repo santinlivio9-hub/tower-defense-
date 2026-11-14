@@ -20,9 +20,13 @@ export const CASTLE_LOOKS = [
 const GOLD_WALL = ['#fff3c4', '#f0c75a'], STONE = ['#e6e3ee', '#b3adc6'], WOOD = ['#d9a566', '#b27a40'];
 
 // Palier d'apparence à partir des niveaux d'amélioration
-export function castleTierOf(cs) {
+// plafond de palier (boss battus) fixé par la sauvegarde ; null = pas de plafond (aperçus, silhouettes)
+let TIER_CAP = null;
+export function setTierCap(n) { TIER_CAP = n; }
+export function castleTierOf(cs, capped = true) {
   const s = Object.values(cs || {}).reduce((a, b) => a + (b || 0), 0); let t = 0;
   CASTLE.tiers.forEach((v, i) => { if (s >= v) t = i; });
+  if (capped && TIER_CAP != null && !cs.__preview) t = Math.min(t, TIER_CAP);
   return Math.min(CASTLE_LOOKS.length - 1, t);
 }
 // Heure réelle : 0 = jour, 1 = nuit (20 h - 7 h, transitions d'une heure)
@@ -382,7 +386,7 @@ export function drawCastleLights(c, cs, o = {}) {
 export function drawCastleSilhouette(cv, tier, color = '#2a1d52') {
   const c = cv.getContext('2d'), W = cv.width, H = cv.height;
   const ids = ['walls', 'cannon', 'treasury', 'repair', 'air', 'blizzard', 'gold'], max = (id) => (CASTLE.upgrades[id] || CASTLE.abilities[id]).costs.length;
-  const fake = Object.fromEntries(ids.map((id) => [id, 0])); let need = CASTLE.tiers[tier] || 0, i = 0;
+  const fake = Object.fromEntries(ids.map((id) => [id, 0])); Object.defineProperty(fake, '__preview', { value: true }); let need = CASTLE.tiers[tier] || 0, i = 0;
   while (need > 0 && i < 400) { const id = ids[i++ % ids.length]; if (fake[id] < max(id)) { fake[id]++; need--; } }
   const B = castleBounds(fake), k = Math.min(W / (B.half * 2), H / (B.bottom - B.top)) * 0.95;
   c.clearRect(0, 0, W, H); c.save(); c.translate(W / 2, H - B.bottom * k); c.scale(k, k);

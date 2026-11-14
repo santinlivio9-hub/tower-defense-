@@ -78,7 +78,7 @@ export const Loot = {
         <span class="cc-txt"><b>${c.name}</b><small>${c.cards} cartes · ${kind === 'legend' ? 'beaucoup de gemmes, boosts rares' : 'pièces, gemmes et boosts'}</small></span>${n ? `<em>×${n}</em>` : ''}`);
       const btns = el('div', 'cc-btns');
       if (n) { const open = el('button', 'btn sm green cta', 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); }; btns.append(open); }
-      btns.append(this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, kind === 'legend' ? 'pink' : 'ghostgem'));
+      btns.append(c.noBuy ? el('span', 'btn sm locked', `${icon('lock')}Récompense uniquement`) : this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
       card.append(btns); row.append(card);
     }
     grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss, avec le cadeau du jour et le passe.'));
