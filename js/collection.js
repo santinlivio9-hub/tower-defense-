@@ -1,6 +1,6 @@
 // Collection : fiches illustrées des tourelles, des brainrots rencontrés (silhouette noire tant
 // qu'ils ne sont pas découverts), des boosts et des succès. Méthodes ajoutées à la classe UI.
-import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, CAMPAIGN, LEVELS } from './config.js';
+import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, CAMPAIGN, LEVELS , UNLOCKS } from './config.js';
 import { computeStats } from './towers.js';
 import { towerImg, enemyImg, TOWER_COLOR } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -13,7 +13,7 @@ const fmt = (n) => nf.format(Math.round(n));
 const short = (n) => (n >= 1e4 ? (n / 1000).toFixed(n >= 1e5 ? 0 : 1) + 'k' : fmt(n));
 import { boostArt as boostCardArt } from './boosts.js';
 const ENEMY_LIST = () => Object.keys(ENEMIES).filter((k) => k !== 'mini');
-const unlockLabel = (t) => { const n = CAMPAIGN.towerUnlocks[t]; return n ? `Termine le niveau ${LEVELS[n - 1].id}` : ''; };
+const unlockLabel = (t) => { const n = UNLOCKS.towers[t]; return n > 1 ? `Bats le niveau ${LEVELS[n - 2].id}` : 'Dès le départ'; };
 
 export const Collection = {
   renderCollection() {

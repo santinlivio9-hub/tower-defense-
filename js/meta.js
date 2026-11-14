@@ -1,6 +1,7 @@
 // Écrans hors partie : carte du monde, préparation d'un niveau, cartes de présentation, mode infini.
 // Ces méthodes sont ajoutées à la classe UI (voir la fin de ui.js).
-import { LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN } from './config.js';
+import { LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS } from './config.js';
+import { chestSvg } from './loot.js';
 import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { levelEnemies } from './waves.js';
 import { enemyImg, towerImg } from './sprites.js';
@@ -153,7 +154,27 @@ export const Meta = {
         b.onclick = () => { if (!unlocked) { this.audio.play('error'); this.toast('Niveau verrouillé', 'Termine le niveau précédent', icon('lock')); return; } this.playLevel(L.n); };
         if (unlocked && !done) current = b;
         sec.append(b);
+        // bulle « Débloque : … » sur les niveaux qui rapportent quelque chose (tant qu'ils ne sont pas terminés)
+        const bub = !done && this.levelBubble(L);
+        if (bub) { const e = el('div', 'nbub' + (NODE_X[L.idx] > 50 ? ' left' : ''), bub); e.style.cssText = `left:${NODE_X[L.idx]}%;top:${nodeY(L.idx)}px`; sec.append(e); }
       });
+      // coffre d'étoiles du monde : jauge et paliers 6 / 12 / 18
+      const sc = sv.starChests(wi), wst = sv.worldStars(wi);
+      const gauge = el('div', 'wstars', `<span class="ws-n">${icon('star', 'on')}<b>${wst}/18</b></span><span class="ws-bar"><i style="width:${(wst / 18) * 100}%"></i></span>`);
+      sc.forEach((c) => {
+        const b = el('button', 'ws-chest' + (c.got ? ' got' : c.ready ? ' ready' : ''), `${chestSvg(c.chest)}<small>${c.need}</small>`);
+        b.style.left = `${(c.need / 18) * 100}%`; b.setAttribute('aria-label', `Coffre à ${c.need} étoiles`);
+        b.onclick = (e) => {
+          e.stopPropagation();
+          if (c.ready) { const r = sv.claimStarChest(wi, c.k); if (r) { this.afterClaim(r.text, chestSvg(r.chest), b); this.renderWorld(); } return; }
+          this.audio.play(c.got ? 'tick' : 'error');
+          this.toast(c.got ? 'Coffre déjà récupéré' : `Coffre à ${c.need} étoiles`, c.got ? '' : `Encore ${c.need - wst} étoile${c.need - wst > 1 ? 's' : ''} dans ce monde`, icon('chest'));
+        };
+        $('.ws-bar', gauge).append(b);
+      });
+      if (open) sec.append(gauge);
+      // monde verrouillé : visible, mais dans le brouillard, avec son nom et sa condition
+      if (!open) sec.append(el('div', 'wfog', `<i></i><i></i><i></i><i></i><div class="wf-lab">${icon('lock')}<small>Monde ${wi + 1}</small><b>${w.name}</b><span>Bats le boss du monde ${wi} pour l'ouvrir</span></div>`));
       box.append(sec);
     }
     const target = current || [...box.querySelectorAll('.node')].find((n) => n.dataset.n == LEVELS.length);
@@ -180,9 +201,19 @@ export const Meta = {
     });
   },
 
-  // Lancer un niveau : directement s'il n'est pas terminé, sinon petit choix Normal / Héroïque
-  playLevel(n) { if (this.save.levelDone(n)) this.openPrep(n); else this.startGame(n, false, false, this.loadoutFor(LEVELS[n - 1])); },
-  playNext() { this.playLevel(this.nextLevel().n); },
+  // Bulle d'un nœud de la carte : ce que rapporte la 1re victoire (ou le nouveau brainrot qu'on y rencontre)
+  levelBubble(L) {
+    const u = unlocksOf(L.n), sil = (img) => { img.className = 'sil'; return img.outerHTML; };
+    if (u.towers.length) return `${sil(towerImg(u.towers[0], 34))}<span><small>Débloque</small><b>${TOWERS[u.towers[0]].name}</b></span>`;
+    if (L.boss) return `${chestSvg('legend')}<span><small>Fin du monde</small><b>Coffre légendaire</b></span>`;
+    if (u.legend.length) return `${icon('crown')}<span><small>Débloque</small><b>Légendaires</b></span>`;
+    const foe = Object.keys(ENEMIES).find((k) => ENEMIES[k].unlock === L.n && !this.save.data.seen.enemies.includes(k));
+    if (foe) return `${sil(enemyImg(foe, 34))}<span><small>Nouveau</small><b>Brainrot</b></span>`;
+    return '';
+  },
+  // Toucher un niveau ouvre sa fiche ; le gros bouton JOUER de l'accueil lance directement le prochain niveau
+  playLevel(n) { this.openPrep(n); },
+  playNext() { const n = this.nextLevel().n; if (this.save.levelDone(n)) this.openPrep(n); else this.startGame(n, false, false, this.loadoutFor(LEVELS[n - 1])); },
 
   // ------------------------------------------------------------------ niveau déjà terminé : rejouer ou défi héroïque
   openPrep(n, heroic = false) {
@@ -202,16 +233,30 @@ export const Meta = {
       <div>${icon('trophy', 'gold')}Record <b>${fmt(heroic ? ld.heroicBest : ld.best)}</b></div>`);
     top.append(cv, info); m.append(top);
     const foes = el('div', 'foes');
-    for (const t of levelEnemies(L)) foes.append(enemyImg(t, 34));
-    if (L.boss) { const b = enemyImg(w.boss, 46); b.className = 'bossimg'; foes.append(b); }
+    const seen = sv.data.seen.enemies;
+    for (const t of [...levelEnemies(L), ...(L.boss ? [w.boss] : [])]) {
+      const f = el('span', 'foe' + (seen.includes(t) ? '' : ' new') + (t === w.boss ? ' boss' : '')); f.append(enemyImg(t, t === w.boss ? 46 : 36));
+      if (!seen.includes(t)) f.append(el('em', '', 'NOUVEAU')); foes.append(f);
+    }
     m.append(foes);
-    const seg = el('div', 'seg');
+    // récompenses : 1re victoire (avec déblocages) et 3 étoiles
+    if (!heroic) {
+      const u = unlocksOf(n), mult = L.boss ? COINS.bossMult : 1, gm = L.boss ? CAMPAIGN.gemsBossMult : 1;
+      const first = [`<span class="rw">${coin()}<b>+${fmt(COINS.firstClear + COINS.win * mult)}</b></span>`, `<span class="rw">${gem()}<b>+${fmt(CAMPAIGN.gemsFirstClear + CAMPAIGN.gemsWin * gm)}</b></span>`];
+      for (const t of u.towers) first.push(`<span class="rw big">${towerImg(t, 26).outerHTML}<b>${TOWERS[t].name}</b></span>`);
+      if (L.boss) { first.push(`<span class="rw">${chestSvg(WORLD_REWARD.chest)}<b>Légendaire</b></span>`); for (const sk of u.skins) first.push(`<span class="rw">${icon('star', 'gold')}<b>Skin ${(SHOP.skins.find((k) => k.id === sk) || {}).name}</b></span>`); }
+      if (u.legend.length) first.push(`<span class="rw">${icon('crown')}<b>Légendaires</b></span>`);
+      const st = sv.worldStars(L.world);
+      m.append(el('div', 'prep-rw', `<div class="pr-row${done ? ' done' : ''}"><small>${done ? icon('check') : ''}1re victoire</small><div>${done ? '<b class="pr-ok">Déjà gagné</b>' : first.join('')}</div></div>
+        <div class="pr-row${ld.stars >= 3 ? ' done' : ''}"><small>${ld.stars >= 3 ? icon('check') : ''}3 étoiles</small><div><span class="rw">${gem()}<b>+${CAMPAIGN.gemsPerStar * 3 * gm}</b></span><span class="rw">${icon('star', 'gold')}<b>Coffre d'étoiles ${st}/18</b></span></div></div>`));
+    }
+    const seg = el('div', 'seg' + (done ? '' : ' hidden-seg'));
     const b1 = el('button', heroic ? '' : 'sel', 'Normal'); b1.onclick = () => this.openPrep(n, false);
     const b2 = el('button', (heroic ? 'sel' : '') + (done ? '' : ' locked'), icon(done ? 'crown' : 'lock') + 'Héroïque' + (ld.heroic ? icon('check') : ''));
     b2.onclick = () => { if (!done) { this.toast('Défi verrouillé', 'Termine d\'abord le niveau', icon('lock')); return; } this.openPrep(n, true); };
     seg.append(b1, b2); m.append(seg);
     if (heroic) m.append(el('div', 'heroic-box', `${icon('crown')}<span><b>${hm.name}</b>${hm.hp ? `PV des ennemis +${Math.round((HEROIC.hp * hm.hp - 1) * 100)} %` : `${hm.desc} · PV ennemis +${Math.round((HEROIC.hp - 1) * 100)} %`}<em>Gemmes et XP x${HEROIC.gemsMult}${ld.heroic ? '' : ' · coffre à la première victoire'}</em></span>`));
-    const go = el('button', 'btn primary big', icon('play') + 'Jouer');
+    const go = el('button', 'btn primary big cta', icon('playgold') + 'JOUER');
     go.onclick = () => this.startGame(n, heroic, false, this.loadoutFor ? this.loadoutFor(L) : []);
     m.append(go);
     this.openOverlay(m);

@@ -240,14 +240,13 @@ export const CAMPAIGN = {
     ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
   ],
   hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1], // PV des ennemis par monde...
-  bossLevelHp: [1.1, 1.2, 1.35, 1.1, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  bossLevelHp: [1.1, 1.0, 1.35, 1.1, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.015,                      // ...puis +1,5 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
   miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
   miniBossHp: [0.12, 0.3, 0.5, 0.7],      // PV des mini-boss successifs (part des PV du boss)
   endlessAfter: 12,                       // le mode infini se débloque après ce niveau (fin du monde 2)
-  towerUnlocks: { mine: 2, sniper: 4, cryo: 6, rocket: 9, minigun: 13 },   // tourelle offerte en terminant ce niveau
   // gemmes
   gemsWin: 6, gemsPerStar: 3, gemsFirstClear: 10, gemsBossMult: 2, gemsPerWaveLost: 0.3, gemsPerWaveEndless: 0.8,
 };
@@ -358,6 +357,24 @@ export const CHESTS = {
   legend: { name: 'Coffre légendaire', cost: 180, cards: 7, coins: [500, 900], gems: [30, 60], boostChance: 0.75, rare: 0.7 },
 };
 export const CHEST_ORDER = ['wood', 'gold', 'legend'];
+// ----------------------------------------------------------------------------
+//  CALENDRIER DE DÉBLOCAGE par la campagne. Valeur = niveau (1 à 30) à partir duquel c'est disponible :
+//  on l'obtient en battant le niveau précédent (1 = dès le départ ; 31 = en battant le dernier boss).
+// ----------------------------------------------------------------------------
+export const UNLOCKS = {
+  towers: { assault: 1, smg: 1, shotgun: 2, mine: 4, cryo: 6, sniper: 7, rocket: 10, minigun: 13 },
+  legend: { assault: 13, smg: 13, shotgun: 13, sniper: 19, rocket: 19, mine: 19, minigun: 25, cryo: 25 },   // améliorations légendaires (5e niveau)
+  skins: { emerald: 7, royal: 13, obsidian: 19, frost: 25, galaxy: 31 },                                    // skin exclusif du boss de chaque monde
+};
+// Ce que rapporte la PREMIÈRE victoire au niveau n (en plus des pièces et gemmes)
+export function unlocksOf(n) {
+  const pick = (o) => Object.keys(o).filter((k) => o[k] === n + 1);
+  return { towers: pick(UNLOCKS.towers), legend: pick(UNLOCKS.legend), skins: pick(UNLOCKS.skins) };
+}
+// Coffres d'étoiles de chaque monde : [étoiles, coffre]
+export const STAR_CHESTS = [[6, 'wood'], [12, 'gold'], [18, 'legend']];
+// Fin de monde (boss vaincu la 1re fois) : grosse récompense, en plus du skin exclusif
+export const WORLD_REWARD = { chest: 'legend', gems: 60, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 3 };
 // Offre du jour (boutique) : un article tiré au sort chaque jour, remisé, achetable une fois
 export const OFFER = {
   discount: 0.4,
@@ -371,7 +388,7 @@ export const OFFER = {
 //  BOUTIQUE (gemmes) — tout se débloque en jouant
 // ----------------------------------------------------------------------------
 export const SHOP = {
-  starterTowers: ['assault', 'smg', 'shotgun'],
+  get starterTowers() { return Object.keys(UNLOCKS.towers).filter((t) => UNLOCKS.towers[t] <= 1); },
   skins: [   // finish = rendu appliqué aux sprites d'armes (voir js/sprites.js)
     { id: 'default', name: 'Standard',   cost: 0,   finish: 'classic' },
     { id: 'camo',    name: 'Camouflage', cost: 20,  finish: 'camo' },
@@ -379,6 +396,12 @@ export const SHOP = {
     { id: 'lava',    name: 'Lave',       cost: 35,  finish: 'lava' },
     { id: 'candy',   name: 'Bonbon',     cost: 45,  finish: 'candy' },
     { id: 'gold',    name: 'Or massif',  cost: 100, finish: 'gold' },
+    // skins exclusifs : offerts en battant le boss d'un monde (voir UNLOCKS.skins)
+    { id: 'emerald',  name: 'Émeraude',   cost: 0, finish: 'emerald', exclusive: true },
+    { id: 'royal',    name: 'Pharaon',    cost: 0, finish: 'royal', exclusive: true },
+    { id: 'obsidian', name: 'Obsidienne', cost: 0, finish: 'obsidian', exclusive: true },
+    { id: 'frost',    name: 'Givre',      cost: 0, finish: 'frost', exclusive: true },
+    { id: 'galaxy',   name: 'Galaxie',    cost: 0, finish: 'galaxy', exclusive: true },
   ],
 };
 

@@ -61,7 +61,7 @@ export class Tower {
     const c = this.cfg;
     if (this.level < 3) return [{ kind: 'level', name: 'Niveau ' + (this.level + 1), desc: 'Dégâts, cadence et portée améliorés.', cost: c.upgrades[this.level - 1].cost, level: this.level + 1, branch: null }];
     if (this.level === 3) return c.branches.map((b, i) => ({ kind: 'branch', name: b.name, desc: b.desc, cost: b.cost, level: 4, branch: i }));
-    if (this.level === 4) { const m = c.branches[this.branch].master; return [{ kind: 'master', name: m.name, desc: m.desc, cost: m.cost, level: 5, branch: this.branch }]; }
+    if (this.level === 4) { const m = c.branches[this.branch].master; return [{ kind: 'master', name: m.name, desc: m.desc, cost: m.cost, level: 5, branch: this.branch, locked: this.legendLocked }]; }
     return [];
   }
 

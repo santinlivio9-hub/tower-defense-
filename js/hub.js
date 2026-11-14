@@ -85,6 +85,8 @@ export const Hub = {
     $('#btn-play').onclick = () => this.playNext();
     this.renderHomeSide();
     this.homeLay = null;
+    // coffres d'étoiles prêts sur la carte
+    const mb = $('.home-play .map-btn'), sc = this.save.starChestsReady(); let em = $('em', mb); if (!em) { em = el('em', 'mb-badge'); mb.append(em); } em.hidden = !sc; em.textContent = sc;
   },
   // Blasons autour du château : une couleur par fonction, info sous le label,
   // badge rouge UNIQUEMENT quand une récompense est à récupérer

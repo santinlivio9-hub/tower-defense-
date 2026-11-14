@@ -33,7 +33,7 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
       const act = () => {
         if (skill === 'bad') { // joue mal : 3 tourelles au hasard, peu d'améliorations
           if (g.towers.length < 3 + Math.floor(g.wave / 6) && g.money >= 130) { const s = slots[slots.length - 1 - g.towers.length]; if (s && !s.tower) g.placeTower(['smg', 'assault', 'shotgun'][g.towers.length % 3], s); }
-          else if (g.wave % 4 === 0) { const t = g.towers[g.wave % Math.max(1, g.towers.length)]; if (t) { const o = t.upgradeOptions()[0]; if (o && g.money >= o.cost * 2) g.upgradeTower(t, o); } }
+          else if (g.wave % 4 === 0) { const t = g.towers[g.wave % Math.max(1, g.towers.length)]; if (t) { const o = t.upgradeOptions().filter((u) => !u.locked)[0]; if (o && g.money >= o.cost * 2) g.upgradeTower(t, o); } }
           return;
         }
         if (skill === 'mid' && (steps / 15) % 3 !== 0) return;   // réagit moins souvent
@@ -41,7 +41,7 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
           const want = Math.min(slots.length, (skill === 'mid' ? 1 : 2) + Math.floor(g.wave * (skill === 'mid' ? 0.45 : 0.55)));
           // amélioration la moins chère
           let bt = null, bo = null;
-          for (const t of g.towers) for (const o of t.upgradeOptions().slice(0, 1)) if (!bo || o.cost < bo.cost) { bo = o; bt = t; }
+          for (const t of g.towers) for (const o of t.upgradeOptions().filter((u) => !u.locked).slice(0, 1)) if (!bo || o.cost < bo.cost) { bo = o; bt = t; }
           const type = order[built % order.length], cost = g.costOf(type), free = slots.find((s) => !s.tower);
           if (free && g.towers.length < want && (!bo || cost <= bo.cost * 1.6)) { if (g.money >= cost) { g.placeTower(type, free); built++; continue; } return; }
           if (bo) { if (g.money >= bo.cost) { g.upgradeTower(bt, bo); continue; } return; }
