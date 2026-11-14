@@ -1,7 +1,7 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
 import { CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS } from './config.js';
-import { drawCastle, castleBounds, CASTLE_LOOKS } from './castle.js';
+import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
 import { chestSvg } from './loot.js';
@@ -119,7 +119,7 @@ export const Hub = {
     if (ts - (this.homeInfoT || 0) > 30000) this.renderHomeSide(); // minuteurs
     const c = cv.getContext('2d'), t = ts / 1000, Ly = this.homeLay;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const tier = this.save.castleTier(), B = castleBounds(tier);
+    const cs = this.save.data.castle, B = castleBounds(cs), night = this.nightNow(ts);
     const k = Math.min(1.7, (Ly.x1 - Ly.x0 - 6) / (B.half * 2), (Ly.base - Ly.top) / (B.bottom - B.top));
     const cx = (Ly.x0 + Ly.x1) / 2, oy = Ly.base - B.bottom * k, horizon = Ly.base - 34 * k;
     // ciel
@@ -128,11 +128,12 @@ export const Hub = {
     c.fillStyle = sky; c.fillRect(0, 0, W, horizon + 2);
     const sg = c.createRadialGradient(W * 0.82, Ly.top + 40, 8, W * 0.82, Ly.top + 40, W * 0.45); sg.addColorStop(0, 'rgba(255,250,210,.95)'); sg.addColorStop(0.18, 'rgba(255,240,170,.4)'); sg.addColorStop(1, 'rgba(255,240,170,0)');
     c.fillStyle = sg; c.fillRect(0, 0, W, horizon);
+    if (night > 0) this.nightSky(c, W, horizon, t, night, Ly.top);
     // nuages (2 plans, vitesses différentes)
     for (let i = 0; i < 6; i++) {
       const far = i < 3, s = far ? 0.5 + i * 0.08 : 0.75 + (i % 2) * 0.3, v = far ? 4 + i : 9 + i * 2;
       const x = ((t * v + i * 173) % (W + 280)) - 140, y = Ly.top + 10 + ((i * 53) % Math.max(40, horizon - Ly.top - 120));
-      c.fillStyle = far ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.92)';
+      c.fillStyle = `rgba(${night ? '200,205,240' : '255,255,255'},${(far ? 0.55 : 0.92) * (1 - 0.5 * night)})`;
       c.beginPath(); c.ellipse(x, y, 54 * s, 18 * s, 0, 0, 7); c.ellipse(x + 30 * s, y - 11 * s, 32 * s, 20 * s, 0, 0, 7); c.ellipse(x - 28 * s, y - 5 * s, 26 * s, 16 * s, 0, 0, 7); c.fill();
     }
     // oiseaux
@@ -167,7 +168,7 @@ export const Hub = {
     for (let i = 0; i < 9; i++) { const x = (i * 97 + 23) % W, y = Ly.base + 20 + ((i * 37) % Math.max(20, Ly.playTop - Ly.base - 30)); c.fillStyle = ['#ff7eb6', '#ffe45c', '#ffffff'][i % 3]; c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill(); }
     // château
     c.save(); c.translate(cx, oy); c.scale(k, k);
-    drawCastle(c, tier, { time: t, cannon: this.save.data.castle.cannon > 0, aim: -Math.PI / 2 + Math.sin(t * 0.8) * 0.8 });
+    drawCastle(c, cs, { time: t, aim: -Math.PI / 2 + Math.sin(t * 0.8) * 0.8 });
     c.restore();
     // brainrots qui marchent au sol (2 files, dans les deux sens), au-dessus du bouton JOUER
     const lanes = [Ly.base + (Ly.playTop - Ly.base) * 0.42, Ly.playTop - 8];
@@ -180,28 +181,60 @@ export const Hub = {
       c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(m.x, lanes[m.lane], sz * 0.36, sz * 0.1, 0, 0, 7); c.fill();
       c.save(); c.translate(m.x, y); if (m.dir < 0) c.scale(-1, 1); c.drawImage(fr.cv, -sz / 2, -sz / 2, sz, sz); c.restore();
     }
+    if (night > 0) { // voile du soir, puis fenêtres et torches allumées
+      c.fillStyle = `rgba(16,18,60,${0.42 * night})`; c.fillRect(0, horizon - 40, W, H);
+      c.save(); c.translate(cx, oy); c.scale(k, k); drawCastleLights(c, cs, { time: t, night }); c.restore();
+    }
+  },
+  // Nuit selon l'heure réelle (20 h - 7 h) ; this.forceNight pour les tests
+  nightNow(ts) {
+    if (this.forceNight != null) return this.forceNight;
+    if (!this._nightT || ts - this._nightT > 60000) { this._nightT = ts; this._night = nightLevel(); }
+    return this._night;
+  },
+  // Ciel du soir : dégradé sombre, étoiles qui scintillent, lune
+  nightSky(c, W, horizon, t, n, top) {
+    c.save(); c.globalAlpha = n;
+    const g = c.createLinearGradient(0, 0, 0, horizon); g.addColorStop(0, '#141a4a'); g.addColorStop(0.7, '#3a3a86'); g.addColorStop(1, '#7a6ab8');
+    c.fillStyle = g; c.fillRect(0, 0, W, horizon + 2);
+    for (let i = 0; i < 40; i++) { const x = (i * 89.7) % W, y = top + ((i * 53.3) % Math.max(40, horizon - top - 30)), a = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.5 + i)); c.fillStyle = `rgba(255,255,255,${a * n})`; c.fillRect(x, y, i % 5 ? 1.6 : 2.6, i % 5 ? 1.6 : 2.6); }
+    const mx = W * 0.82, my = top + 40; const mg = c.createRadialGradient(mx, my, 10, mx, my, 70); mg.addColorStop(0, 'rgba(255,250,220,.5)'); mg.addColorStop(1, 'rgba(255,250,220,0)');
+    c.fillStyle = mg; c.beginPath(); c.arc(mx, my, 70, 0, 7); c.fill();
+    c.fillStyle = '#fff6d8'; c.beginPath(); c.arc(mx, my, 18, 0, 7); c.fill(); c.fillStyle = '#e9dcb0'; c.beginPath(); c.arc(mx - 5, my - 4, 4, 0, 7); c.arc(mx + 6, my + 6, 3, 0, 7); c.fill();
+    c.restore();
   },
 
   // ------------------------------------------------------------------ écran Château
+  // Valeur d'une amélioration à un niveau donné (affichage « 22 → 26 PV »)
+  castleEffect(id, l) {
+    const U = CASTLE.upgrades, A = CASTLE.abilities;
+    switch (id) {
+      case 'walls': return `${20 + l * U.walls.per} PV`;
+      case 'repair': return l ? `1 PV / ${U.repair.every[l]} vague${U.repair.every[l] > 1 ? 's' : ''}` : 'Aucune';
+      case 'treasury': return `+${l * U.treasury.start} pièces`;
+      case 'cannon': return l ? `${U.cannon.damage[l]} dégâts` : 'Aucun';
+      case 'air': return l ? `${A.air.damage[l]} dégâts` : 'Verrouillée';
+      case 'blizzard': return l ? `-${Math.round(A.blizzard.slow[l] * 100)} % · ${A.blizzard.dur[l]} s` : 'Verrouillée';
+      case 'gold': return l ? `+${A.gold.coins[l]} pièces` : 'Verrouillée';
+    }
+    return '';
+  },
+  castleDef(id) { return CASTLE.upgrades[id] || CASTLE.abilities[id]; },
   renderCastle() {
     const sv = this.save, cs = sv.data.castle, box = $('#castle-content'), tier = sv.castleTier(), sum = sv.castleSum();
     const keep = $('#castle-scroll').scrollTop;
     box.innerHTML = '';
-    const next = CASTLE.tiers[tier + 1];
-    const hero = el('div', 'castle-stage', `<canvas></canvas><div class="cs-name"><small>Apparence ${tier + 1}/4</small><b>${CASTLE_LOOKS[tier].name}</b>
-      ${next ? `<div class="progress"><i style="width:${((sum - CASTLE.tiers[tier]) / (next - CASTLE.tiers[tier])) * 100}%"></i></div><span>Encore ${next - sum} amélioration${next - sum > 1 ? 's' : ''} : ${CASTLE_LOOKS[tier + 1].name}</span>` : '<span>Apparence maximale</span>'}</div>`);
+    const next = CASTLE.tiers[tier + 1], N = CASTLE_LOOKS.length;
+    const hero = el('div', 'castle-stage', `<canvas></canvas><span class="cs-tap">${icon('arrowup')}Touche une partie du château</span>`);
     box.append(hero);
+    const name = el('div', 'cs-name', `<div class="cs-txt"><small>Palier ${tier + 1}/${N}</small><b>${CASTLE_LOOKS[tier].name}</b>
+      ${next ? `<div class="progress"><i style="width:${((sum - CASTLE.tiers[tier]) / (next - CASTLE.tiers[tier])) * 100}%"></i></div><span>Encore <b>${next - sum}</b> amélioration${next - sum > 1 ? 's' : ''}</span>` : '<span>Apparence maximale atteinte !</span>'}</div>
+      ${next ? `<div class="cs-next"><canvas width="132" height="120"></canvas><small>Prochainement</small><b>${CASTLE_LOOKS[tier + 1].name}</b></div>` : ''}`);
+    box.append(name);
+    if (next) drawCastleSilhouette($('.cs-next canvas', name), tier + 1, '#8a78c4');
     this.castleCv = $('canvas', hero);
+    this.castleCv.onclick = (e) => this.castleTap(e);
     const U = CASTLE.upgrades, A = CASTLE.abilities;
-    const now = {
-      walls: (l) => `<b>${20 + l * U.walls.per}</b> PV`,
-      repair: (l) => (l ? `+1 PV / <b>${U.repair.every[l]}</b> vague${U.repair.every[l] > 1 ? 's' : ''}` : 'Inactive'),
-      treasury: (l) => `+<b>${l * U.treasury.start}</b> au départ`,
-      cannon: (l) => (l ? `<b>${U.cannon.damage[l]}</b> dégâts` : 'À construire'),
-      air: (l) => (l ? `<b>${A.air.damage[l]}</b> dégâts` : 'Verrouillée'),
-      blizzard: (l) => (l ? `<b>-${Math.round(A.blizzard.slow[l] * 100)} %</b> ${A.blizzard.dur[l]} s` : 'Verrouillée'),
-      gold: (l) => (l ? `<b>+${A.gold.coins[l]}</b> pièces` : 'Verrouillée'),
-    };
     const colors = { walls: '#ff5d6c', repair: '#3fd873', treasury: '#ffd23f', cannon: '#8e9aab' };
     const section = (title, entries, isAb) => {
       box.append(el('h3', 'sect', title));
@@ -209,10 +242,11 @@ export const Hub = {
       for (const [id, u] of entries) {
         const lvl = cs[id], max = u.costs.length, done = lvl >= max;
         const tile = el('div', 'up-tile' + (done ? ' max' : '') + (!lvl && isAb ? ' locked' : ''));
-        tile.style.setProperty('--ac', isAb ? u.color : colors[id]);
-        tile.innerHTML = `<span class="ut-ico">${icon(u.icon)}</span><b>${u.name}</b><small>${now[id](lvl)}</small>${pips(lvl, max)}`;
+        tile.style.setProperty('--ac', isAb ? u.color : colors[id]); tile.dataset.id = id;
+        tile.innerHTML = `<span class="ut-ico">${icon(u.icon)}</span><b>${u.name}</b>
+          <div class="fx-big">${done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`}</div>${pips(lvl, max)}`;
         tile.append(done ? el('span', 'owned', icon('check') + 'Max') : this.buyButton(u.costs[lvl], 'coins', '', () => this.castleBuild(id), lvl || !isAb ? '' : 'pink'));
-        tile.title = u.desc;
+        tile.onclick = (e) => { if (!e.target.closest('button')) this.castleSheet(id); };
         grid.append(tile);
       }
       box.append(grid);
@@ -221,54 +255,90 @@ export const Hub = {
     section('Capacités en partie', Object.entries(A), true);
     $('#castle-scroll').scrollTop = keep;
   },
-  // Achat : animation de chantier (poussière, marteaux), puis nouvelle apparence éventuelle
+  // Toucher le château : ouvre l'amélioration de la partie touchée
+  castleTap(e) {
+    const X = this.castleXf; if (!X) return;
+    const r = this.castleCv.getBoundingClientRect(), x = (e.clientX - r.left - X.cx) / X.k, y = (e.clientY - r.top - X.oy) / X.k;
+    const p = castleParts(this.save.data.castle).find((q) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h);
+    if (p) { this.audio.play('click'); this.haptics.pulse(0); this.castleSheet(p.id); }
+  },
+  // Fiche d'une amélioration : aperçu avant / après, effet en gros, achat
+  castleSheet(id) {
+    const sv = this.save, cs = sv.data.castle, u = this.castleDef(id), lvl = cs[id], max = u.costs.length, done = lvl >= max;
+    const m = el('div', 'panel glass castle-sheet');
+    const x = el('button', 'icon-btn close', icon('close')); x.onclick = () => this.closeOverlay();
+    m.append(x, el('div', 'csh-head', `<span class="ut-ico" style="--ac:${u.color || '#8e9aab'}">${icon(u.icon)}</span><div><b>${u.name}</b><small>${u.desc}</small></div>`));
+    const ba = el('div', 'csh-ba');
+    const view = (l, lab) => { const f = el('div', 'csh-view' + (l > lvl ? ' after' : ''), `<canvas width="300" height="240"></canvas><small>${lab}</small>`); ba.append(f); return $('canvas', f); };
+    const parts = castleParts(cs), part = parts.find((q) => q.id === id);
+    const zoom = (cv, l) => {
+      const c = cv.getContext('2d'), st = { ...cs, [id]: l }, P = castleParts(st).find((q) => q.id === id) || part;
+      const k = Math.min(cv.width / (Math.max(P.w, 60) * 1.9), cv.height / (Math.max(P.h, 50) * 1.9), 3);
+      c.clearRect(0, 0, cv.width, cv.height);
+      c.save(); c.translate(cv.width / 2 - (P.x + P.w / 2) * k, cv.height / 2 - (P.y + P.h / 2) * k); c.scale(k, k); drawCastle(c, st, { time: performance.now() / 1000 }); c.restore();
+    };
+    const cvA = view(lvl, lvl ? `Niveau ${lvl}` : 'Pas construit');
+    if (!done) { ba.append(el('i', 'csh-arrow', icon('arrowup'))); }
+    const cvB = done ? null : view(lvl + 1, `Niveau ${lvl + 1}`);
+    m.append(ba);
+    m.append(el('div', 'fx-big huge', done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`));
+    m.append(done ? el('span', 'owned wide', icon('check') + 'Niveau maximum') : this.buyButton(u.costs[lvl], 'coins', 'Améliorer', () => { this.closeOverlay(); this.castleBuild(id); }, 'big'));
+    const anim = () => { if (!m.isConnected) return; zoom(cvA, lvl); if (cvB) zoom(cvB, lvl + 1); requestAnimationFrame(anim); };
+    this.openOverlay(m); requestAnimationFrame(anim);
+  },
+  // Achat : échafaudage, poussière et marteaux, puis « pop » de l'élément, confettis, son
   castleBuild(id) {
     const sv = this.save, before = sv.castleTier();
     sv.data.castle[id]++;
     const after = sv.castleTier();
-    this.buildFx = { t0: performance.now(), dur: 1400, tierUp: after > before };
+    this.buildFx = { id, t0: performance.now(), dur: 1300, tierUp: after > before, boom: false };
+    $('#castle-scroll').scrollTo({ top: 0, behavior: 'smooth' });
     let n = 0; const iv = setInterval(() => { this.audio.play(n % 2 ? 'hit' : 'place'); this.haptics.pulse(0); if (++n > 6) clearInterval(iv); }, 170);
-    if (after > before) setTimeout(() => { this.audio.play('legendary'); this.haptics.pulse(2); this.toast('Nouvelle apparence !', CASTLE_LOOKS[after].name, icon('castle')); }, 1300);
+    setTimeout(() => { this.audio.play(after > before ? 'legendary' : 'upgrade'); this.haptics.pulse(2); if (after > before) this.toast('Nouveau palier !', CASTLE_LOOKS[after].name, icon('castle')); }, 1300);
   },
   // Château animé de l'écran dédié (appelé à chaque image)
   tickCastle(ts) {
     const cv = this.castleCv; if (!cv || !cv.isConnected || this.screen !== 'castle') return;
     const dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
-    if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-    const c = cv.getContext('2d'), t = ts / 1000;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const c = cv.getContext('2d'), t = ts / 1000, night = this.nightNow(ts);
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    const fx = this.buildFx, bt = fx ? (ts - fx.t0) / fx.dur : 2;
+    const fx = this.buildFx, bt = fx ? (ts - fx.t0) / fx.dur : 9;
     const building = bt >= 0 && bt < 1;
-    // la nouvelle apparence apparaît à la fin du chantier
-    let tier = this.save.castleTier(); if (building && fx.tierUp) tier = Math.max(0, tier - 1);
-    const k = Math.min(W / 170 * 0.7, H / 150 * 0.6), sh = building ? Math.sin(t * 60) * 2.5 : 0;
-    // colline sous le château
-    c.fillStyle = '#7fcb6a'; c.beginPath(); c.ellipse(W / 2, H * 1.02, W * 0.75, H * 0.36, 0, Math.PI, 0); c.fill();
-    c.fillStyle = '#5fb53c'; c.beginPath(); c.ellipse(W / 2, H * 1.08, W * 0.9, H * 0.3, 0, Math.PI, 0); c.fill();
-    c.save(); c.translate(W / 2 + sh, H * 0.7); c.scale(k, k);
-    if (bt >= 1 && bt < 1.25) { const p = (bt - 1) / 0.25; c.scale(1 + Math.sin(p * Math.PI) * 0.12, 1 - Math.sin(p * Math.PI) * 0.06); }
-    drawCastle(c, tier, { time: t, cannon: this.save.data.castle.cannon > 0, aim: -Math.PI / 2 + Math.sin(t) * 0.9 });
+    // pendant le chantier, l'élément acheté n'est pas encore visible
+    const cs = { ...this.save.data.castle }; if (building) cs[fx.id] = Math.max(0, cs[fx.id] - 1);
+    const B = castleBounds(cs), ground = H - 26;
+    const k = Math.min(1.9, (W - 24) / (B.half * 2), (ground - 14) / (B.bottom - B.top)), cx = W / 2, oy = ground - B.bottom * k;
+    this.castleXf = { cx, oy, k };
+    // ciel + collines
+    const sky = c.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#5a8fe8'); sky.addColorStop(0.75, '#bfe4ff'); c.fillStyle = sky; c.fillRect(0, 0, W, H);
+    if (night > 0) this.nightSky(c, W, H - 30, t, night, 6);
+    c.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < 3; i++) { const s = 0.6 + i * 0.2, x = ((t * (5 + i * 3) + i * 170) % (W + 200)) - 100, y = 30 + i * 34; c.beginPath(); c.ellipse(x, y, 44 * s, 15 * s, 0, 0, 7); c.ellipse(x + 26 * s, y - 9 * s, 26 * s, 17 * s, 0, 0, 7); c.fill(); }
+    c.fillStyle = '#9ad7a0'; c.beginPath(); c.ellipse(W * 0.2, ground + 10, W * 0.5, 40, 0, Math.PI, 0); c.ellipse(W * 0.85, ground + 14, W * 0.45, 34, 0, Math.PI, 0); c.fill();
+    c.fillStyle = '#7fcb5c'; c.fillRect(0, ground - 4, W, H); c.beginPath(); c.ellipse(cx, ground, 150 * k, 22 * k, 0, Math.PI, 0); c.fill();
+    const sh = building ? Math.sin(t * 60) * 1.5 : 0;
+    c.save(); c.translate(cx + sh, oy); c.scale(k, k);
+    if (fx && bt >= 1 && bt < 1.25 && fx.tierUp) { const p = (bt - 1) / 0.25; c.scale(1 + Math.sin(p * Math.PI) * 0.08, 1 - Math.sin(p * Math.PI) * 0.04); }
+    drawCastle(c, cs, { time: t, aim: -Math.PI / 2 + Math.sin(t) * 0.9, build: fx && bt < 1.4 ? { id: fx.id, p: bt } : null });
     c.restore();
-    if (building) {
-      // nuages de poussière
-      for (let i = 0; i < 9; i++) {
-        const a = i / 9 * Math.PI * 2 + t, r = (40 + (bt * 120 + i * 13) % 50) * k, x = W / 2 + Math.cos(a) * r * 1.3, y = H * 0.7 + Math.sin(a) * r * 0.35 - (bt * 40 + i * 7) % 30;
-        c.fillStyle = `rgba(230,210,180,${0.55 * (1 - bt)})`; c.beginPath(); c.arc(x, y, (14 + i % 3 * 6) * (0.6 + bt), 0, 7); c.fill();
+    if (night > 0) { c.fillStyle = `rgba(16,18,60,${0.4 * night})`; c.fillRect(0, 0, W, H); c.save(); c.translate(cx, oy); c.scale(k, k); drawCastleLights(c, cs, { time: t, night }); c.restore(); }
+    if (!fx) return;
+    const P = castleParts(cs).find((q) => q.id === fx.id), px = cx + (P.x + P.w / 2) * k, py = oy + (P.y + P.h / 2) * k;
+    if (building) { // nuages de poussière autour de l'élément
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + t * 2, r = (18 + ((bt * 90 + i * 11) % 30)) * k * 0.8;
+        c.fillStyle = `rgba(235,215,185,${0.6 * (1 - bt * 0.6)})`; c.beginPath(); c.arc(px + Math.cos(a) * r * 1.3, py + P.h * k * 0.3 + Math.sin(a) * r * 0.45, (8 + (i % 3) * 4) * (0.6 + bt * 0.6), 0, 7); c.fill();
       }
-      // marteaux qui frappent
-      for (const [hx, hy, ph] of [[-0.24, 0.4, 0], [0.26, 0.36, 1.6], [0.02, 0.18, 3.1]]) {
-        const sw = Math.sin(t * 22 + ph) * 0.9;
-        c.save(); c.translate(W / 2 + hx * W, H * hy); c.rotate(-0.6 + sw);
-        c.lineWidth = 3; c.strokeStyle = '#3d2c4e';
-        c.fillStyle = '#b5793f'; c.beginPath(); c.roundRect(-3, -2, 6, 30, 3); c.fill(); c.stroke();
-        c.fillStyle = '#8e9aab'; c.beginPath(); c.roundRect(-12, -10, 24, 12, 3); c.fill(); c.stroke();
-        c.restore();
+    } else if (bt < 2.6) {
+      if (!fx.boom) { // confettis
+        fx.boom = true; fx.conf = Array.from({ length: 46 }, (_, i) => ({ x: px, y: py, vx: (Math.random() - 0.5) * 360, vy: -120 - Math.random() * 260, r: Math.random() * 6, c: ['#ff5d8f', '#ffd23f', '#3fd873', '#3d9dfc', '#b05cff', '#fff'][i % 6] }));
       }
-    } else if (fx && bt >= 1 && bt < 1.5) {
-      const p = (bt - 1) / 0.5; // éclat de lumière à la fin
-      c.fillStyle = `rgba(255,255,255,${(fx.tierUp ? 0.9 : 0.5) * (1 - p)})`; c.fillRect(0, 0, W, H);
-      c.strokeStyle = `rgba(255,210,63,${1 - p})`; c.lineWidth = 6; c.beginPath(); c.arc(W / 2, H * 0.6, 40 + p * W * 0.6, 0, 7); c.stroke();
-    }
+      const p = (bt - 1) / 0.4;
+      if (p < 1) { c.strokeStyle = `rgba(255,210,63,${1 - p})`; c.lineWidth = 6; c.beginPath(); c.arc(px, py, 10 + p * 90, 0, 7); c.stroke(); if (fx.tierUp) { c.fillStyle = `rgba(255,255,255,${0.8 * (1 - p)})`; c.fillRect(0, 0, W, H); } }
+      const dt = 1 / 60;
+      for (const q of fx.conf) { q.vy += 520 * dt; q.vx *= 0.99; q.x += q.vx * dt; q.y += q.vy * dt; q.r += dt * 8; c.fillStyle = q.c; c.save(); c.translate(q.x, q.y); c.rotate(q.r); c.fillRect(-4, -2.5, 8, 5); c.restore(); }
+    } else this.buildFx = null;
   },
 
   // ------------------------------------------------------------------ en partie : capacités (et boosts) en bas de l'écran

@@ -295,7 +295,7 @@ export const CASTLE = {
     blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: [400, 650, 1050] },
     gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: [450, 700, 1150] },
   },
-  tiers: [0, 5, 12, 20],      // total de niveaux d'amélioration pour : bois, pierre, forteresse, citadelle dorée
+  tiers: [0, 5, 11, 18, 25],  // total de niveaux d'amélioration (29 au max) pour : fortin en bois, château de pierre, forteresse, citadelle, palais doré
 };
 
 // ----------------------------------------------------------------------------
