@@ -1664,3 +1664,23 @@ body[data-screen="game"] { background: #1c1530; }
   .prep-rw .pr-row { min-height: 34px; padding-top: 3px; padding-bottom: 3px; }
   .prep .btn.big { min-height: 50px; }
 }
+
+/* ------------------------------------------------------------- barre du bas du jeu : aperçu de vague compact (tient en 375 px) */
+.wave-row { gap: 6px; }
+#wave-preview { flex: 1 1 0; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; overflow: visible; }
+#wave-preview .lbl { font-size: 13px; letter-spacing: .04em; margin: 0 0 0 4px; line-height: 1; }
+#wave-preview .wp-icons { display: flex; align-items: center; gap: 3px; max-width: 100%; }
+#wave-preview .wp { height: 32px; width: 32px; padding: 0; justify-content: center; border-width: 2px; flex: none; }
+#wave-preview .wp img { margin: 0; width: 26px; height: 26px; }
+#wave-preview .wp.boss { width: auto; padding: 0 7px 0 2px; gap: 2px; }
+#wave-preview .wp.boss b { font-size: 12px; letter-spacing: .04em; }
+#wave-preview .wp-more { flex: none; font-size: 14px; font-weight: 700; color: #fff; text-shadow: var(--ol); padding: 0 2px; }
+#btn-wave { min-width: 0; width: 118px; padding: 0 8px; }
+#btn-wave .l { white-space: nowrap; } #btn-wave small { white-space: nowrap; }
+.speed-btn { width: 50px; }
+@media (max-width: 380px) { #btn-wave { width: 108px; font-size: 15.5px; } .speed-btn { width: 46px; } #wave-preview .wp { width: 30px; height: 30px; } #wave-preview .wp img { width: 24px; height: 24px; } }
+.speed-btn .spd { width: 26px; height: 13px; fill: #fff; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; margin-bottom: 1px; }
+.speed-btn .spd path { opacity: .35; }
+.speed-btn[data-s="1"] .spd path { opacity: 1; clip-path: inset(0 66% 0 0); }
+.speed-btn[data-s="2"] .spd path { opacity: 1; clip-path: inset(0 33% 0 0); }
+.speed-btn[data-s="3"] .spd path { opacity: 1; }

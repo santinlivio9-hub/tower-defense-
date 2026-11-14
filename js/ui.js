@@ -590,20 +590,25 @@ export class UI {
     let label;
     if (g.over) label = '';
     else if (!nw) label = '<span class="l">Dernière vague !</span>';
-    else if (!g.canStartNext) label = `<span class="l">Vague ${g.wave} en cours</span><small>${g.queue.length + g.enemies.length} brainrots restants</small>`;
+    else if (!g.canStartNext) label = `<span class="l">En cours</span><small>${g.queue.length + g.enemies.length} restants</small>`;
     else {
       const bonus = g.earlyBonus;
-      label = `<span class="l">${icon('play')}${g.wave === 0 ? 'Lancer la vague 1' : 'Lancer la vague ' + nw.n}</span>`
-        + (g.countdown != null && this.save.data.settings.autoWave === false && g.cleared >= g.wave ? (bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '') : g.countdown != null ? `<small>Départ auto dans ${Math.ceil(g.countdown)} s${bonus > 0 ? ` · +${bonus}${coin()}` : ''}</small>` : bonus > 0 ? `<small>En avance +${bonus}${coin()}</small>` : '');
+      label = `<span class="l">${icon('play')}${g.wave === 0 ? 'Lancer !' : 'Lancer'}</span>`
+        + (g.countdown != null && this.save.data.settings.autoWave === false && g.cleared >= g.wave ? (bonus > 0 ? `<small>+${bonus}${coin()}</small>` : '') : g.countdown != null ? `<small>Auto ${Math.ceil(g.countdown)} s${bonus > 0 ? ` · +${bonus}${coin()}` : ''}</small>` : bonus > 0 ? `<small>Bonus +${bonus}${coin()}</small>` : '');
     }
     this.set('waveLabel', label, (v) => { btn.innerHTML = v; btn.style.visibility = v ? '' : 'hidden'; btn.disabled = !g.canStartNext; btn.classList.toggle('ready', g.canStartNext); btn.classList.toggle('busy', !g.canStartNext); });
+    // aperçu de la vague suivante : « Vague N » + icônes des types (3 max, puis « +N »), badge BOSS ; pas de nombres
     this.set('preview', g.over || !nw ? 0 : nw.n, (n) => {
       const box = $('#wave-preview'); box.innerHTML = ''; if (!n) return;
-      box.append(el('span', 'lbl', `Vague ${n}`));
-      for (const [type, count] of Object.entries(waveSummary(nw))) {   // une bulle par brainrot : icône + nombre (BOSS en rouge)
-        const boss = ENEMIES[type].boss, w = el('span', 'wp' + (boss ? ' boss' : '') + (this.save.data.seen.enemies.includes(type) ? '' : ' new'));
-        w.append(enemyImg(type, boss ? 34 : 28), el('b', '', boss ? 'BOSS' : '×' + count)); box.append(w);
-      }
+      const sum = waveSummary(nw), seen = this.save.data.seen.enemies;
+      const types = Object.keys(sum).filter((t) => !ENEMIES[t].boss), boss = Object.keys(sum).find((t) => ENEMIES[t].boss);
+      // les nouveautés d'abord, puis les plus nombreux
+      types.sort((a, b) => (seen.includes(a) - seen.includes(b)) || sum[b] - sum[a]);
+      const icons = el('span', 'wp-icons');
+      for (const t of types.slice(0, boss ? 2 : 3)) { const w = el('span', 'wp' + (seen.includes(t) ? '' : ' new')); w.append(enemyImg(t, 26)); icons.append(w); }
+      const more = types.length - (boss ? 2 : 3); if (more > 0) icons.append(el('span', 'wp-more', '+' + more));
+      if (boss) { const w = el('span', 'wp boss'); w.append(enemyImg(boss, 26), el('b', '', ENEMIES[boss].mini || nw.mini ? 'MINI' : 'BOSS')); icons.append(w); }
+      box.append(el('span', 'lbl', `Vague ${n}`), icons);
     });
     this.updateGoals();
     this.updateRadial();
