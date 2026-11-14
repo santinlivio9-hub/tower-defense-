@@ -39,11 +39,11 @@ export const Daily = {
   homeDaily(left, right, side) {
     const sv = this.save; sv.dailyTick();
     const qn = sv.questsReady(), pn = sv.passReady(), ch = sv.challenge();
-    side(left, `<span class="ra-ico">${icon('calendar')}</span>`, 'Cadeau', () => this.openDaily('calendar'), sv.calendarReady() ? true : 0, sv.calendarReady() ? 'glow' : '');
+    side(left, `<span class="ra-ico">${icon('gift')}</span>`, 'Cadeau', () => this.openDaily('calendar'), sv.calendarReady() ? true : 0, sv.calendarReady() ? 'glow' : '');
     side(left, `<span class="ra-ico">${icon('scroll')}</span>`, 'Quêtes', () => this.openDaily('quests'), qn, qn ? 'glow' : '');
     side(right, `<span class="ra-ico">${icon('wheel')}</span>`, 'Roue', () => this.openDaily('wheel'), sv.wheelReady() ? true : 0, sv.wheelReady() ? 'glow spin' : '');
-    side(right, `<span class="ra-ico">${icon('ticket')}</span>`, 'Passe', () => this.openDaily('pass'), pn, pn ? 'glow' : '');
-    side(right, `<span class="ra-ico">${icon('target')}</span>`, 'Défi', () => this.openDaily('challenge'), ch.done ? 0 : true, ch.done ? 'done' : '');
+    side(right, `<span class="ra-ico">${icon('pass')}</span>`, 'Passe', () => this.openDaily('pass'), pn, pn ? 'glow' : '');
+    side(right, `<span class="ra-ico">${icon('challenge')}</span>`, 'Défi', () => this.openDaily('challenge'), ch.done ? 0 : true, ch.done ? 'done' : '');
     // le cadeau du jour s'ouvre tout seul à la première visite de la journée
     const D = sv.data.daily;
     if (sv.calendarReady() && D.popped !== D.day && !sv.data.notice && sv.data.settings.tutorialDone !== false) { D.popped = D.day; sv.persist(); setTimeout(() => { if (this.screen === 'menu' && !$('#overlay.show')) this.openDaily('calendar'); }, 600); }
