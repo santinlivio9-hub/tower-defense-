@@ -31,6 +31,11 @@ function tower(c, x, top, bottom, w, L, time, flag) {
   }
 }
 
+// Encombrement du dessin (unités du château) pour le cadrer sans le couper
+export function castleBounds(tier) {
+  const L = CASTLE_LOOKS[Math.max(0, Math.min(3, tier))];
+  return { top: L.keep ? -62 - L.h - L.keep * 10 - 42 - 28 : -30 - L.h - 32 - 28, bottom: 56, half: 90 };
+}
 // tier 0..3 ; o = { time, flash (0..1), cannon (bool), aim (rad), recoil }
 export function drawCastle(c, tier, o = {}) {
   const L = CASTLE_LOOKS[Math.max(0, Math.min(3, tier))], time = o.time || 0, h = L.h;

@@ -1,7 +1,7 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
 import { CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS } from './config.js';
-import { drawCastle, CASTLE_LOOKS } from './castle.js';
+import { drawCastle, castleBounds, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
 import { chestSvg } from './loot.js';
@@ -13,7 +13,15 @@ const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const pips = (n, max) => `<div class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
 const cur = (c) => (c === 'coins' ? coin() : gem());
-const WALKERS = ['basic', 'fast', 'tank', 'flying', 'armored', 'healer', 'splitter'];
+const WALKERS = ['basic', 'fast', 'tank', 'armored', 'healer', 'splitter'];   // au sol uniquement
+// Écusson des boutons de l'accueil (une couleur par fonction)
+const CREST = { gift: ['#ff5d8f', '#c93868'], quests: ['#ffb224', '#c9780a'], chest: ['#a8693a', '#6b3e1e'], wheel: ['#b05cff', '#7a2fd0'], pass: ['#3d9dfc', '#1b64b3'], challenge: ['#f0485a', '#a82338'] };
+export function crestSvg(kind) {
+  const [a, b] = CREST[kind] || CREST.pass;
+  return `<svg viewBox="0 0 60 66" aria-hidden="true"><path d="M5 4h50v28c0 16-11 25-25 31C16 57 5 48 5 32z" fill="${a}" stroke="#3d2c4e" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M7.5 34c2 13 11 20 22.5 25 11.5-5 20.5-12 22.5-25v4c-1.5 12-10 19-22.5 24C17.5 57 9 50 7.5 38z" fill="${b}"/>
+    <path d="M9.5 8.5h41v11c-13 5-28 5-41 0z" fill="#fff" opacity=".28"/><path d="M10 9h40v23c0 12-8 19-20 24" fill="none" stroke="#fff" stroke-width="2" opacity=".35"/></svg>`;
+}
 
 export const Hub = {
   renderMeta(name) {
@@ -43,16 +51,16 @@ export const Hub = {
   },
   // Badges rouges : quelque chose à faire dans l'onglet
   tabBadges() {
-    const sv = this.save, d = sv.data, set = (id, v) => { const e = $(`#tabbar .tab-${id} em`); if (!e) return; e.hidden = !v; e.textContent = v === true ? '!' : v; };
+    const sv = this.save, d = sv.data, set = (id, v) => { const e = $(`#tabbar .tab-${id} em`); if (!e) return; e.hidden = !v; e.textContent = v; };
     set('talents', d.talentPts || 0);
     set('shop', (d.chests.wood + d.chests.gold) || (this.dailyBadge ? this.dailyBadge('shop') : 0));
-    set('castle', this.castleAffordable() ? true : 0);
-    set('collection', sv.collectionNew() ? true : 0);
+    set('castle', this.castleAffordable());
+    set('collection', sv.collectionNew());
     set('menu', this.dailyBadge ? this.dailyBadge('menu') : 0);
   },
   castleAffordable() {
     const cs = this.save.data.castle, c = this.save.data.coins || 0;
-    return [...Object.entries(CASTLE.upgrades), ...Object.entries(CASTLE.abilities)].some(([id, u]) => cs[id] < u.costs.length && u.costs[cs[id]] <= c);
+    return [...Object.entries(CASTLE.upgrades), ...Object.entries(CASTLE.abilities)].filter(([id, u]) => cs[id] < u.costs.length && u.costs[cs[id]] <= c).length;
   },
   // Bouton d'achat (pièces ou gemmes)
   buyButton(cost, currency, label, fn, cls = '') {
@@ -75,65 +83,102 @@ export const Hub = {
     const L = this.nextLevel(), w = WORLDS[L.world];
     $('#play-sub').textContent = `${L.boss ? 'Boss' : 'Niveau'} ${L.id} · ${w.name}`;
     $('#btn-play').onclick = () => this.playNext();
+    this.renderHomeSide();
+    this.homeLay = null;
+  },
+  // Blasons autour du château : une couleur par fonction, info sous le label,
+  // badge rouge UNIQUEMENT quand une récompense est à récupérer
+  renderHomeSide() {
     const left = $('#home-left'), right = $('#home-right'); left.innerHTML = ''; right.innerHTML = '';
-    const side = (box, art, label, fn, badge = 0, cls = '') => {
-      const b = el('button', 'side-btn ' + cls, `<span class="sa">${art}</span><small>${label}</small>${badge ? `<em>${badge === true ? '!' : badge}</em>` : ''}`);
-      b.onclick = fn; box.append(b); return b;
+    const crest = (box, o) => {
+      const b = el('button', 'crest' + (o.cls ? ' ' + o.cls : ''), `<span class="cs">${crestSvg(o.color)}${o.art}</span><small>${o.label}</small>${o.info ? `<i class="info${o.go ? ' go' : ''}">${o.info}</i>` : ''}${o.badge ? `<em>${o.badge}</em>` : ''}`);
+      b.setAttribute('aria-label', o.label); b.onclick = o.fn; box.append(b); return b;
     };
     const d = this.save.data, nc = d.chests.wood + d.chests.gold;
-    if (this.homeDaily) this.homeDaily(left, right, side);
-    side(left, chestSvg(d.chests.gold ? 'gold' : 'wood'), 'Coffres', () => { this.shopTab = 'chests'; this.show('shop'); }, nc, nc ? 'glow' : '');
+    if (this.homeDaily) this.homeDaily(left, right, crest);
+    crest(left, { art: icon('chest'), label: 'Coffres', color: 'chest', fn: () => { this.shopTab = 'chests'; this.show('shop'); },
+      badge: nc, info: nc ? 'Ouvrir' : 'Boutique', go: !!nc, cls: nc ? 'ready' : '' });
+    this.homeInfoT = performance.now();
   },
-  // Scène animée de l'accueil : ciel, nuages, collines, château, brainrots qui passent au loin
+  // Zone libre pour le château, mesurée sur la page : jamais sous les blasons ni sous JOUER
+  homeLayout(cv) {
+    const cr = cv.getBoundingClientRect(), st = $('#home-stage').getBoundingClientRect(), play = $('.home-play').getBoundingClientRect();
+    const sideBottom = Math.max($('#home-left').getBoundingClientRect().bottom, $('#home-right').getBoundingClientRect().bottom) - cr.top;
+    const top = st.top - cr.top + 6, playTop = play.top - cr.top;
+    const base = Math.min(playTop - 92, Math.max(sideBottom + 8, top + 140));
+    return { x0: st.left - cr.left, x1: st.right - cr.left, top, base, playTop };
+  },
+  // Scène animée de l'accueil : ciel, nuages et oiseaux qui défilent, château entier,
+  // brainrots qui marchent au sol en bas de l'écran
   tickHome(ts) {
     const cv = $('#home-scene'); if (this.screen !== 'menu' || !cv.isConnected) return;
     const dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
     if (!W || !H) return;
-    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); this.homeWalk = null; }
-    const c = cv.getContext('2d'), t = ts / 1000;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); this.homeWalk = null; this.homeLay = null; }
+    if (!this.homeLay) this.homeLay = this.homeLayout(cv);
+    if (ts - (this.homeInfoT || 0) > 30000) this.renderHomeSide(); // minuteurs
+    const c = cv.getContext('2d'), t = ts / 1000, Ly = this.homeLay;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const tier = this.save.castleTier();
+    const tier = this.save.castleTier(), B = castleBounds(tier);
+    const k = Math.min(1.7, (Ly.x1 - Ly.x0 - 6) / (B.half * 2), (Ly.base - Ly.top) / (B.bottom - B.top));
+    const cx = (Ly.x0 + Ly.x1) / 2, oy = Ly.base - B.bottom * k, horizon = Ly.base - 34 * k;
     // ciel
-    const sky = c.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#5a8fe8'); sky.addColorStop(0.45, '#9fd2ff'); sky.addColorStop(0.62, '#d9f1ff'); sky.addColorStop(0.62, '#8ed85f'); sky.addColorStop(1, '#5fb53c');
-    c.fillStyle = sky; c.fillRect(0, 0, W, H);
-    const sg = c.createRadialGradient(W * 0.8, H * 0.16, 10, W * 0.8, H * 0.16, W * 0.5); sg.addColorStop(0, 'rgba(255,250,210,.9)'); sg.addColorStop(0.2, 'rgba(255,240,170,.35)'); sg.addColorStop(1, 'rgba(255,240,170,0)');
-    c.fillStyle = sg; c.fillRect(0, 0, W, H);
-    // nuages
-    c.fillStyle = 'rgba(255,255,255,.85)';
+    const sky = c.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, '#4f86e6'); sky.addColorStop(0.7, '#9fd2ff'); sky.addColorStop(1, '#d9f1ff');
+    c.fillStyle = sky; c.fillRect(0, 0, W, horizon + 2);
+    const sg = c.createRadialGradient(W * 0.82, Ly.top + 40, 8, W * 0.82, Ly.top + 40, W * 0.45); sg.addColorStop(0, 'rgba(255,250,210,.95)'); sg.addColorStop(0.18, 'rgba(255,240,170,.4)'); sg.addColorStop(1, 'rgba(255,240,170,0)');
+    c.fillStyle = sg; c.fillRect(0, 0, W, horizon);
+    // nuages (2 plans, vitesses différentes)
+    for (let i = 0; i < 6; i++) {
+      const far = i < 3, s = far ? 0.5 + i * 0.08 : 0.75 + (i % 2) * 0.3, v = far ? 4 + i : 9 + i * 2;
+      const x = ((t * v + i * 173) % (W + 280)) - 140, y = Ly.top + 10 + ((i * 53) % Math.max(40, horizon - Ly.top - 120));
+      c.fillStyle = far ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.92)';
+      c.beginPath(); c.ellipse(x, y, 54 * s, 18 * s, 0, 0, 7); c.ellipse(x + 30 * s, y - 11 * s, 32 * s, 20 * s, 0, 0, 7); c.ellipse(x - 28 * s, y - 5 * s, 26 * s, 16 * s, 0, 0, 7); c.fill();
+    }
+    // oiseaux
+    c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
     for (let i = 0; i < 4; i++) {
-      const s = 0.6 + (i % 2) * 0.35, x = ((t * (6 + i * 3) + i * 230) % (W + 260)) - 130, y = H * (0.12 + i * 0.075);
-      c.beginPath(); c.ellipse(x, y, 54 * s, 20 * s, 0, 0, 7); c.ellipse(x + 34 * s, y - 12 * s, 34 * s, 22 * s, 0, 0, 7); c.ellipse(x - 30 * s, y - 6 * s, 28 * s, 18 * s, 0, 0, 7); c.fill();
+      const v = 22 + i * 7, x = ((t * v + i * 260) % (W + 200)) - 100, y = Ly.top + 30 + i * 26 + Math.sin(t * 1.5 + i) * 8, f = Math.sin(t * 9 + i * 2) * 5, s = i % 2 ? 0.8 : 1;
+      c.beginPath(); c.moveTo(x - 9 * s, y - f * s); c.quadraticCurveTo(x - 4 * s, y - 4 * s, x, y + 1); c.quadraticCurveTo(x + 4 * s, y - 4 * s, x + 9 * s, y - f * s); c.stroke();
     }
-    // collines lointaines
+    // collines du fond
     const hill = (y0, amp, col, ph) => { c.fillStyle = col; c.beginPath(); c.moveTo(0, H); for (let x = 0; x <= W + 10; x += 10) c.lineTo(x, y0 + Math.sin(x / W * 5 + ph) * amp + Math.sin(x / W * 11 + ph * 2) * amp * 0.35); c.lineTo(W, H); c.closePath(); c.fill(); };
-    hill(H * 0.55, 14, '#9ad7a0', 1.3);
-    // brainrots qui défilent sur la colline du fond
-    if (!this.homeWalk) this.homeWalk = Array.from({ length: 6 }, (_, i) => ({ type: WALKERS[i % WALKERS.length], x: (i / 6) * (W + 120) - 60, v: 14 + Math.random() * 10 }));
-    for (const m of this.homeWalk) {
-      m.x += m.v / 60; if (m.x > W + 60) { m.x = -60; m.type = WALKERS[Math.floor(Math.random() * WALKERS.length)]; }
-      const f = enemyFrames(m.type), fr = f.frames[0][Math.floor(t * 4 + m.v) % 2]; if (!fr || !fr.ready) continue;
-      const y = H * 0.55 + Math.sin(m.x / W * 5 + 1.3) * 14 + Math.sin(m.x / W * 11 + 2.6) * 5 - 12, sz = 26 + (f.half > 20 ? 6 : 0);
-      c.globalAlpha = 0.9; c.drawImage(fr.cv, m.x - sz / 2, y - sz / 2 + Math.abs(Math.sin(t * 7 + m.v)) * -3, sz, sz); c.globalAlpha = 1;
-    }
-    hill(H * 0.6, 10, '#7fcb6a', 0.2);
-    // sol de premier plan + chemin vers le château
-    c.fillStyle = '#74c94a'; c.beginPath(); c.ellipse(W / 2, H * 0.98, W * 0.95, H * 0.33, 0, Math.PI, 0); c.fill();
+    hill(horizon - 8, 12, '#a4dcaa', 1.3);
+    hill(horizon + 10, 8, '#8fd47a', 0.2);
+    // butte du château + sol de premier plan
+    c.fillStyle = '#7fcb5c'; c.beginPath(); c.ellipse(cx, Ly.base + 4, 150 * k, 30 * k, 0, Math.PI, 0); c.fill();
+    const g = c.createLinearGradient(0, Ly.base, 0, H); g.addColorStop(0, '#74c94a'); g.addColorStop(1, '#4ea832');
+    c.fillStyle = g; c.fillRect(0, Ly.base, W, H - Ly.base);
+    // chemin du château jusqu'en bas
     c.fillStyle = '#f3dba6'; c.strokeStyle = '#b98a47'; c.lineWidth = 3;
-    c.beginPath(); c.moveTo(W * 0.42, H); c.quadraticCurveTo(W * 0.46, H * 0.8, W * 0.5 - 14, H * 0.67); c.lineTo(W * 0.5 + 14, H * 0.67); c.quadraticCurveTo(W * 0.56, H * 0.8, W * 0.6, H); c.closePath(); c.fill(); c.stroke();
-    // arbres ronds
+    c.beginPath(); c.moveTo(cx - 13 * k, Ly.base - 2); c.quadraticCurveTo(cx - 30, (Ly.base + H) / 2, cx - 60, H); c.lineTo(cx + 30, H); c.quadraticCurveTo(cx + 22, (Ly.base + H) / 2, cx + 13 * k, Ly.base - 2); c.closePath(); c.fill(); c.stroke();
+    // arbres et buissons sous les blasons
     const tree = (x, y, r, col) => { c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(x, y + r * 0.95, r * 0.9, r * 0.25, 0, 0, 7); c.fill(); c.fillStyle = '#8a5530'; c.fillRect(x - r * 0.14, y, r * 0.28, r * 0.9); c.fillStyle = col; c.strokeStyle = '#3d2c4e'; c.lineWidth = 3; c.beginPath(); c.arc(x, y - r * 0.2, r, 0, 7); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.25)'; c.beginPath(); c.arc(x - r * 0.35, y - r * 0.55, r * 0.3, 0, 7); c.fill(); };
-    tree(W * 0.1, H * 0.66, 22, '#4caf50'); tree(W * 0.2, H * 0.71, 16, '#5fbf4a'); tree(W * 0.88, H * 0.67, 24, '#4caf50'); tree(W * 0.8, H * 0.73, 15, '#66c25a');
+    const gy = Ly.base + 18;
+    tree(W * 0.08, gy, 20, '#4caf50'); tree(W * 0.2, gy + 16, 14, '#5fbf4a'); tree(W * 0.92, gy + 2, 22, '#4caf50'); tree(W * 0.8, gy + 18, 13, '#66c25a');
+    // buissons, rochers et barrière (positions fixes, hors du chemin)
+    const bush = (x, y, r) => { c.fillStyle = '#3f9a3a'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.5; c.beginPath(); c.arc(x - r * 0.7, y, r * 0.75, Math.PI, 0); c.arc(x, y - r * 0.35, r, Math.PI, 0); c.arc(x + r * 0.7, y, r * 0.75, Math.PI, 0); c.closePath(); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.22)'; c.beginPath(); c.arc(x - r * 0.3, y - r * 0.8, r * 0.3, 0, 7); c.fill(); };
+    const rock = (x, y, r) => { c.fillStyle = '#b8b0c8'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(x - r, y); c.lineTo(x - r * 0.6, y - r * 0.8); c.lineTo(x + r * 0.3, y - r); c.lineTo(x + r, y - r * 0.2); c.lineTo(x + r * 0.9, y); c.closePath(); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.4)'; c.fillRect(x - r * 0.45, y - r * 0.7, r * 0.5, r * 0.18); };
+    const span = Math.max(30, Ly.playTop - Ly.base - 20);
+    bush(W * 0.3, Ly.base + 12, 11); bush(W * 0.7, Ly.base + 10, 12); bush(W * 0.06, Ly.base + span * 0.62, 13); bush(W * 0.95, Ly.base + span * 0.55, 12);
+    rock(W * 0.36, Ly.base + span * 0.66, 8); rock(W * 0.84, Ly.base + span * 0.3, 7); rock(W * 0.14, Ly.base + span * 0.34, 6);
+    c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.5; c.fillStyle = '#d9a566';
+    for (const side of [-1, 1]) { const x0 = cx + side * 92 * k, fy = Ly.base + 6; for (let j = 0; j < 3; j++) { const x = x0 + side * (j * 13 + 6); c.beginPath(); c.roundRect(x - 3, fy - 15, 6, 17, 2); c.fill(); c.stroke(); } c.beginPath(); c.moveTo(x0 + side * 3, fy - 9); c.lineTo(x0 + side * 38, fy - 9); c.stroke(); }
+    for (let i = 0; i < 9; i++) { const x = (i * 97 + 23) % W, y = Ly.base + 20 + ((i * 37) % Math.max(20, Ly.playTop - Ly.base - 30)); c.fillStyle = ['#ff7eb6', '#ffe45c', '#ffffff'][i % 3]; c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill(); }
     // château
-    const k = Math.min(W / 170 * 0.8, H / 150 * 0.4);
-    c.save(); c.translate(W / 2, H * 0.62); c.scale(k, k);
+    c.save(); c.translate(cx, oy); c.scale(k, k);
     drawCastle(c, tier, { time: t, cannon: this.save.data.castle.cannon > 0, aim: -Math.PI / 2 + Math.sin(t * 0.8) * 0.8 });
     c.restore();
-    // petits papillons / étincelles
-    for (let i = 0; i < 5; i++) {
-      const x = W * (0.15 + 0.17 * i) + Math.sin(t * 0.9 + i * 2) * 26, y = H * 0.72 + Math.cos(t * 1.3 + i) * 16;
-      c.fillStyle = ['#ff7eb6', '#ffe45c', '#ffffff', '#8fe3ff', '#ffb224'][i]; c.globalAlpha = 0.85;
-      const fl = Math.abs(Math.sin(t * 12 + i)) * 5 + 1; c.beginPath(); c.ellipse(x - 3, y, fl, 4, 0, 0, 7); c.ellipse(x + 3, y, fl, 4, 0, 0, 7); c.fill(); c.globalAlpha = 1;
+    // brainrots qui marchent au sol (2 files, dans les deux sens), au-dessus du bouton JOUER
+    const lanes = [Ly.base + (Ly.playTop - Ly.base) * 0.42, Ly.playTop - 8];
+    if (!this.homeWalk) this.homeWalk = Array.from({ length: 6 }, (_, i) => ({ type: WALKERS[i % WALKERS.length], lane: i % 2, dir: i % 2 ? -1 : 1, x: ((i * 0.37) % 1) * (W + 120) - 60, v: 16 + Math.random() * 10 }));
+    for (const m of this.homeWalk.sort((a, b) => a.lane - b.lane)) {
+      m.x += (m.dir * m.v) / 60;
+      if (m.x > W + 60 || m.x < -60) { m.x = m.dir > 0 ? -60 : W + 60; m.type = WALKERS[Math.floor(Math.random() * WALKERS.length)]; }
+      const f = enemyFrames(m.type), fr = f.frames[0][Math.floor(t * 5 + m.v) % 2]; if (!fr || !fr.ready) continue;
+      const sz = (m.lane ? 34 : 27) + (f.half > 20 ? 6 : 0), y = lanes[m.lane] - sz / 2 - Math.abs(Math.sin(t * 8 + m.v)) * 3;
+      c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(m.x, lanes[m.lane], sz * 0.36, sz * 0.1, 0, 0, 7); c.fill();
+      c.save(); c.translate(m.x, y); if (m.dir < 0) c.scale(-1, 1); c.drawImage(fr.cv, -sz / 2, -sz / 2, sz, sz); c.restore();
     }
   },
 

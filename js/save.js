@@ -88,7 +88,8 @@ export class Save {
     for (const [t, n] of Object.entries(CAMPAIGN.towerUnlocks)) if (p >= n && !this.data.towers.includes(t)) { this.data.towers.push(t); got.push(t); }
     return got;
   }
-  collectionNew() { const d = this.data; return d.towers.length > (d.viewed.towers || 0) || d.seen.enemies.length > (d.viewed.enemies || 0); }
+  // nombre de nouveautés pas encore vues dans la collection
+  collectionNew() { const d = this.data; return Math.max(0, d.towers.length - (d.viewed.towers || 0)) + Math.max(0, d.seen.enemies.length - (d.viewed.enemies || 0)); }
   spend(n, cur = 'gems') { if (this.data[cur] < n) return false; this.data[cur] -= n; this.persist(); return true; }
 
   // ------------------------------------------------------------- château
