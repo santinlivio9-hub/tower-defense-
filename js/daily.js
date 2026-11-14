@@ -19,6 +19,11 @@ export function untilMidnight() {
   const s = Math.max(60, (m - n) / 1000), h = Math.floor(s / 3600), mn = Math.floor((s % 3600) / 60);
   return h ? `${h} h ${String(mn).padStart(2, '0')}` : `${mn} min`;
 }
+// Jusqu'au lundi suivant (quête de la semaine) : « 3 j 4 h »
+export function untilMonday() {
+  const n = new Date(), m = new Date(n); m.setHours(24, 0, 0, 0); while (m.getDay() !== 1) m.setDate(m.getDate() + 1);
+  const h = Math.max(1, Math.floor((m - n) / 3600000)); return h >= 24 ? `${Math.floor(h / 24)} j ${h % 24} h` : `${h} h`;
+}
 // Petites puces de récompense (icône + valeur)
 export function rewardChips(r) {
   const out = [];
@@ -26,7 +31,7 @@ export function rewardChips(r) {
   if (r.gems) out.push(`<span class="rw">${gem()}<b>${r.gems}</b></span>`);
   if (r.chest) out.push(`<span class="rw chest">${chestSvg(r.chest)}<b>${r.chest === 'gold' ? 'Doré' : 'Bois'}</b></span>`);
   if (typeof r.boosts === 'object') for (const [id, n] of Object.entries(r.boosts)) out.push(`<span class="rw">${icon(BOOSTS[id].icon)}<b>×${n}</b></span>`);
-  else if (r.boosts) out.push(`<span class="rw">${icon('bag')}<b>×${r.boosts}</b></span>`);
+  else if (r.boosts) out.push(`<span class="rw">${icon('boost')}<b>×${r.boosts}</b></span>`);
   if (r.talent) out.push(`<span class="rw">${icon('talent')}<b>${r.talent}</b></span>`);
   return out.join('');
 }
@@ -34,7 +39,7 @@ export function rewardChips(r) {
 function rewardArt(r) {
   if (r.chest) return chestSvg(r.chest);
   if (typeof r.boosts === 'object') return boostArt(Object.keys(r.boosts)[0]);
-  if (r.boosts) return `<span class="ra-ico">${icon('bag')}</span>`;
+  if (r.boosts) return `<span class="ra-ico">${icon('boost')}</span>`;
   if (r.gems) return gem('big');
   return `<i class="coin-ico big"></i>`;
 }
@@ -62,13 +67,43 @@ export const Daily = {
     this['daily_' + kind](m);
     this.openOverlay(m);
   },
-  afterClaim(text, art) {
+  afterClaim(text, art, from) {
     this.audio.play('chest'); this.haptics.pulse(2); this.refreshWallet(); this.tabBadges();
-    this.rewardPop(art, text);
+    this.rewardPop(art, text, from);
   },
-  // Carte récompense en grand, avec rayons (touche pour fermer)
-  rewardPop(art, text) {
+  // Récompenses qui volent vers les compteurs (pièces, gemmes ; le reste vers la boutique / le passe)
+  flyRewards(fromEl, r, pass = 0) {
+    const app = $('#app'), A = app.getBoundingClientRect(), F = fromEl.getBoundingClientRect();
+    const fx = F.left + F.width / 2 - A.left, fy = F.top + F.height / 2 - A.top;
+    const items = [];
+    if (r.coins) items.push([coin('big'), '#resbar .coins']);
+    if (r.gems) items.push([gem('big'), '#resbar .gems']);
+    if (r.chest) items.push([icon('chest'), '#tabbar .tab-shop']);
+    if (r.boosts) items.push([icon('boost'), '#tabbar .tab-shop']);
+    if (pass) items.push([icon('ticket'), '#tabbar .tab-menu']);
+    $('#resbar').classList.add('lift'); clearTimeout(this._liftT); this._liftT = setTimeout(() => $('#resbar').classList.remove('lift'), 1500);
+    items.forEach(([html, sel], k) => {
+      const tgt = $(sel); if (!tgt) return;
+      const T = tgt.getBoundingClientRect(), tx = T.left + T.width / 2 - A.left, ty = T.top + T.height / 2 - A.top;
+      for (let n = 0; n < 4; n++) {
+        const e = el('div', 'fly-rw', html); e.style.left = fx + 'px'; e.style.top = fy + 'px'; app.append(e);
+        const dx = tx - fx, dy = ty - fy, mx = dx * 0.3 + (n - 1.5) * 28, my = dy * 0.3 - 60 - n * 10;
+        e.animate([{ transform: 'translate(-50%,-50%) scale(.4)', opacity: 0 }, { transform: `translate(calc(-50% + ${mx}px), calc(-50% + ${my}px)) scale(1.25)`, opacity: 1, offset: 0.35 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.55)`, opacity: 0.9 }],
+          { duration: 760, delay: k * 140 + n * 70, easing: 'cubic-bezier(.5,0,.5,1)', fill: 'both' }).onfinish = () => {
+          e.remove(); tgt.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 220 });
+          if (n === 0) { this.audio.play('tick'); this.haptics.pulse(0); }
+        };
+      }
+    });
+    setTimeout(() => this.refreshWallet(), 700);
+  },
+  // Carte récompense en grand, avec rayons (touche pour fermer). from = élément d'où elle sort
+  rewardPop(art, text, from) {
     const p = el('div', 'reward-pop', `<div class="rays"></div><div class="rp-card"><span class="rp-art">${art}</span><b>${text}</b></div><small>Touche pour continuer</small>`);
+    if (from) {
+      const A = $('#app').getBoundingClientRect(), F = from.getBoundingClientRect();
+      requestAnimationFrame(() => { const C = $('.rp-card', p).getBoundingClientRect(); $('.rp-card', p).animate([{ transform: `translate(${F.left + F.width / 2 - (C.left + C.width / 2)}px, ${F.top + F.height / 2 - (C.top + C.height / 2)}px) scale(.2)` }, { transform: 'translate(0,0) scale(1.15)', offset: 0.7 }, { transform: 'none' }], { duration: 650, easing: 'cubic-bezier(.3,1.3,.5,1)' }); void A; });
+    }
     const close = () => { p.classList.add('out'); setTimeout(() => p.remove(), 250); };
     p.onclick = close; setTimeout(close, 2600);
     $('#app').append(p);
@@ -98,62 +133,86 @@ export const Daily = {
   daily_quests(m) {
     const sv = this.save, D = sv.data.daily;
     m.append(el('h2', 'win', 'QUÊTES'));
-    const row = (q, weekly) => {
-      const def = sv.questDef(q, weekly), done = q.prog >= def.n, p = Math.min(1, q.prog / def.n);
+    const card = (q, weekly) => {
+      const def = sv.questDef(q, weekly), done = q.prog >= def.n, p = Math.min(1, q.prog / def.n), cur = Math.min(q.prog, def.n);
       const r = el('div', 'quest' + (weekly ? ' weekly' : '') + (q.claimed ? ' claimed' : done ? ' done' : ''), `<span class="q-ico">${icon(def.icon)}</span>
-        <span class="q-txt"><b>${def.text.replace('{n}', fmt(def.n))}</b><span class="progress"><i style="width:${p * 100}%"></i></span><small>${fmt(Math.min(q.prog, def.n))} / ${fmt(def.n)}</small></span>
+        <span class="q-txt"><b>${def.text.replace('{n}', fmt(def.n))}</b><span class="qbar"><i style="width:${p * 100}%"></i><em>${fmt(cur)} / ${fmt(def.n)}</em></span></span>
         <span class="q-rw">${rewardChips(def.reward)}<span class="rw pass">${icon('ticket')}<b>+${def.pass}</b></span></span>`);
       if (q.claimed) r.append(el('span', 'owned', icon('check')));
-      else if (!done) r.append(el('span', 'state-wip', `En cours<b>${fmt(Math.min(q.prog, def.n))}/${fmt(def.n)}</b>`));
-      else { const b = el('button', 'btn sm green cta', 'Récupérer'); b.onclick = () => { const t = sv.claimQuest(q); if (!t) { this.audio.play('error'); return; } this.afterClaim(t, rewardArt(def.reward)); this.openDaily('quests'); }; r.append(b); }
+      else if (!done) r.append(el('span', 'state-wip', `En cours<b>${fmt(cur)}/${fmt(def.n)}</b>`));
+      else {
+        const b = el('button', 'btn sm green cta', 'RÉCUPÉRER');
+        b.onclick = () => {
+          const t = sv.claimQuest(q); if (!t) { this.audio.play('error'); return; }
+          b.disabled = true; this.audio.play('chest'); this.haptics.pulse(2);
+          r.append(el('span', 'stamp', 'TERMINÉ !'));
+          this.flyRewards($('.q-rw', r), def.reward, def.pass);
+          this.tabBadges(); setTimeout(() => { if (m.isConnected) this.openDaily('quests'); }, 1100);
+        };
+        r.append(b);
+      }
       return r;
     };
-    m.append(el('small', 'kicker', 'AUJOURD\'HUI'));
-    for (const q of D.quests) m.append(row(q, false));
-    if (D.weekly) { m.append(el('small', 'kicker', 'CETTE SEMAINE')); m.append(row(D.weekly, true)); }
-    m.append(el('p', 'sub', 'De nouvelles quêtes chaque jour à minuit, une grosse quête chaque lundi.'));
+    m.append(el('div', 'qhead', `<small class="kicker">AUJOURD'HUI</small><span class="timer">${icon('calendar')}Nouvelles quêtes dans <b>${untilMidnight()}</b></span>`));
+    for (const q of D.quests) m.append(card(q, false));
+    if (D.weekly) {
+      const wk = el('div', 'weekly-frame', `<div class="qhead"><small class="kicker">QUÊTE DE LA SEMAINE</small><span class="timer">${icon('trophy')}Fin dans <b>${untilMonday()}</b></span></div>`);
+      wk.append(card(D.weekly, true)); m.append(wk);
+    }
   },
 
   // ------------------------------------------------------------------ roue de la chance
   daily_wheel(m) {
-    const sv = this.save, W = DAILY.wheel, n = W.length, seg = 360 / n;
+    const sv = this.save, W = DAILY.wheel, n = W.length, seg = 360 / n, jack = W.reduce((b, x, i) => (x.w < W[b].w ? i : b), 0);
     m.append(el('h2', 'win', 'ROUE DE LA CHANCE'));
     let paths = '';
-    W.forEach((s, i) => {
+    W.forEach((sg, i) => {
       const a0 = ((i * seg - 90 - seg / 2) * Math.PI) / 180, a1 = (((i + 1) * seg - 90 - seg / 2) * Math.PI) / 180;
-      paths += `<path d="M100 100L${100 + 96 * Math.cos(a0)} ${100 + 96 * Math.sin(a0)}A96 96 0 0 1 ${100 + 96 * Math.cos(a1)} ${100 + 96 * Math.sin(a1)}z" fill="${WHEEL_COLORS[i % WHEEL_COLORS.length]}" stroke="#3d2c4e" stroke-width="3"/>`;
+      const d = `M100 100L${100 + 96 * Math.cos(a0)} ${100 + 96 * Math.sin(a0)}A96 96 0 0 1 ${100 + 96 * Math.cos(a1)} ${100 + 96 * Math.sin(a1)}z`;
+      paths += `<path d="${d}" fill="${i === jack ? 'url(#wjack)' : WHEEL_COLORS[i % WHEEL_COLORS.length]}" stroke="#3d2c4e" stroke-width="3"/>`;
+      if (i === jack) paths += `<path class="jshine" d="${d}" fill="#fff"/>`;
     });
-    const wheel = el('div', 'wheel', `<svg viewBox="0 0 200 200">${paths}<circle cx="100" cy="100" r="96" fill="none" stroke="#3d2c4e" stroke-width="5"/></svg>`);
-    W.forEach((s, i) => {
-      const lab = el('span', 'wl', rewardChips(s)); lab.style.transform = `rotate(${i * seg}deg) translateY(-78px)`; wheel.append(lab);
-    });
+    const wheel = el('div', 'wheel', `<svg viewBox="0 0 200 200"><defs><linearGradient id="wjack" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6c8"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e09600"/></linearGradient></defs>${paths}
+      <circle cx="100" cy="100" r="96" fill="none" stroke="#3d2c4e" stroke-width="5"/></svg>`);
+    // libellés : icône illustrée + valeur, toujours à l'endroit (ils compensent la rotation)
+    const val = (sg) => (sg.coins ? fmt(sg.coins) : sg.gems ? sg.gems : sg.boosts ? '×' + sg.boosts : sg.chest === 'gold' ? 'JACKPOT' : 'Coffre');
+    const art = (sg) => (sg.coins ? coin('big') : sg.gems ? gem('big') : sg.boosts ? icon('boost') : chestSvg(sg.chest));
+    const labs = W.map((sg, i) => { const l = el('span', 'wl' + (i === jack ? ' jack' : ''), `<span class="wl-art">${art(sg)}</span><b>${val(sg)}</b>`); wheel.append(l); return l; });
+    const place = (A) => labs.forEach((l, i) => { l.style.transform = `rotate(${i * seg}deg) translateY(-62px) rotate(${-i * seg - A}deg)`; });
+    place(0);
     const box = el('div', 'wheel-box'); box.append(wheel, el('i', 'pointer'), el('span', 'hub', icon('star')));
-    for (let k = 0; k < 16; k++) { const b = el('i', 'bulb'); b.style.transform = `rotate(${k * 22.5}deg) translateY(-128px)`; b.style.animationDelay = `${(k % 2) * 0.4}s`; box.append(b); }
+    const bulbs = []; for (let k = 0; k < 16; k++) { const b = el('i', 'bulb'); b.style.transform = `rotate(${k * 22.5}deg) translateY(-128px)`; b.style.animationDelay = `${(k % 2) * 0.4}s`; box.append(b); bulbs.push(b); }
     m.append(box);
-    const free = sv.wheelReady();
-    const go = el('button', 'btn big ' + (free ? 'green cta' : 'pink'), free ? icon('play') + 'TOURNER' : `Tour bonus ${gem()}${DAILY.wheelExtraCost}`);
+    const free = sv.wheelReady(), foot = el('div', 'wheel-foot');
     let spinning = false;
-    go.onclick = () => {
-      if (spinning) return;
-      if (!sv.wheelReady()) { if (!sv.spend(DAILY.wheelExtraCost, 'gems')) { this.audio.play('error'); this.toast('Pas assez de gemmes', 'Le tour gratuit revient demain', gem()); return; } sv.data.daily.wheel = ''; }
-      spinning = true; go.classList.remove('cta'); go.classList.add('locked');
-      const res = sv.spinWheel();
-      const turns = 6 * 360 + (360 - res.i * seg) + (Math.random() - 0.5) * seg * 0.6;
-      const svg = $('svg', wheel); const labs = $$('.wl', wheel);
-      wheel.style.transition = 'transform 4.2s cubic-bezier(.12,.75,.18,1)'; wheel.style.transform = `rotate(${turns}deg)`;
-      // tic-tac synchronisé avec les segments qui passent
-      let last = 0; const t0 = performance.now();
-      const tick = () => {
-        const st = getComputedStyle(wheel).transform; let ang = 0;
-        if (st && st !== 'none') { const v = st.split('(')[1].split(')')[0].split(','); ang = Math.atan2(+v[1], +v[0]) * 180 / Math.PI; }
-        const s = Math.floor((ang + 720) / seg); if (s !== last) { last = s; this.audio.play('tick'); this.haptics.pulse(0); }
-        if (performance.now() - t0 < 4300) requestAnimationFrame(tick);
+    // lancer : accélère, tourne, ralentit longuement (suspense), cliquette à chaque case
+    const spin = () => {
+      spinning = true; box.classList.add('spinning');
+      const res = sv.spinWheel(), turns = 7 * 360 + (360 - res.i * seg) + (Math.random() - 0.5) * seg * 0.55, T = 5600;
+      const N = 240, cum = [0]; for (let k = 1; k <= N; k++) { const u = k / N, v = u < 0.1 ? u / 0.1 : Math.pow(1 - (u - 0.1) / 0.9, 2.4); cum.push(cum[k - 1] + v); }
+      const ease = (u) => { const x = Math.min(N, u * N), i = Math.floor(x); return (cum[i] + (cum[Math.min(N, i + 1)] - cum[i]) * (x - i)) / cum[N]; };
+      const t0 = performance.now(); let last = 0, lit = 0;
+      const frame = (now) => {
+        const u = Math.min(1, (now - t0) / T), A = turns * ease(u);
+        wheel.style.transform = `rotate(${A}deg)`; place(A);
+        const s = Math.floor((A + seg / 2) / seg);
+        if (s !== last) { last = s; this.audio.play('tick'); this.haptics.pulse(0); box.classList.remove('flick'); void box.offsetWidth; box.classList.add('flick'); bulbs[lit % 16].classList.remove('on'); lit++; bulbs[lit % 16].classList.add('on'); }
+        if (u < 1) { requestAnimationFrame(frame); return; }
+        box.classList.remove('spinning'); box.classList.add('win'); this.audio.play('victory'); this.haptics.pulse(2);
+        setTimeout(() => { this.afterClaim(res.text, rewardArt(res.r), labs[res.i]); spinning = false; setTimeout(() => { if (m.isConnected) this.openDaily('wheel'); }, 900); }, 700);
       };
-      requestAnimationFrame(tick);
-      setTimeout(() => { this.afterClaim(res.text, rewardArt(res.r)); this.audio.play('victory'); spinning = false; this.openDaily('wheel'); }, 4400);
-      void svg; void labs;
+      requestAnimationFrame(frame);
     };
-    m.append(go, el('p', 'sub', free ? 'Un tour gratuit chaque jour.' : 'Ton tour gratuit revient demain.'));
+    if (free) {
+      const go = el('button', 'btn big green cta', icon('playgold') + 'TOURNER');
+      go.onclick = () => { if (spinning) return; go.classList.remove('cta'); go.classList.add('locked'); go.innerHTML = 'La roue tourne…'; spin(); };
+      foot.append(go, el('p', 'sub', 'Un tour gratuit chaque jour.'));
+    } else {
+      foot.append(el('div', 'wheel-timer', `${icon('calendar')}<span>Prochain tour gratuit dans <b>${untilMidnight()}</b></span>`));
+      const bonus = this.buyButton(DAILY.wheelExtraCost, 'gems', 'Tour bonus', () => { if (spinning) return false; sv.data.daily.wheel = ''; bonus.disabled = true; spin(); return false; }, 'pink');
+      bonus.classList.add('wide'); foot.append(bonus);
+    }
+    m.append(foot);
   },
 
   // ------------------------------------------------------------------ défi du jour
@@ -172,23 +231,36 @@ export const Daily = {
 
   // ------------------------------------------------------------------ passe de progression
   daily_pass(m) {
-    const sv = this.save, P = sv.data.pass, tier = sv.passTier(), into = P.pts - tier * PASS.perTier;
+    const sv = this.save, P = sv.data.pass, tier = sv.passTier(), into = P.pts - tier * PASS.perTier, maxed = tier >= PASS.tiers;
     m.append(el('h2', 'win', 'PASSE DE PROGRESSION'));
-    m.append(el('div', 'pass-head', `<span class="pt">${tier}</span><div class="ph-bar"><div class="progress"><i style="width:${tier >= PASS.tiers ? 100 : (into / PASS.perTier) * 100}%"></i></div><small>${tier >= PASS.tiers ? 'Passe terminé !' : `${fmt(into)} / ${PASS.perTier} points jusqu'au palier ${tier + 1}`}</small></div>`));
-    m.append(el('p', 'sub', `Gagne des points avec l'XP, les étoiles (+${PASS.perStar} chacune), les quêtes et le défi du jour.`));
-    if (sv.passReady() > 1) { const all = el('button', 'btn green cta', icon('gift') + `Tout récupérer (${sv.passReady()})`); all.onclick = () => { const out = []; for (let i = 1; i <= tier; i++) { const t = sv.claimPass(i); if (t) out.push(t); } this.afterClaim(`${out.length} paliers récupérés`, `<span class="ra-ico">${icon('ticket')}</span>`); this.openDaily('pass'); }; m.append(all); }
+    m.append(el('div', 'pass-head', `<span class="pt">${icon('ticket')}</span><div class="ph-bar"><div class="ph-top"><b>Palier ${tier}</b><span>${icon('ticket')}${fmt(P.pts)} pts</span></div>
+      <div class="qbar"><i style="width:${maxed ? 100 : (into / PASS.perTier) * 100}%"></i><em>${maxed ? 'Passe terminé !' : `${fmt(into)} / ${PASS.perTier}`}</em></div></div>`));
+    m.append(el('p', 'sub', 'Des points avec l\'XP, les étoiles, les quêtes et le défi du jour.'));
+    const ready = sv.passReady();
+    if (ready > 1) {
+      const all = el('button', 'btn green cta', icon('gift') + `Tout récupérer (${ready})`);
+      all.onclick = () => { const r = {}; let k = 0; for (let i = 1; i <= tier; i++) { const pr = passReward(i); if (sv.claimPass(i)) { k++; for (const key of ['coins', 'gems']) if (pr[key]) r[key] = (r[key] || 0) + pr[key]; if (pr.chest) r.chest = pr.chest; if (pr.boosts) r.boosts = 1; } }
+        this.audio.play('chest'); this.haptics.pulse(2); this.flyRewards(all, r); this.tabBadges(); this.toast(`${k} paliers récupérés`, '', icon('pass')); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 900); };
+      m.append(all);
+    }
+    // piste verticale : rail qui se remplit jusqu'au palier actuel, cartes illustrées, paliers spéciaux plus gros
     const track = el('div', 'pass-track');
     let focus = null;
     for (let i = 1; i <= PASS.tiers; i++) {
-      const r = passReward(i), got = P.claimed.includes(i), open = i <= tier;
-      const row = el('div', 'ptier' + (got ? ' got' : open ? ' ready' : '') + (i % 5 === 0 ? ' big' : ''), `<span class="pn">${i}</span><span class="pr">${rewardChips(r)}</span>`);
+      const r = passReward(i), got = P.claimed.includes(i), open = i <= tier, big = i % 5 === 0;
+      const fill = open ? 1 : i === tier + 1 ? into / PASS.perTier : 0;
+      const row = el('div', 'ptier' + (got ? ' got' : open ? ' ready' : ' locked') + (big ? ' big' : '') + (i === PASS.tiers ? ' final' : ''), `<span class="rail" style="--f:${fill}"></span><span class="pn">${i}</span>
+        <div class="pcard"><span class="pc-art">${rewardArt(r)}</span><span class="pc-rw">${rewardChips(r)}</span></div>`);
       if (got) row.append(el('span', 'owned', icon('check')));
-      else if (open) { const b = el('button', 'btn sm green cta', 'Récupérer'); b.onclick = () => { const t = sv.claimPass(i); if (t) { this.afterClaim(t, rewardArt(r)); this.openDaily('pass'); } }; row.append(b); if (!focus) focus = row; }
-      else row.append(el('span', 'lockpts', `${icon('lock')}${fmt(i * PASS.perTier)}`));
+      else if (open) {
+        const b = el('button', 'btn sm green cta', 'Récupérer');
+        b.onclick = () => { if (!sv.claimPass(i)) return; b.disabled = true; b.classList.remove('cta'); this.audio.play('chest'); this.haptics.pulse(2); row.classList.add('claiming'); this.flyRewards($('.pcard', row), r); this.tabBadges(); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 900); };
+        row.append(b); if (!focus) focus = row;
+      } else row.append(el('span', 'lockpts', `${icon('lock')}<b>${fmt(i * PASS.perTier)}</b><small>pts</small>`));
       if (!focus && !open) focus = row;
       track.append(row);
     }
     m.append(track);
-    requestAnimationFrame(() => { if (focus) track.scrollTop = focus.offsetTop - track.offsetTop - 60; });
+    requestAnimationFrame(() => { if (focus) track.scrollTop = focus.offsetTop - track.offsetTop - 70; });
   },
 };
