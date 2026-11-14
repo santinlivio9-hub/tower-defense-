@@ -273,7 +273,8 @@ export const Meta = {
     const x = el('button', 'icon-btn close', icon('close')); x.onclick = () => this.closeOverlay();
     m.append(x, el('h2', heroic ? 'lose' : 'win', L.boss ? `BOSS ${L.id}` : `NIVEAU ${L.id}`), el('p', 'sub', `Monde ${L.world + 1} · ${w.name}`));
     const top = el('div', 'prep-top');
-    const cv = el('canvas', 'thumb'); cv.width = 264; cv.height = 414; drawMapPreview(cv, THEMES[w.theme], buildField(L.layout, L.mirror, L.slots, CAMPAIGN.mines));
+    const cv = el('canvas', 'thumb'); cv.width = 264; cv.height = 414;
+    try { drawMapPreview(cv, THEMES[w.theme], buildField(L.layout, L.mirror, L.slots, CAMPAIGN.mines)); } catch (e) { console.error(e); }   // la miniature est facultative
     const hm = heroicMod(n), money = Math.round(L.money * (heroic && hm.money ? hm.money : 1));
     const info = el('div', 'prep-info', `
       <div>${icon('wave')}<b>${L.waves}</b> vagues${L.boss ? ' · mini-boss' : ''}</div>

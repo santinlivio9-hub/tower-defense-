@@ -12,6 +12,7 @@ const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const short = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1000).toFixed(n >= 1e5 ? 0 : 1) + 'k' : fmt(n));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const ABORT = { abort: true }, SKIP = { skip: true };
 const CONF = ['#ff5e7e', '#ffd23f', '#4cd137', '#3d9dfc', '#b05cff', '#ff9f1a', '#ffffff'];
 
 // Confettis et étincelles dessinés sur un canvas propre à la séquence
@@ -43,27 +44,44 @@ class Sparkle {
 }
 
 export const End = {
+  // Point d'entrée protégé : au moindre souci, l'écran de fin de secours (ui.endFallback) prend le relais.
   showEnd(r) {
     const g = this.game; if (!g || g.result !== r) return;
+    try { this.showEndSeq(r, g); } catch (e) { console.error(e); this.endFallback(r); }
+  },
+  showEndSeq(r, g) {
     this.closeMenu(); this.aiming = null;
     if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.weaponReveal(r.towers, () => this.showEnd(r)); return; }
+    { // résultat toujours complet, même si l'écriture de la progression a été interrompue
+      const d0 = this.save.data;
+      r.gems = r.gems || 0; r.coins = r.coins || 0; r.xp = r.xp || 0; r.score = r.score || 0; r.stars = r.stars || 0;
+      r.xpBefore = r.xpBefore || { level: d0.level, xp: d0.xp }; r.levelUps = r.levelUps || []; r.rewards = r.rewards || []; r.achievements = r.achievements || [];
+    }
     const d = this.save.data, win = r.victory;
     const root = el('div', 'endseq ' + (win ? 'win' : 'lose'));
     root.innerHTML = `<canvas class="es-fx"></canvas>
+      <button class="es-skip" aria-label="Passer">Passer</button>
       <div class="es-top"><div class="es-xp"><span class="lvl"></span><div class="xpbar"><i></i><b></b></div></div><span class="chip es-coins">${coin()}<b></b></span><span class="chip es-gems">${gem()}<b></b></span></div>
       <div class="es-stage"></div><div class="es-badges"></div>
       <div class="es-hint">Touche pour accélérer</div>`;
     this.openOverlay(root, 'full');
-    this.prepareShare(r);
-    const fx = new Sparkle($('.es-fx', root));
-    const seq = { fast: false, wake: null };
+    try { this.prepareShare(r); } catch (e) { console.error(e); }   // l'image de partage est facultative
+    // effets facultatifs : sans canvas disponible, la séquence continue sans confettis
+    let fx; try { fx = new Sparkle($('.es-fx', root)); } catch (e) { console.error(e); fx = { rain() {}, burst() {} }; }
+    const seq = { fast: false, wake: null, skip: false };
     root.addEventListener('pointerdown', () => { seq.fast = true; if (seq.wake) seq.wake(); });
+    // « Passer » : saute directement à l'écran final (les récompenses sont déjà enregistrées)
+    $('.es-skip', root).addEventListener('pointerdown', (e) => { e.stopPropagation(); seq.skip = true; if (seq.wake) seq.wake(); });
     const alive = () => root.isConnected && this.game === g;
-    const wait = (ms) => new Promise((res) => {
-      if (!alive()) return;   // la séquence a été quittée : on s'arrête là
-      const done = () => { clearTimeout(t); seq.wake = null; res(); };
+    // attente interruptible : séquence quittée -> ABORT, « Passer » -> SKIP (jamais de promesse qui ne se termine pas)
+    const wait = (ms) => new Promise((res, rej) => {
+      if (!alive()) { rej(ABORT); return; }
+      if (seq.skip) { rej(SKIP); return; }
+      const done = () => { clearTimeout(t); seq.wake = null; if (!alive()) rej(ABORT); else if (seq.skip) rej(SKIP); else res(); };
       const t = setTimeout(done, seq.fast ? Math.min(ms, 70) : ms); seq.wake = done;
     });
+    // une étape qui échoue est sautée : la séquence va toujours jusqu'à l'écran final
+    const step = async (fn) => { if (seq.skip) return; try { await fn(); } catch (e) { if (e === ABORT) throw e; if (e !== SKIP) console.error(e); } };
     const shake = (k = 1) => { root.classList.remove('shake', 'shake2'); void root.offsetWidth; root.classList.add(k > 1 ? 'shake2' : 'shake'); };
     const center = (e) => { const a = e.getBoundingClientRect(), b = root.getBoundingClientRect(); return [a.left + a.width / 2 - b.left, a.top + a.height / 2 - b.top]; };
     // compteurs du haut : valeurs d'avant la partie
@@ -75,104 +93,116 @@ export const End = {
     const stage = $('.es-stage', root);
 
     const run = async () => {
+      let badges = [];
       // ---------------------------------------------------------------- 1. bannière
-      seq.fast = false;
-      const title = win ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE';
-      const sub = `${this.levelLabel(g)} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`;
-      stage.innerHTML = `<div class="es-banner"><b>${title}</b></div><p class="es-sub">${sub}</p>`;
-      this.haptics.pulse(win ? 2 : 1);
-      if (win) { fx.rain(90); await wait(650); shake(); }
-      else await wait(800);
-      if (win) {
-        const row = el('div', 'es-stars', [0, 1, 2].map(() => `<span>${icon('star')}</span>`).join('')); stage.append(row);
-        await wait(250);
-        for (let i = 0; i < 3; i++) {
-          if (i < r.stars) {
-            const s = row.children[i]; s.classList.add('on');
-            await wait(160);
-            const [x, y] = center(s); fx.burst(x, y, 22, ['#ffd23f', '#fff6c8', '#ffb224'], 340);
-            this.audio.play('star'); this.haptics.pulse(i === 2 ? 2 : 1); shake(i === 2 ? 2 : 1);
+      await step(async () => {
+        seq.fast = false;
+        const title = win ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE';
+        const sub = `${this.levelLabel(g)} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`;
+        stage.innerHTML = `<div class="es-banner"><b>${title}</b></div><p class="es-sub">${sub}</p>`;
+        this.haptics.pulse(win ? 2 : 1);
+        if (win) { fx.rain(90); await wait(650); shake(); }
+        else await wait(800);
+        if (win) {
+          const row = el('div', 'es-stars', [0, 1, 2].map(() => `<span>${icon('star')}</span>`).join('')); stage.append(row);
+          await wait(250);
+          for (let i = 0; i < 3; i++) {
+            if (i < r.stars) {
+              const s = row.children[i]; s.classList.add('on');
+              await wait(160);
+              const [x, y] = center(s); fx.burst(x, y, 22, ['#ffd23f', '#fff6c8', '#ffb224'], 340);
+              this.audio.play('star'); this.haptics.pulse(i === 2 ? 2 : 1); shake(i === 2 ? 2 : 1);
+            }
+            await wait(END.starGap * 1000);
           }
-          await wait(END.starGap * 1000);
+        } else if (!r.endless) {
+          stage.append(el('p', 'es-cheer', pick(END.cheers)));
+          await wait(500);
+          const tip = this.endTip(g), card = el('div', 'es-tip', `<span class="es-tip-art"></span><div><b>${icon('bulb')}Astuce</b>${tip.text}</div>`);
+          $('.es-tip-art', card).append(tip.type ? enemyImg(tip.type, 52) : el('span', 'es-tip-ico', icon('bulb')));
+          stage.append(card); await wait(1100);
         }
-      } else if (!r.endless) {
-        stage.append(el('p', 'es-cheer', pick(END.cheers)));
-        await wait(500);
-        const tip = this.endTip(g), card = el('div', 'es-tip', `<span class="es-tip-art"></span><div><b>${icon('bulb')}Astuce</b>${tip.text}</div>`);
-        $('.es-tip-art', card).append(tip.type ? enemyImg(tip.type, 52) : el('span', 'es-tip-ico', icon('bulb')));
-        stage.append(card); await wait(1100);
-      }
+      });
       // ---------------------------------------------------------------- 2. score
-      seq.fast = false;
-      const sc = el('div', 'es-score', '<span>Score</span><b>0</b>'); stage.append(sc);
-      await this.esCount($('b', sc), r.score, 1300, seq);
-      if (r.record) {
-        const st = el('div', 'es-stamp', `${icon('trophy')}NOUVEAU RECORD !`); stage.append(st);
-        await wait(220); this.audio.play('record'); this.haptics.pulse(2); shake(2);
-        const [x, y] = center(st); fx.burst(x, y, 30, ['#ffd23f', '#ffffff', '#ff5d8f'], 380);
-        await wait(900);
-      } else if (r.previous) { stage.append(el('p', 'es-sub', `Record : ${fmt(r.previous)}`)); await wait(350); }
-      if (r.endless && r.rank != null && r.rank >= 0) { stage.append(el('p', 'es-sub', `Classement local : <b>n° ${r.rank + 1}</b>`)); await wait(400); }
+      await step(async () => {
+        seq.fast = false;
+        const sc = el('div', 'es-score', '<span>Score</span><b>0</b>'); stage.append(sc);
+        await this.esCount($('b', sc), r.score, 1300, seq);
+        if (r.record) {
+          const st = el('div', 'es-stamp', `${icon('trophy')}NOUVEAU RECORD !`); stage.append(st);
+          await wait(220); this.audio.play('record'); this.haptics.pulse(2); shake(2);
+          const [x, y] = center(st); fx.burst(x, y, 30, ['#ffd23f', '#ffffff', '#ff5d8f'], 380);
+          await wait(900);
+        } else if (r.previous) { stage.append(el('p', 'es-sub', `Record : ${fmt(r.previous)}`)); await wait(350); }
+        if (r.endless && r.rank != null && r.rank >= 0) { stage.append(el('p', 'es-sub', `Classement local : <b>n° ${r.rank + 1}</b>`)); await wait(400); }
+      });
       // ---------------------------------------------------------------- 3. récompenses
-      seq.fast = false;
-      const pills = el('div', 'es-pills'); stage.append(pills);
-      const cp = el('div', 'es-pill coin', `${coin()}<b>+${fmt(rc)}</b>`), gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `${icon('xp')}<b>+${fmt(r.xp)} XP</b>`);
-      if (rc > 0) pills.append(cp);
-      pills.append(gp, xp);
-      for (const t of r.rewards || []) { const kind = /dor/i.test(t) ? 'gold' : 'wood'; pills.append(el('div', 'es-pill chest', `${chestSvg(kind)}<b>${t}</b>`)); }
-      await wait(450);
-      if (rc > 0) {
-        const n = 10, per = rc / n;
-        await this.esFly(root, cp, $('.es-coins', root), coin(), n, seq, () => { coinsShown += per; coinsB.textContent = fmt(Math.min(d.coins, coinsShown)); this.audio.play('coin'); this.esBump($('.es-coins', root)); });
-        coinsB.textContent = fmt(d.coins);
-      }
-      if (r.gems > 0) {
-        const n = Math.min(10, Math.max(3, Math.round(r.gems / 3))), per = r.gems / n;
-        await this.esFly(root, gp, $('.es-gems', root), gem(), n, seq, () => { gemsShown += per; gemsB.textContent = fmt(Math.min(d.gems, gemsShown)); this.audio.play('coin'); this.esBump($('.es-gems', root)); });
-        gemsB.textContent = fmt(d.gems);
-      }
-      if (r.xp > 0) {
-        await this.esFly(root, xp, $('.es-xp', root), '<i class="es-orb"></i>', 8, seq, () => { this.audio.play('tick'); this.esBump($('.es-xp .lvl', root)); });
-        // la barre se remplit ; chaque montée de niveau a son écran
-        let left = r.xp, ups = 0;
-        while (left > 0 && alive()) {
-          const need = XP.need(xpUI.level), gain = Math.min(left, need - xpUI.xp);
-          xpUI.xp += gain; left -= gain;
-          xpUI.bar.style.transition = `width ${seq.fast ? 0.15 : 0.7}s cubic-bezier(.3,.8,.3,1)`; showXp();
-          await wait(750);
-          if (xpUI.xp >= need) {
-            const u = (r.levelUps || [])[ups++];
-            xpUI.level++; xpUI.xp = 0; xpUI.bar.style.transition = 'none'; showXp();
-            if (u) await this.esLevelUp(root, u, fx, seq, wait, ups > 1);
+      await step(async () => {
+        seq.fast = false;
+        const pills = el('div', 'es-pills'); stage.append(pills);
+        const cp = el('div', 'es-pill coin', `${coin()}<b>+${fmt(rc)}</b>`), gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `${icon('xp')}<b>+${fmt(r.xp)} XP</b>`);
+        if (rc > 0) pills.append(cp);
+        pills.append(gp, xp);
+        for (const t of r.rewards || []) { const kind = /dor/i.test(t) ? 'gold' : 'wood'; pills.append(el('div', 'es-pill chest', `${chestSvg(kind)}<b>${t}</b>`)); }
+        await wait(450);
+        if (rc > 0) {
+          const n = 10, per = rc / n;
+          await this.esFly(root, cp, $('.es-coins', root), coin(), n, seq, () => { coinsShown += per; coinsB.textContent = fmt(Math.min(d.coins, coinsShown)); this.audio.play('coin'); this.esBump($('.es-coins', root)); });
+          coinsB.textContent = fmt(d.coins);
+        }
+        if (r.gems > 0) {
+          const n = Math.min(10, Math.max(3, Math.round(r.gems / 3))), per = r.gems / n;
+          await this.esFly(root, gp, $('.es-gems', root), gem(), n, seq, () => { gemsShown += per; gemsB.textContent = fmt(Math.min(d.gems, gemsShown)); this.audio.play('coin'); this.esBump($('.es-gems', root)); });
+          gemsB.textContent = fmt(d.gems);
+        }
+        if (r.xp > 0) {
+          await this.esFly(root, xp, $('.es-xp', root), '<i class="es-orb"></i>', 8, seq, () => { this.audio.play('tick'); this.esBump($('.es-xp .lvl', root)); });
+          // la barre se remplit ; chaque montée de niveau a son écran
+          let left = r.xp, ups = 0;
+          while (left > 0 && alive()) {
+            const need = XP.need(xpUI.level), gain = Math.min(left, need - xpUI.xp);
+            xpUI.xp += gain; left -= gain;
+            xpUI.bar.style.transition = `width ${seq.fast ? 0.15 : 0.7}s cubic-bezier(.3,.8,.3,1)`; showXp();
+            await wait(750);
+            if (xpUI.xp >= need) {
+              const u = (r.levelUps || [])[ups++];
+              xpUI.level++; xpUI.xp = 0; xpUI.bar.style.transition = 'none'; showXp();
+              if (u) await this.esLevelUp(root, u, fx, seq, wait, ups > 1);
+            }
           }
         }
-      }
+      });
       // ---------------------------------------------------------------- 4. succès et déblocages
-      seq.fast = false;
-      const badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.gems ? `+${a.gems}${gem()}` : '' }))];
-      if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
-      if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
-      if (win && !g.heroic && g.level.n === 12 && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
-      for (const t of r.towers || []) badges.push({ ico: 'cannon', name: TOWERS[t].name, sub: 'Nouvelle arme' });
-      if (r.legend && r.legend.length) badges.push({ ico: 'crown', name: 'Améliorations légendaires', sub: r.legend.map((t) => TOWERS[t].name).join(', ') });
-      if (badges.length) {
-        const box = $('.es-badges', root);
-        for (const [i, b] of badges.slice(0, END.maxBadges).entries()) {
-          box.append(el('div', 'es-badge', `<span class="es-medal">${icon(b.ico)}</span><span><b>${b.name}</b>${b.sub}</span>${b.val ? `<span class="val">${b.val}</span>` : ''}`));
-          this.audio.play('card'); this.haptics.pulse(1); await wait(i ? 330 : 400);
+      await step(async () => {
+        seq.fast = false;
+        badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.gems ? `+${a.gems}${gem()}` : '' }))];
+        if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
+        if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
+        if (win && !g.heroic && g.level.n === 12 && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
+        for (const t of r.towers || []) badges.push({ ico: 'cannon', name: TOWERS[t].name, sub: 'Nouvelle arme' });
+        if (r.legend && r.legend.length) badges.push({ ico: 'crown', name: 'Améliorations légendaires', sub: r.legend.map((t) => TOWERS[t].name).join(', ') });
+        if (badges.length) {
+          const box = $('.es-badges', root);
+          for (const [i, b] of badges.slice(0, END.maxBadges).entries()) {
+            box.append(el('div', 'es-badge', `<span class="es-medal">${icon(b.ico)}</span><span><b>${b.name}</b>${b.sub}</span>${b.val ? `<span class="val">${b.val}</span>` : ''}`));
+            this.audio.play('card'); this.haptics.pulse(1); await wait(i ? 330 : 400);
+          }
+          if (badges.length > END.maxBadges) { box.append(el('div', 'es-more', `+${badges.length - END.maxBadges} autre${badges.length - END.maxBadges > 1 ? 's' : ''}`)); await wait(250); }
+          await wait(1500);
+          box.classList.add('out');
         }
-        if (badges.length > END.maxBadges) { box.append(el('div', 'es-more', `+${badges.length - END.maxBadges} autre${badges.length - END.maxBadges > 1 ? 's' : ''}`)); await wait(250); }
-        await wait(1500);
-        box.classList.add('out');
-      }
+      });
       // ---------------------------------------------------------------- 5. écran final
-      root.classList.add('done');
-      this.esFinal(root, stage, r, g, badges);
-      if (win) fx.rain(40);
+      if (!alive()) return;
+      root.classList.add('done'); $('.es-badges', root).classList.add('out');
+      root.querySelectorAll('.es-lvup, .es-fly').forEach((e) => e.remove());
+      // compteurs du haut : valeurs finales, quelle que soit l'étape où la séquence s'est arrêtée
+      try { gemsB.textContent = fmt(d.gems); coinsB.textContent = fmt(d.coins || 0); xpUI.level = d.level; xpUI.xp = d.xp; xpUI.bar.style.transition = 'none'; showXp(); } catch (e) { /* facultatif */ }
+      try { this.esFinal(root, stage, r, g, badges); } catch (e) { console.error(e); this.endFallback(r); return; }
+      try { if (win) fx.rain(40); } catch (e) { /* facultatif */ }
     };
-    run();
+    run().catch((e) => { if (e !== ABORT) { console.error(e); if (alive()) this.endFallback(r); } });
     this.refreshGems();
-    if (this.afterEnd) this.afterEnd(r);
   },
 
   // Compteur qui défile (accéléré au toucher)
@@ -180,7 +210,7 @@ export const End = {
     return new Promise((res) => {
       const t0 = performance.now(); let lastTick = 0;
       const f = (now) => {
-        const k = seq.fast ? 1 : Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        const k = seq.fast || seq.skip ? 1 : Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
         node.textContent = fmt(to * e);
         if (now - lastTick > 55 && k < 1) { lastTick = now; this.audio.play('tick'); }
         if (k < 1 && node.isConnected) requestAnimationFrame(f); else res();
@@ -252,10 +282,10 @@ export const End = {
       const b = r.best, mvp = el('div', 'es-mvp', `<span class="es-mvp-art"><i class="rays"></i></span><div><em>MVP</em><b>${b.label}</b><small>${short(b.dmg)} dégâts · ${fmt(b.kills)} kills</small></div>`);
       $('.es-mvp-art', mvp).append(towerImg(b.type, 96, skin, b.level, b.branch)); mid.append(mvp);
     }
-    const leave = (fn) => () => { this.game = null; fn(); };
+    const leave = (to) => () => this.quitGame(to);
     const main = $('.es-main', f);
-    if (r.worldDone != null) { const wr = el('button', 'btn primary big cta', icon('chest') + 'Récompense du monde !'); wr.onclick = () => { this.game = null; this.worldReward(r.worldDone); }; main.append(wr); }
-    else if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.playLevel(nextN); }; main.append(nx); }
+    if (r.worldDone != null) { const wr = el('button', 'btn primary big cta', icon('chest') + 'Récompense du monde !'); wr.onclick = () => { this.clearGame(); this.worldReward(r.worldDone); }; main.append(wr); }
+    else if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.clearGame(); this.playLevel(nextN); }; main.append(nx); }
     else if (!win && !r.endless) { const rt = el('button', 'btn green big', icon('restart') + 'Réessayer'); rt.onclick = () => this.replay(); main.append(rt); }
     else { const rp = el('button', 'btn primary big', icon('restart') + 'Rejouer'); rp.onclick = () => this.replay(); main.append(rp); }
     const round = $('.es-round', f);
@@ -263,8 +293,8 @@ export const End = {
     if (canNext) rb('restart', 'Rejouer', () => this.replay());
     rb('share', 'Partager', () => this.shareScore(r), 'pink');
     rb('chart', 'Statistiques', () => this.esStats(root, r, g, badges), 'blue');
-    rb('map', 'Carte', leave(() => this.show('world')));
-    rb('home', 'Menu', leave(() => this.show('menu')));
+    rb('map', 'Carte', leave('world'));
+    rb('home', 'Menu', leave('menu'));
     stage.replaceChildren(f);
   },
   // Détail complet (optionnel) : toutes les stats, dégâts par tourelle, déblocages

@@ -67,9 +67,11 @@ export class Game {
     this.scale = S; this.ox = ox; this.oy = oy;
     this.ext = { l: -ox, t: -oy, r: cw / S - ox, b: ch / S - oy };
     this.flowers = mapFlowers(this.field, this.ext);
-    this.bg = document.createElement('canvas');
+    this.bg = this.bg || document.createElement('canvas');   // un seul canvas de fond par partie, réutilisé aux redimensionnements
     this.bg.width = cw; this.bg.height = ch;
-    const c = this.bg.getContext('2d'); c.setTransform(S, 0, 0, S, ox * S, oy * S);
+    const c = this.bg.getContext('2d');
+    if (!c) { this.bgOk = false; return; }   // plus de mémoire canvas (Safari iOS) : la partie continue sur un fond uni
+    this.bgOk = true; c.setTransform(S, 0, 0, S, ox * S, oy * S);
     drawMapBackground(c, this.theme, this.field, this.ext, { slots: this.useSlots });
   }
   shake(m) { if (this.save.data.settings.shake) this.shakeMag = Math.min(18, Math.max(this.shakeMag, m)); }
@@ -414,7 +416,7 @@ export class Game {
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);
     this.fx.text(this.base.x, this.base.y - 96, e.leakDmg >= 99 ? 'CHÂTEAU DÉTRUIT' : '-' + e.leakDmg + ' PV', '#ff5d6c', 26, 1);
     if (this.lives <= 0) {
-      const rv = this.boosts.find((b) => b.id === 'revive' && !b.used);
+      const rv = this.boosts.find((b) => b && b.id === 'revive' && !b.used);
       if (rv) { this.revive(rv); return; }
       this.lives = 0; this.end(false);
     }
@@ -572,10 +574,19 @@ export class Game {
     for (const t of this.towers) if (!best || t.dmg > best.dmg) best = t;
     const lifeBonus = victory ? this.addScore(this.lives * SCORE.lifeBonus) : 0;
     this.result = { victory, stars, wavesDone, best, endless: this.endless, heroic: !!this.heroic, score: this.score, lifeBonus };
-    this.commit(victory, stars, wavesDone);
-    this.audio.play(victory ? 'victory' : 'defeat');
-    if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
+    // l'écran de fin doit TOUJOURS être annoncé, même si l'écriture de la progression rencontre un souci
+    try { this.commit(victory, stars, wavesDone); } catch (e) { console.error(e); this.commitError = e; try { this.save.persist(); } catch (e2) { /* ignore */ } }
+    try {
+      this.audio.play(victory ? 'victory' : 'defeat');
+      if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
+    } catch (e) { console.error(e); }
     this.onEvent('end', this.result);
+  }
+  // Libère la mémoire de la partie (les canvas hors écran comptent dans la limite mémoire de Safari iOS)
+  dispose() {
+    this.disposed = true; this.over = true;
+    if (this.bg) { this.bg.width = this.bg.height = 0; this.bg = null; }
+    this.fx.clear(); this.enemies = []; this.projectiles = []; this.towers = []; this.delayed = []; this.queue = []; this.drops = [];
   }
   // Écrit la progression dans la sauvegarde (appelé aussi si on abandonne) et complète this.result
   commit(victory = false, stars = 0, wavesDone = this.cleared) {
@@ -614,10 +625,12 @@ export class Game {
     r.gems = E.gems; d.gems += r.gems;
     r.xp = E.xp;
     r.xpBefore = { level: d.level, xp: d.xp };
-    r.levelUps = sv.addXp(r.xp);
-    sv.addPass(E.pass);
-    sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? stars : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone });
-    r.achievements = sv.checkAchievements();
+    // chaque volet est indépendant : un souci sur l'un n'empêche ni les autres ni l'enregistrement
+    const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error(e); return fb; } };
+    r.levelUps = safe(() => sv.addXp(r.xp), []);
+    safe(() => sv.addPass(E.pass));
+    safe(() => sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? stars : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone }));
+    r.achievements = safe(() => sv.checkAchievements(), []);
     sv.persist();
   }
 
@@ -634,12 +647,13 @@ export class Game {
     c.lineWidth = lw; c.strokeStyle = '#3d2c4e'; c.strokeText(text, x, y); c.fillStyle = color; c.fillText(text, x, y);
   }
   render() {
+    if (this.disposed || !this.bg) return;
     const c = this.ctx, S = this.scale, { W, H } = VIEW;
     c.setTransform(1, 0, 0, 1, 0, 0);
     const E = this.ext, ox = this.ox, oy = this.oy;
     let sx = 0, sy = 0;
     if (this.shakeMag > 0.3) { sx = (Math.random() - 0.5) * 2 * this.shakeMag; sy = (Math.random() - 0.5) * 2 * this.shakeMag; c.fillStyle = this.theme.g2; c.fillRect(0, 0, this.canvas.width, this.canvas.height); }
-    c.drawImage(this.bg, Math.round(sx * S), Math.round(sy * S));
+    if (this.bgOk) c.drawImage(this.bg, Math.round(sx * S), Math.round(sy * S)); else { c.fillStyle = this.theme.g2; c.fillRect(0, 0, this.canvas.width, this.canvas.height); }
     c.setTransform(S, 0, 0, S, (ox + sx) * S, (oy + sy) * S);
     c.lineJoin = 'round'; c.lineCap = 'round';
     drawMapAnimated(c, this.theme, this.field, this.flowers, this.time);
