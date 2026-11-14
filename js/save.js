@@ -1,6 +1,6 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { PER_WORLD, TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 import { setTierCap } from './castle.js';
 
@@ -11,7 +11,7 @@ const mondayOf = (d = new Date()) => { const m = new Date(d); m.setDate(d.getDat
 const KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
 
 const defaults = () => ({
-  v: 2,
+  v: 2, lpw: PER_WORLD,   // lpw = niveaux par monde au moment de l'écriture (6 avant la campagne à 10 niveaux)
   gems: 0, coins: COINS.start,
   towers: [...SHOP.starterTowers],
   skins: ['default'], skin: 'default',
@@ -67,6 +67,7 @@ export class Save {
     Object.assign(d, raw);
     for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
     this.normSettings(raw.settings);
+    if ((raw.lpw || 6) !== PER_WORLD) this.relayout(raw.lpw || 6);
     if (!raw.placedTypes && (raw.stats || {}).towersBuilt > 0) d.placedTypes = [...(raw.towers || [])];
     // valeurs numériques abîmées (NaN, null) : remises à leur valeur de départ, sans toucher au reste
     for (const k of ['gems', 'coins', 'xp', 'talentPts', 'castleFree']) if (!Number.isFinite(d[k]) || d[k] < 0) d[k] = def[k];
@@ -74,6 +75,13 @@ export class Save {
     for (const o of [d.castle, d.boosts, d.chests, d.stats]) for (const k in o) if (typeof def[o === d.castle ? 'castle' : o === d.boosts ? 'boosts' : o === d.chests ? 'chests' : 'stats'][k] === 'number' && !Number.isFinite(o[k])) o[k] = 0;
     if (!Array.isArray(d.towers)) d.towers = [...def.towers]; if (!Array.isArray(d.achievements)) d.achievements = []; if (!d.levels || typeof d.levels !== 'object') d.levels = {};
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
+  }
+  // Campagne passée de « old » à PER_WORLD niveaux par monde : chaque niveau garde sa place dans son monde, le boss
+  // reste le boss (dernier niveau). Les nouveaux niveaux insérés avant le boss sont à jouer (ils ne bloquent rien).
+  relayout(old) {
+    const d = this.data, map = (n) => { const w = Math.floor((n - 1) / old), i = (n - 1) % old; return w * PER_WORLD + (i === old - 1 ? PER_WORLD - 1 : i) + 1; };
+    const lv = {}; for (const [n, l] of Object.entries(d.levels || {})) if (+n >= 1) lv[map(+n)] = l;
+    d.levels = lv; d.avatar = map(d.avatar || 1); d.lpw = PER_WORLD;
   }
   // volumes séparés (avant : un seul volume + interrupteur musique)
   normSettings(rs = {}) {
@@ -142,8 +150,12 @@ export class Save {
   // objectifs d'étoiles obtenus [gagner, aucun PV perdu, 3e objectif] ; anciennes sauvegardes : les n premières étoiles
   levelObj(n) { const l = this.data.levels[n]; if (!l) return [false, false, false]; return Array.isArray(l.obj) ? [0, 1, 2].map((i) => !!l.obj[i]) : [0, 1, 2].map((i) => i < (l.stars || 0)); }
   levelDone(n) { return !!this.data.levels[n] && this.data.levels[n].stars > 0; }
-  levelUnlocked(n) { return n <= 1 || this.levelDone(n - 1); }
-  progress() { let p = 0; while (p < LEVELS.length && this.levelDone(p + 1)) p++; return p; }   // nombre de niveaux terminés à la suite
+  // un niveau s'ouvre quand le précédent est gagné ; tout ce qui est avant le niveau le plus loin gagné reste ouvert
+  // (niveaux ajoutés à une campagne déjà avancée : jouables, sans rien bloquer)
+  levelUnlocked(n) { return n <= 1 || this.levelDone(n - 1) || n <= this.progress(); }
+  progress() { let p = 0; for (const [n, l] of Object.entries(this.data.levels)) if (l && l.stars > 0 && +n <= LEVELS.length) p = Math.max(p, +n); return p; }   // niveau le plus loin gagné
+  // niveaux ouverts pas encore gagnés, en arrière du plus loin (ajoutés par une mise à jour)
+  skipped() { const p = this.progress(); return LEVELS.filter((L) => L.n < p && !this.levelDone(L.n)).map((L) => L.n); }
   totalStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0) + (this.data.legacyStars || 0); }
   campaignStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0); }
   bestScore() { return this.data.stats.bestScore || 0; }
@@ -174,7 +186,7 @@ export class Save {
   // ------------------------------------------------------------- château
   castleSum() { return Object.values(this.data.castle).reduce((a, b) => a + b, 0); }
   // mondes terminés (boss battus à la suite) et monde atteint (1 à 5)
-  worldsDone() { return Math.floor(this.progress() / 6); }
+  worldsDone() { return Math.floor(this.progress() / PER_WORLD); }
   worldReached() { return Math.min(WORLDS.length, this.worldsDone() + 1); }
   // palier d'apparence : selon le nombre d'améliorations ET les boss battus (palier k => boss du monde k)
   castleTier() { const s = this.castleSum(); let t = 0; CASTLE.tiers.forEach((v, i) => { if (s >= v) t = i; }); return Math.min(t, this.worldsDone()); }

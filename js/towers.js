@@ -76,12 +76,12 @@ export class Tower {
       return;
     }
     const s = this.stats, kind = this.cfg.kind;
-    this.cooldown -= dt * (game.overT > 0 ? BOOSTS.over.rate : 1);   // boost Surcharge
+    this.cooldown -= dt * (game.overT > 0 ? BOOSTS.over.rate : 1) * (this.chill > 0 ? GAME.chillRate : 1);   // boost Surcharge, aura glacée d'un yéti
 
     if (kind === 'cryo') {
       if (this.cooldown <= 0) {
         let any = false;
-        for (const e of game.enemies) if (!e.dead && Math.hypot(e.x - this.x, e.y - this.y) <= s.range + e.r * 0.5) { any = true; break; }
+        for (const e of game.enemies) if (!e.dead && Math.hypot(e.x - this.x, e.y - this.y) <= s.range * game.rangeK + e.r * 0.5) { any = true; break; }
         if (any) { this.pulse(game); this.cooldown = 1 / s.rate; } else this.cooldown = 0;
       }
       return;
@@ -200,7 +200,7 @@ export class Tower {
   pulse(game) {
     const s = this.stats;
     for (const e of game.enemies) {
-      if (e.dead || Math.hypot(e.x - this.x, e.y - this.y) > s.range + e.r * 0.5) continue;
+      if (e.dead || Math.hypot(e.x - this.x, e.y - this.y) > s.range * game.rangeK + e.r * 0.5) continue;
       e.applySlow(s.slow, s.slowDur);
       if (s.freezeChance && Math.random() < s.freezeChance) { e.stun(s.freezeDur); game.fx.burst(e.x, e.y, '#d6f6ff', 6, 90, 4); }
       if (s.vuln) { e.vuln = s.vuln; e.vulnT = s.slowDur; }

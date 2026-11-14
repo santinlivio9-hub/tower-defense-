@@ -139,6 +139,8 @@ const ART = {
     <path d="M22 30l2-3 2 3z" fill="${K}"/><path d="M20 35v4M24 35v4M28 35v4" stroke="${K}" stroke-width="2.2"/>${HL('M12 14a10 10 0 0 1 6-5', 2.6)}`,
   sword: `${SH(14)}<path d="M37 4l6 1 1 6-22 22-7-7z" fill="#e6ecf5" ${O}/><path d="M40 7L20 27" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
     ${TUBE('M11 23l14 14', '#ffd23f', 4.5)}${TUBE('M18 30l-9 9', '#a0642e', 3.6)}`,
+  storm: `${SH(12)}${TUBE('M8 12h22a5 5 0 1 0-5-5', '#e2b25c', 4.5)}${TUBE('M5 22h30a6 6 0 1 1-6 6', '#f3d29a', 4.5)}${TUBE('M10 32h14', '#e2b25c', 4.5)}<circle cx="38" cy="12" r="2.6" fill="#c98a3c"/><circle cx="42" cy="34" r="2" fill="#c98a3c"/>`,
+  leaf: `${SH(12)}<path d="M10 40C8 22 18 8 40 6c2 22-10 34-30 34z" fill="#3fbf5a" ${O}/><path d="M12 38C18 28 26 20 36 11" fill="none" stroke="#1f8a3a" stroke-width="3" stroke-linecap="round"/><path d="M20 30l-4-7M26 24l-2-8M24 28l8 0" fill="none" stroke="#1f8a3a" stroke-width="2.4" stroke-linecap="round"/>${HL('M14 30c1-8 6-15 13-19', 2.6)}`,
   flame: `${SH(11)}<path d="M24 43c-9 0-15-6-15-14 0-9 8-12 7-22 6 3 9 8 9 13 2-3 2-6 1-9 7 4 13 10 13 18 0 8-6 14-15 14z" fill="#ff7a1a" ${O}/>
     <path d="M24 42c-5 0-8-3-8-7 0-5 5-7 5-12 3 2 5 5 5 8 1-1 2-3 2-4 3 3 4 5 4 8 0 4-3 7-8 7z" fill="#ffd23f"/>`,
   target: `${SH(14)}<circle cx="24" cy="22" r="18" fill="#fff" ${O}/><circle cx="24" cy="22" r="13" fill="#f0485a"/><circle cx="24" cy="22" r="8.5" fill="#fff"/><circle cx="24" cy="22" r="4.5" fill="#f0485a" stroke="${K}" stroke-width="2"/>

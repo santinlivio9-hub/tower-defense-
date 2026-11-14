@@ -18,6 +18,13 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
   ok(s.data.coins > 0 && s.data.castle.walls === 2 && s.data.castle.gold === 0 && s.data.pass.pts === 0 && s.data.build === null && s.data.settings.sfxVol === 0.3 && s.data.settings.musicVol === 0.3 && s.data.settings.volume === undefined && s.data.levels[1].stars === 3, 'v2 ancienne : champs manquants complétés, existant conservé');
   ok(s.data.towers.includes('shotgun'), 'déblocages de la campagne rattrapés (pompe après 1-1)');
   s = fresh({ v: 2, settings: { volume: 0.9, music: false } }); ok(s.data.settings.sfxVol === 0.9 && s.data.settings.musicVol === 0, 'musique coupée avant : volume Musique à 0, Effets repris');
+  // campagne à 6 niveaux par monde -> 10 : chaque niveau garde sa place, le boss reste le boss, rien ne bloque
+  { const lv = {}; for (let n = 1; n <= 8; n++) lv[n] = { stars: n === 6 ? 2 : 3, best: n, heroic: 0, heroicBest: 0 };
+    s = fresh({ v: 2, levels: lv, avatar: 9, towers: ['assault', 'smg'] }); const d = s.data;
+    ok(d.lpw === 10 && Object.keys(d.levels).join() === '1,2,3,4,5,10,11,12' && d.levels[10].stars === 2 && d.levels[12].best === 8, 'campagne 6 -> 10 niveaux : niveaux et boss replacés, étoiles gardées');
+    ok(s.progress() === 12 && s.worldsDone() === 1 && s.levelUnlocked(7) && s.levelUnlocked(13) && !s.levelUnlocked(14) && s.skipped().join() === '6,7,8,9', 'nouveaux niveaux 1-6 à 1-9 ouverts sans rien bloquer');
+    ok(d.avatar === 13 && d.towers.includes('cryo') && d.towers.includes('sniper'), 'avatar replacé, déblocages rattrapés');
+    const again = new Save(); ok(Object.keys(again.data.levels).join() === '1,2,3,4,5,10,11,12', 'pas de double conversion au rechargement'); }
   // valeurs abîmées
   s = fresh({ v: 2, gems: null, coins: 'abc', xp: NaN, level: 0, talentPts: -3, castle: { walls: null }, levels: { 1: { stars: 2 } }, towers: 'x', achievements: null });
   ok(s.data.gems === 0 && Number.isFinite(s.data.coins) && s.data.xp === 0 && s.data.level === 1 && s.data.talentPts === 0 && s.data.castle.walls === 0 && Array.isArray(s.data.towers) && s.data.levels[1].stars === 2, 'valeurs abîmées réparées, étoiles conservées');

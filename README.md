@@ -109,6 +109,7 @@ js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
 js/music.js           musique procédurale : thèmes du menu, des mondes et du boss, couche « vague », jingles
 js/radial.js          menu radial et panneau d'aperçu des améliorations
+js/mechanics.js       mécaniques propres à chaque monde (tempête, éruption, glace, hautes herbes)
 js/viewport.js        taille de #app (jamais plus grande que la zone visible) et mode debug d'affichage
 js/save.js            sauvegarde, migration, progression, XP, coffres
 js/ui.js              navigation, HUD, menu radial, tutoriel, boutique, paramètres, partage
@@ -262,3 +263,16 @@ une fois à partir de la graine `seed`. Percussions et arpège ne jouent que pen
 victoire et de défaite dans `MUSIC.jingles`. Volumes Musique et Effets séparés (Paramètres). Le son s'arrête quand
 l'appli passe en arrière-plan. `node tools/music-test.cjs [dossier]` rend chaque morceau hors ligne, vérifie
 son niveau (ni silence ni saturation) et peut écrire des fichiers WAV pour les écouter.
+
+### Campagne : 10 niveaux par monde
+
+`PER_WORLD = 10` dans `js/config.js` (9 niveaux normaux + 1 niveau de boss) ; `lvl(monde, n)` donne le numéro d'un
+niveau, utilisé par le calendrier de déblocage (`UNLOCKS`). Chaque monde a une mécanique (`WORLDS[].mech`) :
+tempête de sable (portée réduite), éruption (rochers de lave qui blessent les brainrots et étourdissent les
+tourelles), plaques de glace (brainrots plus rapides), hautes herbes (brainrots cachés sauf près d'une tourelle).
+Brainrots ajoutés : Foca Ghiacciolo (prend de la vitesse tant qu'on ne le touche pas), Yeti Spumone (aura qui
+ralentit le tir des tourelles), Scimmia Bananina (bondit en avant), Camaleonte Pesto (se camoufle par moments).
+
+Une sauvegarde de l'ancienne campagne (6 niveaux par monde, `lpw` absent) est convertie au chargement : chaque
+niveau garde sa place dans son monde, le boss reste le boss, et les nouveaux niveaux insérés avant le boss sont
+ouverts (badge « NOUVEAU » sur la carte) sans rien bloquer : la progression est le niveau le plus loin gagné.

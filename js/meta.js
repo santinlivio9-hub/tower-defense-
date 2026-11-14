@@ -1,6 +1,6 @@
 // Écrans hors partie : carte du monde, préparation d'un niveau, cartes de présentation, mode infini.
 // Ces méthodes sont ajoutées à la classe UI (voir la fin de ui.js).
-import { LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS, starGoals } from './config.js';
+import { PER_WORLD, LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS, starGoals } from './config.js';
 import { chestSvg } from './loot.js';
 import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { levelEnemies } from './waves.js';
@@ -14,8 +14,10 @@ const fmt = (n) => nf.format(Math.round(n));
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
 // BAND = bande réservée en bas de chaque monde pour son panneau (le chemin y monte tout droit)
-const NODE_X = [28, 64, 78, 40, 22, 50], BAND = 128, SEC_H = 680 + BAND;
+// abscisses (%) des PER_WORLD nœuds d'un monde, de bas en haut ; le dernier (boss) au centre
+const NODE_X = [26, 70, 32, 76, 28, 68, 30, 74, 34, 50], STEP_Y = 88, BAND = 128, SEC_H = 92 + (PER_WORLD - 1) * STEP_Y + 104 + BAND;
 const INK = '#3d2c4e';
+export const MECH_ICON = { sandstorm: 'storm', eruption: 'flame', ice: 'snow', grass: 'leaf' };
 // Décor propre à chaque monde (SVG inline), posé loin du chemin
 const DECO = {
   prairie: [
@@ -34,6 +36,10 @@ const DECO = {
     (s) => `<svg viewBox="0 0 50 70" width="${s}"><rect x="21" y="54" width="8" height="12" rx="2" fill="#8a5530" stroke="${INK}" stroke-width="3"/><path d="M25 4L44 54H6z" fill="#3f8f7a" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M25 4l8 20-8-4-8 4z" fill="#fff"/></svg>`,
     (s) => `<svg viewBox="0 0 60 40" width="${s}"><circle cx="30" cy="26" r="12" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="30" cy="11" r="8" fill="#fff" stroke="${INK}" stroke-width="3"/><path d="M30 12l6 2-6 1z" fill="#ff9f1a"/></svg>`,
   ],
+  jungle: [
+    (s) => `<svg viewBox="0 0 60 70" width="${s}"><path d="M28 68Q24 40 32 20h5Q30 40 34 68z" fill="#9a6a3a" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>${[-150, -110, -70, -30, 10].map((a) => `<path d="M34 20q12 -10 24 -2q-12 3 -24 2z" transform="rotate(${a + 90} 34 20)" fill="#2fae52" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`).join('')}<circle cx="31" cy="23" r="4" fill="#8a5530" stroke="${INK}" stroke-width="2"/><circle cx="38" cy="23" r="4" fill="#8a5530" stroke="${INK}" stroke-width="2"/></svg>`,
+    (s) => `<svg viewBox="0 0 60 40" width="${s}"><rect x="27" y="22" width="7" height="14" rx="3" fill="#fff3dc" stroke="${INK}" stroke-width="2.5"/><path d="M14 24a16 12 0 0 1 32 0z" fill="#ff5d6c" stroke="${INK}" stroke-width="3"/><circle cx="23" cy="18" r="3" fill="#fff"/><circle cx="35" cy="16" r="2.4" fill="#fff"/></svg>`,
+  ],
   candy: [
     (s) => `<svg viewBox="0 0 40 70" width="${s}"><rect x="17" y="30" width="6" height="38" rx="3" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="20" r="17" fill="#ff5d8f" stroke="${INK}" stroke-width="3"/><path d="M20 20m-10 0a10 10 0 0 1 10-10a6 6 0 0 1 6 6a3 3 0 0 1-3 3" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
     (s) => `<svg viewBox="0 0 60 40" width="${s}"><path d="M8 36a22 22 0 0 1 44 0z" fill="#8fe3ff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="26" r="2.5" fill="#fff"/><circle cx="34" cy="22" r="2.5" fill="#ffd23f"/><circle cx="42" cy="30" r="2.5" fill="#ff5d8f"/></svg>`,
@@ -46,11 +52,11 @@ const EXTRA = {
   sign: (s) => `<svg viewBox="0 0 40 46" width="${s}"><rect x="17" y="18" width="6" height="26" rx="2" fill="#8a5530" stroke="${INK}" stroke-width="3"/><path d="M4 6h26l6 7-6 7H4z" fill="#d9a566" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M9 13h16" stroke="#8a5530" stroke-width="2.5" stroke-linecap="round"/></svg>`,
   fence: (s) => `<svg viewBox="0 0 60 30" width="${s}"><path d="M4 12h52M4 21h52" stroke="${INK}" stroke-width="6"/><path d="M4 12h52M4 21h52" stroke="#d9a566" stroke-width="3"/>${[8, 22, 36, 50].map((x) => `<rect x="${x - 3}" y="4" width="6" height="24" rx="2" fill="#d9a566" stroke="${INK}" stroke-width="2.5"/>`).join('')}</svg>`,
 };
-const RIVER = { prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
-const ROCK = { prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
-const BUSH = { prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
-const nodeY = (i) => SEC_H - BAND - 92 - i * 94 - (i === 5 ? 14 : 0);
-const RIVER_Y = Math.round((nodeY(2) + nodeY(3)) / 2) + 4;
+const RIVER = { jungle: ['#3fb0a0', '#9ff0d8'], prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
+const ROCK = { jungle: '#8fa07e', prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
+const BUSH = { jungle: '#1f7a34', prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
+const nodeY = (i) => SEC_H - BAND - 92 - i * STEP_Y - (i === PER_WORLD - 1 ? 14 : 0);
+const RIVER_Y = Math.round((nodeY(4) + nodeY(5)) / 2) + 4;
 // petit générateur pseudo-aléatoire stable (même décor à chaque ouverture)
 const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 // courbe de Bézier du chemin échantillonnée (pour éviter d'y poser le décor et placer le pont)
@@ -87,7 +93,7 @@ export const Meta = {
       box.append(fin);
     }
     for (let wi = NW - 1; wi >= 0; wi--) {
-      const w = WORLDS[wi], th = THEMES[w.theme], open = prog >= wi * 6, X = (pc) => (pc / 100) * W;
+      const w = WORLDS[wi], th = THEMES[w.theme], open = prog >= wi * PER_WORLD, X = (pc) => (pc / 100) * W;
       const sec = el('section', 'wsec' + (open ? '' : ' locked'));
       sec.style.cssText = `--c1:${th.g1};--c2:${th.g2};--c3:${th.g3};--road:${th.path};--edge:${th.edge};height:${SEC_H}px`;
       // chemin continu : départ en bas du monde 1, arrivée en haut du dernier monde
@@ -112,9 +118,9 @@ export const Meta = {
       const ws = LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + (sv.data.levels[l.n] ? sv.data.levels[l.n].stars : 0), 0);
       // obstacles de la section (rectangles en px) : nœuds (+ étoiles dessous), jauge d'étoiles, avatar, bulles…
       const obst = [];
-      const nodeRect = (i) => { const x = X(NODE_X[i]), y = nodeY(i), big = i === 5; return { x: x - (big ? 50 : 34), y: y - (big ? 50 : 36), w: big ? 100 : 68, h: big ? 112 : 92 }; };
-      for (let i = 0; i < 6; i++) obst.push(nodeRect(i));
-      { const cur = LEVELS.find((l) => l.world === wi && sv.levelUnlocked(l.n) && !sv.levelDone(l.n)); if (cur) obst.push({ x: X(NODE_X[cur.idx]) - 34, y: nodeY(cur.idx) - 128, w: 68, h: 96 }); }   // avatar au-dessus du nœud actuel
+      const nodeRect = (i) => { const x = X(NODE_X[i]), y = nodeY(i), big = i === PER_WORLD - 1; return { x: x - (big ? 50 : 34), y: y - (big ? 50 : 36), w: big ? 100 : 68, h: big ? 112 : 92 }; };
+      for (let i = 0; i < PER_WORLD; i++) obst.push(nodeRect(i));
+      { const cur = LEVELS.find((l) => l.world === wi && sv.levelUnlocked(l.n) && !sv.levelDone(l.n) && l.n > prog); if (cur) obst.push({ x: X(NODE_X[cur.idx]) - 34, y: nodeY(cur.idx) - 128, w: 68, h: 96 }); }   // avatar au-dessus du nœud actuel
       const roadHit = (r, m = 22) => road.some(([rx, ry]) => rx > r.x - m && rx < r.x + r.w + m && ry > r.y - m && ry < r.y + r.h + m);
       const hit = (r) => obst.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y);
       const inside = (r) => r.x >= 6 && r.x + r.w <= W - 6 && r.y >= 6 && r.y + r.h <= SEC_H - BAND;
@@ -175,7 +181,7 @@ export const Meta = {
         const dd = el('div', 'wprop', html); dd.style.cssText = `left:${x}px;top:${y}px`; sec.append(dd);
       }
       // quelques brainrots du monde qui sautillent
-      const foes = levelEnemies(LEVELS[wi * 6 + 4]).slice(-3); let fk = 0;
+      const foes = levelEnemies(LEVELS[wi * PER_WORLD + PER_WORLD - 2]).slice(-3); let fk = 0;
       for (let tries = 0; tries < 60 && fk < foes.length; tries++) {
         const x = 30 + R() * (W - 60), y = 60 + R() * (SEC_H - 120); if (!free(x, y, 24)) continue;
         keep.push([x, y, 24]); const im = enemyImg(foes[fk++], 44); im.className = 'wdeco'; im.style.cssText = `left:${x - 22}px;top:${y - 22}px`; sec.append(im);
@@ -193,17 +199,18 @@ export const Meta = {
         if (done) b.insertAdjacentHTML('beforeend', stars(ld.stars));
         if (ld && ld.heroic) b.insertAdjacentHTML('beforeend', `<i class="crown">${icon('crown')}</i>`);
         b.onclick = () => { if (!unlocked) { this.audio.play('error'); this.toast('Niveau verrouillé', 'Termine le niveau précédent', icon('lock')); return; } this.playLevel(L.n); };
-        if (unlocked && !done) current = b;
+        if (unlocked && !done && L.n > prog) current = b;
+        if (unlocked && !done && L.n < prog) b.append(el('em', 'nnew', 'NOUVEAU'));
         sec.append(b);
 
       });
       for (const e of bubbles) sec.append(e);
-      // coffre d'étoiles du monde : jauge et paliers 6 / 12 / 18
+      // coffre d'étoiles du monde : jauge et paliers (STAR_CHESTS)
       const sc = sv.starChests(wi), wst = sv.worldStars(wi);
-      const gauge = el('div', 'wstars', `<span class="ws-n">${icon('star', 'on')}<b>${wst}/18</b></span><span class="ws-bar"><i style="width:${(wst / 18) * 100}%"></i></span>`);
+      const gauge = el('div', 'wstars', `<span class="ws-n">${icon('star', 'on')}<b>${wst}/${PER_WORLD * 3}</b></span><span class="ws-bar"><i style="width:${(wst / (PER_WORLD * 3)) * 100}%"></i></span>`);
       sc.forEach((c) => {
         const b = el('button', 'ws-chest' + (c.got ? ' got' : c.ready ? ' ready' : ''), `${chestSvg(c.chest)}<small>${c.need}</small>`);
-        b.style.left = `${(c.need / 18) * 100}%`; b.setAttribute('aria-label', `Coffre à ${c.need} étoiles`);
+        b.style.left = `${(c.need / (PER_WORLD * 3)) * 100}%`; b.setAttribute('aria-label', `Coffre à ${c.need} étoiles`);
         b.onclick = (e) => {
           e.stopPropagation();
           if (c.ready) { const r = sv.claimStarChest(wi, c.k); if (r) { this.afterClaim(r.text, chestSvg(r.chest), b); this.renderWorld(); } return; }
@@ -280,6 +287,7 @@ export const Meta = {
       <div>${icon('wave')}<b>${L.waves}</b> vagues${L.boss ? ' · mini-boss' : ''}</div>
       <div>${coin()}<b>${money}</b> pièces au départ</div>
       <div>${icon('target')}<b>${L.slots}</b> emplacements</div>
+      ${w.mech ? `<div class="mech">${icon(MECH_ICON[w.mech.kind])}<b>${w.mech.name}</b></div>` : ''}
       <div>${icon('trophy', 'gold')}Record <b>${fmt(heroic ? ld.heroicBest : ld.best)}</b></div>`);
     top.append(cv, info); m.append(top);
     if (!heroic) m.append(el('div', 'prep-goals', this.goalList(starGoals(L), sv.levelObj(n))));
@@ -299,7 +307,7 @@ export const Meta = {
       if (u.legend.length) first.push(`<span class="rw">${icon('crown')}<b>Légendaires</b></span>`);
       const st = sv.worldStars(L.world);
       m.append(el('div', 'prep-rw', `<div class="pr-row${done ? ' done' : ''}"><small>${done ? icon('check') : ''}1re victoire</small><div>${done ? '<b class="pr-ok">Déjà gagné</b>' : first.join('')}</div></div>
-        <div class="pr-row${ld.stars >= 3 ? ' done' : ''}"><small>${ld.stars >= 3 ? icon('check') : ''}3 étoiles</small><div><span class="rw">${gem()}<b>+${CAMPAIGN.gems3Stars * gm}</b></span><span class="rw">${icon('star', 'gold')}<b>Coffre d'étoiles ${st}/18</b></span></div></div>`));
+        <div class="pr-row${ld.stars >= 3 ? ' done' : ''}"><small>${ld.stars >= 3 ? icon('check') : ''}3 étoiles</small><div><span class="rw">${gem()}<b>+${CAMPAIGN.gems3Stars * gm}</b></span><span class="rw">${icon('star', 'gold')}<b>Coffre d'étoiles ${st}/${PER_WORLD * 3}</b></span></div></div>`));
     }
     const seg = el('div', 'seg' + (done ? '' : ' hidden-seg'));
     const b1 = el('button', heroic ? '' : 'sel', 'Normal'); b1.onclick = () => this.openPrep(n, false);
@@ -343,11 +351,11 @@ export const Meta = {
   // ------------------------------------------------------------------ mode infini + classement local
   openEndless(world = null) {
     const sv = this.save;
-    if (!sv.endlessUnlocked()) { this.audio.play('error'); this.toast('Mode infini verrouillé', `Termine le monde ${CAMPAIGN.endlessAfter / 6} pour le débloquer`, icon('lock')); return; }
-    const worlds = Math.min(WORLDS.length, Math.floor(sv.progress() / 6));
+    if (!sv.endlessUnlocked()) { this.audio.play('error'); this.toast('Mode infini verrouillé', `Termine le monde ${CAMPAIGN.endlessAfter / PER_WORLD} pour le débloquer`, icon('lock')); return; }
+    const worlds = Math.min(WORLDS.length, Math.floor(sv.progress() / PER_WORLD));
     if (world == null) world = this.endlessWorld != null ? Math.min(this.endlessWorld, worlds - 1) : worlds - 1;
     this.endlessWorld = world;
-    const L = LEVELS[world * 6 + 5], m = el('div', 'panel glass prep');
+    const L = LEVELS[world * PER_WORLD + PER_WORLD - 1], m = el('div', 'panel glass prep');
     const x = el('button', 'icon-btn close', icon('close')); x.onclick = () => this.closeOverlay();
     m.append(x, el('h2', 'win', 'MODE INFINI'), el('p', 'sub', 'Tiens le plus longtemps possible. Un boss toutes les 10 vagues.'));
     const seg = el('div', 'seg');

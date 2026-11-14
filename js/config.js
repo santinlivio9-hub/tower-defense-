@@ -6,6 +6,7 @@
 export const VIEW = { W: 600, H: 940 };    // zone jouable en portrait (le décor se prolonge autour pour remplir l'écran)
 
 export const GAME = {
+  chillRate: 0.6,          // cadence des tourelles prises dans l'aura glacée d'un Yeti Spumone
   sellRatio: 0.7,          // revente : 70 % de l'investissement
   perfectBonus: 15,        // pièces en plus pour une vague « PARFAIT ! » (aucune fuite)
   maxBadges: 3,            // badges chiffrés visibles en même temps dans la barre d'onglets
@@ -172,17 +173,22 @@ export const TOWER_VISUAL = {
 //  ENNEMIS (brainrots originaux)
 //  hp, speed (px/s), reward (pièces), leak (PV retirés au château), r (rayon),
 //  cost = coût dans le budget de vague,
-//  unlock = premier niveau de campagne (1 à 30) où il apparaît, from = vague minimale dans un niveau
+//  unlock = premier niveau de campagne (1, 2, ...) où il apparaît, from = vague minimale dans un niveau
 // ----------------------------------------------------------------------------
 export const ENEMIES = {
   basic:    { name: 'Lumaca Pizzetta', hint: "Lent et peu résistant. Il arrive en nombre.", tag: 'Basique',  hp: 30,  speed: 58,  reward: 5,  leak: 1, r: 22, cost: 5,  unlock: 1,  from: 1, interval: 0.7 },
   fast:     { name: 'Peperoncino Rollerino', hint: "Rapide mais fragile : mitraillette et cryo conseillées.", tag: 'Rapide',   hp: 18,  speed: 122, reward: 5,  leak: 1, r: 20, cost: 6,  unlock: 1,  from: 3, interval: 0.4 },
-  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 32, cost: 22, unlock: 2,  from: 4, interval: 1.6 },
-  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 21, cost: 10, unlock: 4,  from: 4, interval: 0.7, flying: true },
-  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 25, cost: 16, unlock: 7,  from: 4, interval: 1.1, armor: 5 },
-  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 27, cost: 16, unlock: 9,  from: 4, interval: 1.2, split: { type: 'mini', count: 3 } },
-  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 24, cost: 18, unlock: 11, from: 5, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
-  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 14, from: 5, interval: 0.8, stealth: true },
+  tank:     { name: 'Ippo Tostapane', hint: "Lent, énorme sac à PV : sniper ou pompe.",        tag: 'Tank',     hp: 190, speed: 34,  reward: 16, leak: 3, r: 32, cost: 22, unlock: 3,  from: 4, interval: 1.6 },
+  flying:   { name: 'Formaggio Farfalla', hint: "Vole au-dessus des mines.",    tag: 'Volant',   hp: 38,  speed: 82,  reward: 8,  leak: 1, r: 21, cost: 10, unlock: 6,  from: 4, interval: 0.7, flying: true },
+  armored:  { name: 'Granchio Pentolino', hint: "Blindé : les petites balles font peu de dégâts. Utilise gros calibres, explosions ou balles perforantes.",    tag: 'Blindé',   hp: 85,  speed: 48,  reward: 12, leak: 2, r: 25, cost: 16, unlock: 12,  from: 4, interval: 1.1, armor: 5 },
+  splitter: { name: 'Anguria Matrioska', hint: "Se divise en 3 minis à sa mort : les dégâts de zone aident.",     tag: 'Diviseur', hp: 100, speed: 50,  reward: 8,  leak: 2, r: 27, cost: 16, unlock: 15,  from: 4, interval: 1.2, split: { type: 'mini', count: 3 } },
+  healer:   { name: 'Polpo Espressino', hint: "Soigne ses voisins : à éliminer en priorité.",      tag: 'Soigneur', hp: 75,  speed: 52,  reward: 14, leak: 1, r: 24, cost: 18, unlock: 22, from: 5, interval: 1.5, heal: { radius: 95, pct: 0.07, every: 2.2 } },
+  stealth:  { name: 'Medusa Paralume', hint: "Invisible ! Révélé à bout portant, par les dégâts de zone, ou par une amélioration de détection (ex. Balles traçantes).",       tag: 'Invisible', hp: 45, speed: 74,  reward: 10, leak: 1, r: 21, cost: 12, unlock: 25, from: 5, interval: 0.8, stealth: true },
+  // Glacier Granita (monde 4) et Jungle Basilico (monde 5)
+  slider:   { name: 'Foca Ghiacciolo', hint: "Prend de la vitesse tant qu'on ne le touche pas : touche-le souvent (mitraillette, cryo).", tag: 'Glisseur', hp: 55, speed: 58, reward: 9, leak: 1, r: 24, cost: 11, unlock: 32, from: 3, interval: 0.8, glide: { max: 1.1, rate: 0.32 } },
+  yeti:     { name: 'Yeti Spumone', hint: "Son aura glacée ralentit le tir des tourelles proches : élimine-le de loin (sniper, roquettes).", tag: 'Glacial', hp: 260, speed: 32, reward: 22, leak: 3, r: 33, cost: 26, unlock: 35, from: 5, interval: 1.8, armor: 2, chill: { radius: 125 } },
+  monkey:   { name: 'Scimmia Bananina', hint: "Bondit en avant le long du chemin : répartis tes tourelles sur tout le parcours.", tag: 'Sauteur', hp: 60, speed: 64, reward: 10, leak: 1, r: 23, cost: 12, unlock: 42, from: 3, interval: 0.9, hop: { every: 3.2, dist: 95, dur: 0.45 } },
+  chameleon:{ name: 'Camaleonte Pesto', hint: "Se camoufle par moments : la détection (balles traçantes, givre) ou une tourelle très proche le révèle.", tag: 'Caméléon', hp: 110, speed: 52, reward: 14, leak: 2, r: 26, cost: 17, unlock: 45, from: 5, interval: 1.1, camo: { every: 5, dur: 2.2 } },
   mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
   // Boss de monde. Leurs PV sont multipliés par le niveau (CAMPAIGN.hpWorld), pas par la vague.
   boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 9000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
@@ -211,55 +217,67 @@ export const WAVES = {
   bossEscortBudget: 0.5,    // part du budget normal qui accompagne un boss ou un mini-boss
   finalWaveBudget: 1.1,     // dernière vague d'un niveau normal
   bossHpGrowth: 1.6,        // mode infini : PV des boss x1,6 à chaque boss
-  eliteFrom: 19,            // niveau de campagne à partir duquel des groupes « élite » apparaissent
+  eliteFrom: 31,            // niveau de campagne (4-1) à partir duquel des groupes « élite » apparaissent
   eliteChance: 0.22, eliteHp: 3, eliteReward: 3,
 };
 
 // ----------------------------------------------------------------------------
-//  CAMPAGNE : 5 mondes x 6 niveaux. Le 6e niveau de chaque monde est un niveau de boss, plus long.
+//  CAMPAGNE : mondes de PER_WORLD niveaux. Le dernier niveau de chaque monde est un niveau de boss, plus long.
 // ----------------------------------------------------------------------------
+export const PER_WORLD = 10;               // 9 niveaux normaux + 1 niveau de boss par monde
+// numéro de niveau (1, 2, ...) du niveau idx (1 à 10) du monde w (1 à N)
+export const lvl = (w, idx) => (w - 1) * PER_WORLD + idx;
+// mech = petite mécanique propre au monde (voir Game.updateMech) :
+//   sandstorm : tempête de sable périodique, portée des tourelles réduite
+//   eruption  : rochers de lave annoncés puis qui tombent : blessent les brainrots, étourdissent les tourelles touchées
+//   ice       : plaques de glace sur le chemin, les brainrots y glissent plus vite
+//   grass     : hautes herbes sur le chemin, les brainrots y sont cachés (sauf tourelles qui détectent, ou de près)
 export const WORLDS = [
-  { id: 'prairie', name: 'Prairie Pesto',          theme: 'prairie', boss: 'boss1', color: '#5fb53c' },
-  { id: 'desert',  name: 'Désert Tiramisu',        theme: 'desert',  boss: 'boss2', color: '#e2a03c' },
-  { id: 'volcano', name: 'Volcan Gelato',          theme: 'volcano', boss: 'boss3', color: '#8a5fb0' },
-  { id: 'ice',     name: 'Banquise Stracciatella', theme: 'ice',     boss: 'boss4', color: '#5aa9e0' },
-  { id: 'candy',   name: 'Cité Meringue',          theme: 'candy',   boss: 'boss5', color: '#f070a8' },
+  { id: 'prairie', name: 'Prairie Pesto',     theme: 'prairie', boss: 'boss1', color: '#5fb53c', era: 0, mech: null },
+  { id: 'desert',  name: 'Désert Tiramisu',   theme: 'desert',  boss: 'boss2', color: '#e2a03c', era: 0,
+    mech: { kind: 'sandstorm', name: 'Tempête de sable', desc: 'Portée des tourelles réduite pendant la tempête', first: 30, every: 45, dur: 9, range: 0.72 } },
+  { id: 'volcano', name: 'Volcan Gelato',     theme: 'volcano', boss: 'boss3', color: '#8a5fb0', era: 0,
+    mech: { kind: 'eruption', name: 'Éruption', desc: 'Des rochers de lave tombent : ils blessent les brainrots et étourdissent les tourelles', first: 25, every: 32, rocks: 3, warn: 1.4, radius: 58, damage: 70, stun: 2.5 } },
+  { id: 'glacier', name: 'Glacier Granita',   theme: 'ice',     boss: 'boss4', color: '#5aa9e0', era: 0,
+    mech: { kind: 'ice', name: 'Plaques de glace', desc: 'Les brainrots glissent plus vite sur la glace', patches: 3, len: 150, speed: 1.45 } },
+  { id: 'jungle',  name: 'Jungle Basilico',   theme: 'jungle',  boss: 'boss5', color: '#2f9a45', era: 0,
+    mech: { kind: 'grass', name: 'Hautes herbes', desc: 'Les brainrots s\'y cachent : tourelles proches ou détection', patches: 2, len: 150, see: 95 } },
 ];
 export const CAMPAIGN = {
-  waves:     [10, 11, 12, 13, 14],        // niveaux 1 à 5 d'un monde (~5 min)
-  bossWaves: [20, 22, 24, 25, 26],        // niveau 6 (boss) du monde 1 à 5 (15 à 20 min)
+  waves:     [9, 10, 10, 11, 11, 12, 12, 13, 14], // niveaux 1 à 9 d'un monde (~4 à 6 min)
+  bossWaves: [20, 22, 24, 25, 26],        // niveau 10 (boss) du monde 1 à 5 (15 à 20 min)
   bossPaceTo: 20,                         // un niveau de boss finit à la difficulté d'une « vague 20 »
   pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
-  money:     [260, 260, 250, 250, 240, 320],   // pièces de départ par niveau du monde
+  money:     [260, 260, 255, 255, 250, 250, 245, 245, 240, 320],   // pièces de départ par niveau du monde
   lives: 20,
-  slots:     [10, 11, 12, 12, 13, 14],    // emplacements de tourelles par niveau du monde
+  slots:     [10, 10, 11, 11, 12, 12, 12, 13, 13, 14],    // emplacements de tourelles par niveau du monde
   mines: 5,
   layouts: [                              // tracé de chaque niveau ('!' = en miroir), voir LAYOUTS dans js/maps.js
-    ['lacets', 'escalier', 'boucle', 'detour', 'zigzag', 'fourche'],
-    ['detour!', 'serpent', 'lacets!', 'croix', 'escalier!', 'ygrec'],
-    ['boucle!', 'tour', 'fourche', 'serpent!', 'detour', 'croix!'],
-    ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'serpent'],
-    ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
+    ['lacets', 'escalier', 'boucle', 'detour', 'zigzag', 'croix', 'serpent!', 'lacets!', 'escalier!', 'fourche'],
+    ['detour!', 'serpent', 'lacets!', 'croix', 'boucle!', 'zigzag!', 'tour', 'escalier!', 'detour', 'ygrec'],
+    ['boucle!', 'tour', 'fourche', 'serpent!', 'detour', 'escalier', 'zigzag', 'ygrec!', 'lacets', 'croix!'],
+    ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'tour!', 'detour!', 'zigzag!', 'fourche!', 'serpent'],
+    ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'boucle', 'croix!', 'lacets!', 'escalier', 'tour'],
   ],
   hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1], // PV des ennemis par monde...
   bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
-  hpLevel:    0.015,                      // ...puis +1,5 % par niveau dans le monde
+  hpLevel:    0.012,                      // ...puis +1,2 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
   miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
   miniBossHp: [0.12, 0.3, 0.5, 0.7],      // PV des mini-boss successifs (part des PV du boss)
-  endlessAfter: 12,                       // le mode infini se débloque après ce niveau (fin du monde 2)
+  endlessAfter: 20,                       // le mode infini se débloque après ce niveau (fin du monde 2)
   // gemmes
   // gemmes : seulement à la 1re victoire et aux premières 3 étoiles (pas aux replays) ; ×2 pour un boss
   gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 5, gems3Stars: 3, gemsHeroicFirst: 6, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.15,
 };
-// Liste à plat des 30 niveaux
+// Liste à plat des niveaux (PER_WORLD par monde)
 export const LEVELS = [];
 WORLDS.forEach((w, wi) => {
-  for (let i = 0; i < 6; i++) {
-    const boss = i === 5, waves = boss ? CAMPAIGN.bossWaves[wi] : CAMPAIGN.waves[i], lay = CAMPAIGN.layouts[wi][i];
+  for (let i = 0; i < PER_WORLD; i++) {
+    const boss = i === PER_WORLD - 1, waves = boss ? CAMPAIGN.bossWaves[wi] : CAMPAIGN.waves[i], lay = CAMPAIGN.layouts[wi][i];
     LEVELS.push({
-      n: wi * 6 + i + 1, id: `${wi + 1}-${i + 1}`, world: wi, idx: i, boss, waves,
+      n: wi * PER_WORLD + i + 1, id: `${wi + 1}-${i + 1}`, world: wi, idx: i, boss, waves,
       layout: lay.replace('!', ''), mirror: lay.endsWith('!'), slots: CAMPAIGN.slots[i], money: CAMPAIGN.money[i],
       hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i) * (boss ? CAMPAIGN.bossLevelHp[wi] : 1)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
       pace: boss ? (CAMPAIGN.bossPaceTo - 1) / (waves - 1) : 1,
@@ -373,13 +391,15 @@ export const CHESTS = {
 };
 export const CHEST_ORDER = ['wood', 'gold', 'legend'];
 // ----------------------------------------------------------------------------
-//  CALENDRIER DE DÉBLOCAGE par la campagne. Valeur = niveau (1 à 30) à partir duquel c'est disponible :
+//  CALENDRIER DE DÉBLOCAGE par la campagne. Valeur = niveau (lvl(monde, n)) à partir duquel c'est disponible :
 //  on l'obtient en battant le niveau précédent (1 = dès le départ ; 31 = en battant le dernier boss).
 // ----------------------------------------------------------------------------
 export const UNLOCKS = {
-  towers: { assault: 1, smg: 1, shotgun: 2, mine: 4, cryo: 6, sniper: 7, rocket: 10, minigun: 13 },
-  legend: { assault: 13, smg: 13, shotgun: 13, sniper: 19, rocket: 19, mine: 19, minigun: 25, cryo: 25 },   // améliorations légendaires (5e niveau)
-  skins: { emerald: 7, royal: 13, obsidian: 19, frost: 25, galaxy: 31 },                                    // skin exclusif du boss de chaque monde
+  towers: { assault: 1, smg: 1, shotgun: lvl(1, 2), mine: lvl(1, 4), cryo: lvl(1, 6), sniper: lvl(2, 1), rocket: lvl(2, 4), minigun: lvl(3, 1) },
+  // améliorations légendaires (5e niveau), en début de monde 3, 4 et 5
+  legend: { assault: lvl(3, 1), smg: lvl(3, 1), shotgun: lvl(3, 1), sniper: lvl(4, 1), rocket: lvl(4, 1), mine: lvl(4, 1), minigun: lvl(5, 1), cryo: lvl(5, 1) },
+  // skin exclusif du boss de chaque monde (obtenu en le battant)
+  skins: { emerald: lvl(2, 1), royal: lvl(3, 1), obsidian: lvl(4, 1), frost: lvl(5, 1), galaxy: lvl(6, 1) },
 };
 // Ce que rapporte la PREMIÈRE victoire au niveau n (en plus des pièces et gemmes)
 export function unlocksOf(n) {
@@ -387,7 +407,7 @@ export function unlocksOf(n) {
   return { towers: pick(UNLOCKS.towers), legend: pick(UNLOCKS.legend), skins: pick(UNLOCKS.skins) };
 }
 // Coffres d'étoiles de chaque monde : [étoiles, coffre]
-export const STAR_CHESTS = [[6, 'wood'], [12, 'gold'], [18, 'legend']];
+export const STAR_CHESTS = [[10, 'wood'], [20, 'gold'], [30, 'legend']];   // 30 étoiles par monde
 // Fin de monde (boss vaincu la 1re fois) : grosse récompense, en plus du skin exclusif
 export const WORLD_REWARD = { chest: 'legend', gems: 15, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 2 };
 // Offre du jour (boutique) : un article tiré au sort chaque jour, remisé, achetable une fois
@@ -462,15 +482,15 @@ export const STARS = {
   towersRatio: 0.55,          // tourelles autorisées = emplacements x ce ratio (mines non comptées)
   timeRatio: 0.82,            // temps limite = durée de référence x ce ratio, arrondi à 15 s
   timeRatioBoss: 0.92,        // niveaux de boss : le combat contre le boss ne se raccourcit presque pas
-  // durée de référence (s) des 30 niveaux, vagues lancées automatiquement (mesurée par tools/simulate.cjs, robot « good »)
-  par: [282, 252, 336, 396, 420, 582, 276, 336, 384, 312, 396, 570, 282, 312, 258, 432, 432, 654, 240, 222, 372, 390, 318, 851, 240, 234, 396, 306, 456, 840],
+  // durée de référence par vague (s), vagues lancées automatiquement (mesurée par tools/simulate.cjs, robot « good »)
+  parPerWave: 28, parPerWaveBoss: 31,
 };
 const mmss = (s) => `${Math.floor(s / 60)} min${s % 60 ? ' ' + String(s % 60).padStart(2, '0') : ''}`;
 // Les 3 objectifs d'un niveau : [{ id, text, n }]
 export function starGoals(L) {
   const third = !L.boss && L.idx % 2 === 0
     ? (() => { const n = Math.max(3, Math.round(L.slots * STARS.towersRatio)); return { id: 'towers', n, text: `${n} tourelles maximum` }; })()
-    : (() => { const n = Math.max(60, Math.round(((STARS.par[L.n - 1] || 300) * (L.boss ? STARS.timeRatioBoss : STARS.timeRatio)) / 15) * 15); return { id: 'time', n, text: `Finir en moins de ${mmss(n)}` }; })();
+    : (() => { const n = Math.max(60, Math.round((L.waves * (L.boss ? STARS.parPerWaveBoss * STARS.timeRatioBoss : STARS.parPerWave * STARS.timeRatio)) / 15) * 15); return { id: 'time', n, text: `Finir en moins de ${mmss(n)}` }; })();
   return [{ id: 'win', text: 'Gagner le niveau' }, { id: 'clean', text: 'Aucun PV perdu' }, third];
 }
 
@@ -490,7 +510,7 @@ export const ACHIEVEMENTS = [
   { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 20 },
   { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 25 },
   { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 20 },
-  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 30, gems: 100 },
+  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 50, gems: 100 },
   { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 30 },
   { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 60 },
   { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 30 },

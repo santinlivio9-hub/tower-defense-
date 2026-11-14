@@ -192,6 +192,61 @@ const ENEMY_ART = {
     ${[-42, -21, 0, 21, 42].map((x) => `<circle cx="${x}" cy="${18 + (Math.abs(x) > 30 ? -3 : 3)}" r="6" ${st('#FFD23F', 3.5)}/>`).join('')}
     ${shine(-22, -26, 5, 14, 22, 0.45)}
     ${face(0, -16, 0.95, e, 'cat', 13)}`,
+  // Foca Ghiacciolo — phoque-glace à l'eau (bâtonnet), qui glisse sur le ventre
+  slider: (e, s) => `
+    <path d="M-6 44 L-6 64 Q0 70 6 64 L6 44 Z" ${st('#E8C28A', 4)}/>
+    ${[-1, 1].map((k) => `<path d="M${k * 34} 20 Q${k * (58 + (s ? 4 : 0))} ${30 + (k < 0 === !s ? -6 : 4)} ${k * 52} 44 Q${k * 40} 40 ${k * 30} 34 Z" ${st('#7FB4E6', 4.5)}/>`).join('')}
+    <path d="M-38 -40 Q-38 -60 -18 -60 L18 -60 Q38 -60 38 -40 L38 34 Q38 48 24 48 L-24 48 Q-38 48 -38 34 Z" ${st('#9CD0FF')}/>
+    <path d="M-38 -6 H38 V12 H-38 Z" fill="#FF8FC7"/><path d="M-38 12 H38 V30 H-38 Z" fill="#FFF3A0"/>
+    <path d="M-38 -6 H38 M-38 12 H38 M-38 30 H38" ${line(2.6, 'rgba(61,44,78,.35)')}/>
+    <path d="M-38 -40 Q-38 -60 -18 -60 L18 -60 Q38 -60 38 -40 L38 34 Q38 48 24 48 L-24 48 Q-38 48 -38 34 Z" fill="none" stroke="${INK}" stroke-width="${SW}"/>
+    ${[[-24, 22], [-6, 38], [20, 24]].map(([x, y]) => `<path d="M${x} ${y} q3 6 0 10" ${line(5, '#C9EEFF')}/>`).join('')}
+    ${shine(-26, -40, 5, 13, 10, 0.55)}
+    <ellipse cx="0" cy="-20" rx="16" ry="11" fill="#E9F6FF" stroke="${INK}" stroke-width="3.5"/><ellipse cx="0" cy="-26" rx="6" ry="4" fill="${INK}"/>
+    ${[-1, 1].map((k) => `<path d="M${k * 6} -18 l${k * 22} -4 M${k * 6} -14 l${k * 22} 2" ${line(2, INK)}/>`).join('')}
+    ${face(0, -40, 0.8, e, 'none', 14)}
+    ${e === 2 ? `<ellipse cx="0" cy="-10" rx="5" ry="4" fill="#c2405b" stroke="${INK}" stroke-width="2.4"/>` : `<path d="M-6 -11 q6 5 12 0" ${line(2.6, INK)}/>`}
+    <path d="M-56 30 h-12 M-54 42 h-8" ${line(3.5, 'rgba(255,255,255,.75)')}/>`,
+  // Yeti Spumone — yéti tout en poils, coiffé d'une boule de spumone (fraise, pistache, chocolat)
+  yeti: (e, s) => { let fur = ''; for (let k = 0; k < 20; k++) { const a = (k / 20) * TAU, r = 54 + (k % 2 ? 7 : 0); fur += `${k ? 'L' : 'M'}${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r * 0.92 + 8).toFixed(1)} `; } return `
+    ${feet(26, 58, s, '#C9D7E8', 15, 9)}
+    ${[-1, 1].map((k) => { const dy = (k < 0) === !s ? -8 : 0; return limb(`M${k * 48} 4 Q${k * 74} 18 ${k * 66} ${42 + dy}`, 16, '#F3F8FF') + `<circle cx="${k * 66}" cy="${46 + dy}" r="11" ${st('#C9D7E8', 4)}/>`; }).join('')}
+    <path d="${fur}Z" ${st('#F3F8FF')}/>
+    <ellipse cx="0" cy="22" rx="30" ry="24" fill="#E2ECF8"/>
+    ${shine(-30, -10, 6, 14, 20, 0.6)}
+    <path d="M-30 -42 Q-32 -76 0 -78 Q32 -76 30 -42 Z" ${st('#5A3A2A', 4.5)}/>
+    <path d="M-30 -42 Q-24 -60 0 -60 Q24 -60 30 -42" fill="#9BD86A" stroke="${INK}" stroke-width="3.5"/>
+    <path d="M-28 -46 Q-20 -40 -12 -46 Q-4 -40 4 -46 Q12 -40 20 -46 Q26 -42 30 -44 L30 -36 L-30 -36 Z" fill="#FF8FB2" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+    <circle cx="0" cy="-84" r="6" ${st('#E0393E', 3.5)}/>
+    <ellipse cx="0" cy="-6" rx="28" ry="22" fill="#B9D8F2" stroke="${INK}" stroke-width="4"/>
+    ${brows(0, -10, 0.9, 12)}${face(0, -10, 0.9, e, 'none', 12)}
+    ${e === 2 ? `<ellipse cx="0" cy="6" rx="7" ry="6" fill="#c2405b" stroke="${INK}" stroke-width="3"/>` : `<path d="M-12 4 q12 8 24 0" ${line(3.2, INK)}/><path d="M-8 5 l3 6 l3 -5 M2 5 l3 6 l3 -5" fill="#fff" stroke="${INK}" stroke-width="2"/>`}`; },
+  // Scimmia Bananina — singe à chapeau de peau de banane, qui bondit
+  monkey: (e, s) => `
+    ${limb(`M34 24 q${s ? 34 : 26} 0 ${s ? 30 : 34} -30 q-2 -14 -14 -10`, 7, '#9A6A3A')}
+    ${feet(20, 52, s, '#E8C28A', 13, 8)}
+    ${[-1, 1].map((k) => limb(`M${k * 30} 0 Q${k * 52} ${s ? -18 : 10} ${k * 46} ${s ? -34 : 26}`, 9, '#9A6A3A')).join('')}
+    <ellipse cx="0" cy="18" rx="34" ry="32" ${st('#9A6A3A')}/>
+    <ellipse cx="0" cy="24" rx="20" ry="20" fill="#E8C28A"/>
+    <circle cx="-38" cy="-26" r="13" ${st('#9A6A3A', 4.5)}/><circle cx="38" cy="-26" r="13" ${st('#9A6A3A', 4.5)}/><circle cx="-38" cy="-26" r="6.5" fill="#E8C28A"/><circle cx="38" cy="-26" r="6.5" fill="#E8C28A"/>
+    <circle cx="0" cy="-26" r="34" ${st('#9A6A3A')}/>
+    <path d="M-24 -20 Q-26 -44 -6 -38 Q0 -46 6 -38 Q26 -44 24 -20 Q24 2 0 4 Q-24 2 -24 -20 Z" fill="#E8C28A" stroke="${INK}" stroke-width="3.5"/>
+    ${face(0, -20, 0.85, e, 'grin', 11)}
+    <path d="M-28 -52 Q-36 -74 -18 -82 Q-14 -66 0 -60 Q14 -66 18 -82 Q36 -74 28 -52 Q0 -64 -28 -52 Z" ${st('#FFD23F', 4.5)}/>
+    <path d="M0 -60 L0 -88" ${line(6, '#7A5A2A')}/><circle cx="0" cy="-90" r="3.5" fill="#5a3a1a"/>
+    ${shine(-18, -44, 4, 9, 30, 0.5)}`,
+  // Camaleonte Pesto — caméléon couleur pesto, crête en feuille de basilic, queue en spirale
+  chameleon: (e, s) => `
+    ${limb(`M-40 22 q-26 4 -24 -16 q2 -14 14 -10 q8 4 2 12 q-6 4 -8 -2`, 8, '#5FBF4A')}
+    ${[-1, 1].map((k, i) => limb(`M${k * 22} 32 l${k * 8} ${16 + ((i + s) % 2) * 6}`, 7, '#4FA83C')).join('')}
+    <path d="M-44 20 Q-46 -14 -10 -22 Q30 -30 46 -4 Q56 14 44 30 Q30 42 -2 42 Q-40 42 -44 20 Z" ${st('#6FCF52')}/>
+    ${[[-20, 4], [0, 18], [-28, 26], [18, 26]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#3F9A33" opacity=".8"/>`).join('')}
+    <path d="M-30 -12 Q-20 -46 4 -48 Q-2 -30 -30 -12 Z" ${st('#2FAE52', 4)}/><path d="M-26 -16 Q-12 -34 0 -44" ${line(2.2, 'rgba(255,255,255,.6)')}/>
+    <circle cx="30" cy="-4" r="22" ${st('#6FCF52')}/>
+    <circle cx="34" cy="-8" r="12" fill="#fff" stroke="${INK}" stroke-width="3.5"/>
+    ${e === 1 ? `<path d="M26 -8 q8 6 16 0" ${line(3, INK)}/>` : e === 2 ? `<path d="M29 -13 l10 10 M39 -13 l-10 10" ${line(3, INK)}/>` : `<circle cx="${36 + (s ? 2 : -1)}" cy="-8" r="5.5" fill="${INK}"/><circle cx="${34 + (s ? 2 : -1)}" cy="-10" r="2" fill="#fff"/>`}
+    <path d="M38 10 q8 4 14 -2" ${line(3, INK)}/><ellipse cx="22" cy="10" rx="5" ry="3" fill="#ff8fab" opacity=".7"/>
+    ${shine(-24, -2, 5, 10, 60, 0.45)}`,
   // BOSS 1 : Tricheco Fisarmonica — morse-accordéon
   boss1: (e, s) => { const k = s ? 5 : 0; return `
     ${feet(28, 58, s, '#7D5435', 16, 9)}

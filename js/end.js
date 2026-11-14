@@ -1,7 +1,7 @@
 // Séquence de fin de niveau, une étape à la fois (toucher l'écran accélère l'étape en cours) :
 // 1. bannière + étoiles  2. score (+ « NOUVEAU RECORD ! »)  3. gemmes / XP qui s'envolent,
 // montées de niveau  4. succès  5. écran final compact (MVP, 3 stats, boutons).
-import { TOWERS, ENEMIES, LEVELS, XP, END } from './config.js';
+import { TOWERS, ENEMIES, LEVELS, XP, END, CAMPAIGN } from './config.js';
 import { icon, gem, coin } from './icons.js';
 import { towerImg, enemyImg } from './sprites.js';
 import { chestSvg } from './loot.js';
@@ -183,7 +183,7 @@ export const End = {
         badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.gems ? `+${a.gems}${gem()}` : '' }))];
         if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
         if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
-        if (win && !g.heroic && g.level.n === 12 && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
+        if (win && !g.heroic && g.level.n === CAMPAIGN.endlessAfter && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
         for (const t of r.towers || []) badges.push({ ico: 'cannon', name: TOWERS[t].name, sub: 'Nouvelle arme' });
         if (r.legend && r.legend.length) badges.push({ ico: 'crown', name: 'Améliorations légendaires', sub: r.legend.map((t) => TOWERS[t].name).join(', ') });
         if (badges.length) {
