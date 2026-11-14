@@ -689,16 +689,6 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .home { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: calc(var(--resh) + 4px) 16px 14px; }
 .home .logo { margin: 0; pointer-events: none; }
 .home .logo span { font-size: clamp(38px, 12.500vw, 58px); -webkit-text-stroke-width: 7px; }
-.home-side { position: absolute; top: 34%; display: flex; flex-direction: column; gap: 14px; }
-.home-side.left { left: 10px; } .home-side.right { right: 10px; }
-.side-btn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; touch-action: manipulation; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 0 var(--ink), 0 0 4px var(--ink); }
-.side-btn .sa { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(180deg, #fff, #e6dcf5); border: 3px solid var(--ink); box-shadow: 0 4px 0 #6f6490, 0 8px 14px rgba(0, 0, 0, .3); color: var(--ink); transition: transform .15s cubic-bezier(.3, 1.8, .5, 1); }
-.side-btn .sa svg { width: 40px; height: auto; } .side-btn .sa .ico { width: 28px; height: 28px; }
-.side-btn:active .sa { transform: scale(.9); }
-.side-btn em { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font-style: normal; font-size: 14px; color: #fff; background: #f0485a; border: 2.5px solid var(--ink); text-shadow: none; animation: wiggle .8s ease-in-out infinite; }
-.side-btn.glow .sa { animation: side-glow 1.2s ease-in-out infinite; }
-@keyframes side-glow { 50% { box-shadow: 0 4px 0 #6f6490, 0 0 22px var(--gold); transform: scale(1.06); } }
-.side-btn.off .sa { filter: grayscale(.8) brightness(.8); }
 .home-play { width: min(380px, 100%); display: flex; align-items: center; gap: 10px; }
 .btn.huge { flex: 1; min-height: 78px; border-radius: 26px; flex-direction: column; gap: 0; line-height: 1.05; animation: play-breathe 1.8s ease-in-out infinite; }
 .btn.huge .l { display: inline-flex; align-items: center; gap: 8px; font-size: 34px; letter-spacing: .04em; }
@@ -914,11 +904,6 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .chest-stage.flash::after { content: ""; position: fixed; inset: 0; background: #fff; pointer-events: none; animation: whiteout .5s ease-out forwards; }
 
 /* ------------------------------------------------------------- quotidien : accueil */
-.side-btn .ra-ico { display: grid; place-items: center; } .side-btn .ra-ico .ico { width: 28px; height: 28px; }
-.side-btn.spin .sa .ico { animation: rays 4s linear infinite; }
-.side-btn.done .sa { filter: saturate(.4); }
-.home-side { gap: 10px; }
-@media (max-height: 740px) { .home-side { top: 27%; gap: 6px; } .side-btn .sa { width: 46px; height: 46px; border-radius: 15px; } .side-btn .sa svg { width: 34px; } .side-btn .ra-ico .ico { width: 24px; height: 24px; } .home .logo span { font-size: clamp(32px, 10vw, 46px); } .btn.huge { min-height: 66px; } .btn.huge .l { font-size: 28px; } .map-btn { height: 66px; } }
 /* puces de récompense */
 .rw { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 4px; border-radius: 999px; font-size: 14px; background: rgba(20, 10, 40, .5); white-space: nowrap; }
 .rw .ico, .rw .gem-ico { width: 16px; height: 16px; } .rw .coin-ico { width: 15px; height: 15px; } .rw.chest svg { width: 22px; height: auto; } .rw.pass { color: #c9a6ff; }
@@ -990,9 +975,9 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
   --bad: #8a0016;
 }
 .screen, #overlay, #toasts, #resbar, #tabbar { text-shadow: var(--ol-soft); }
-.btn, .lcard, .toast, .cal, .side-btn .sa, .lvl, .tagchip, .coin-ico { text-shadow: none; }
-.btn.pink, .btn.blue, .btn.red, .btn.ghost, .seg button.sel, .lvl, .tab em, .side-btn em, em.badge { text-shadow: var(--ol); }
-.topbar h2, .sect, .hint, .es-sub, .es-hint, .side-btn small, .map-btn small { text-shadow: var(--ol); }
+.btn, .lcard, .toast, .cal, .lvl, .tagchip, .coin-ico { text-shadow: none; }
+.btn.pink, .btn.blue, .btn.red, .btn.ghost, .seg button.sel, .lvl, .tab em, .crest em, em.badge { text-shadow: var(--ol); }
+.topbar h2, .sect, .hint, .es-sub, .es-hint, .crest small, .map-btn small { text-shadow: var(--ol); }
 .hint { color: #fff; }
 .btn.sm { min-height: 44px; }
 .seg button { min-height: 44px; }
@@ -1041,8 +1026,37 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .owned .ico { width: 20px; height: 20px; stroke-width: 3; }
 .icon-btn { width: 44px; height: 44px; }
 #btn-pause, #btn-mute { width: 34px; height: 34px; }
-.side-btn small, .map-btn small, .troot small, .rbtn small, .tbranch small { font-size: 13px; font-weight: 700; }
 .rbtn small { color: #fff; text-shadow: var(--ol); }
 .owned.wide { width: 100%; min-height: 50px; font-size: 16px; }
 .q-ico .ico:not(.art), .rw .ico:not(.art), .tile .ico:not(.art) { color: var(--gold); }
 .es-pill .ico.art { width: 26px; height: 26px; }
+
+/* ------------------------------------------------------------- accueil : logo, blasons, scène */
+html, body { background: #22183f; }   /* sous la barre d'onglets (bug iOS en plein écran) : même couleur */
+#tabbar { background: linear-gradient(180deg, #45307a, #22183f 70%); }
+.home { justify-content: flex-start; gap: 6px; padding: calc(var(--resh) + 2px) 8px 12px; }
+.home .logo span { font-size: clamp(30px, 9.6vw, 44px); -webkit-text-stroke-width: 6px; }
+.home .logo .l1, .home .logo .l2 { text-shadow: 0 4px 0 var(--ink), 0 8px 14px rgba(0, 0, 0, .3); }
+.home-mid { flex: 1; min-height: 0; width: 100%; display: flex; align-items: flex-start; gap: 4px; }
+.home-stage { flex: 1; align-self: stretch; pointer-events: none; }
+.home-side { flex: none; width: 74px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 4px; }
+.home-play { margin-top: auto; }
+/* blason : écusson coloré (une couleur par fonction), icône illustrée, label contouré, info */
+.crest { position: relative; width: 74px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; touch-action: manipulation; color: #fff; }
+.crest .cs { position: relative; width: 60px; height: 66px; display: grid; place-items: center; transition: transform .15s cubic-bezier(.3, 1.8, .5, 1); filter: drop-shadow(0 4px 0 rgba(26, 14, 46, .55)) drop-shadow(0 8px 10px rgba(0, 0, 0, .25)); }
+.crest .cs > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.crest .cs .ico { position: relative; width: 40px; height: 40px; margin-top: -6px; }
+.crest .cs .chest-svg { position: relative; width: 44px; margin-top: -6px; }
+.crest:active .cs { transform: scale(.9); }
+.crest small { font-size: 14px; font-weight: 700; line-height: 1.1; text-shadow: var(--ol); }
+.crest i.info { font-style: normal; font-size: 13px; font-weight: 700; line-height: 1; padding: 3px 8px 4px; border-radius: 999px; color: #fff; background: rgba(26, 14, 46, .78); border: 1.5px solid rgba(255, 255, 255, .25); white-space: nowrap; text-shadow: none; }
+.crest i.info.go { background: linear-gradient(180deg, #5fe08a, #23a958); border-color: var(--ink); text-shadow: var(--ol); }
+.crest em { position: absolute; top: -4px; right: 0; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 700; color: #fff; background: #e8283f; border: 2.5px solid var(--ink); animation: wiggle .8s ease-in-out infinite; }
+.crest.ready .cs { animation: crest-glow 1.3s ease-in-out infinite; }
+@keyframes crest-glow { 50% { transform: scale(1.07); filter: drop-shadow(0 4px 0 rgba(26, 14, 46, .55)) drop-shadow(0 0 12px #ffe27a); } }
+.crest.spin .cs .ico { animation: rays 5s linear infinite; }
+@media (max-height: 740px) {
+  .home-side { gap: 2px; } .crest .cs { width: 50px; height: 55px; } .crest .cs .ico { width: 33px; height: 33px; } .crest .cs .chest-svg { width: 36px; }
+  .home .logo span { font-size: clamp(26px, 8.4vw, 36px); } .btn.huge { min-height: 64px; } .btn.huge .l { font-size: 28px; } .map-btn { height: 64px; }
+}
+.map-btn small, .troot small, .rbtn small, .tbranch small { font-size: 13px; font-weight: 700; }

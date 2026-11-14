@@ -454,7 +454,7 @@ export const COINS = {
 export const TABS = [
   { id: 'shop', label: 'Boutique', icon: 'cart' },
   { id: 'castle', label: 'Château', icon: 'castle' },
-  { id: 'menu', label: 'Jouer', icon: 'play' },
+  { id: 'menu', label: 'Accueil', icon: 'home' },
   { id: 'talents', label: 'Talents', icon: 'talent' },
   { id: 'collection', label: 'Collection', icon: 'book' },
 ];

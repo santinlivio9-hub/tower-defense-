@@ -13,6 +13,12 @@ const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const WHEEL_COLORS = ['#ff5d8f', '#ffd23f', '#3d9dfc', '#3fd873', '#b05cff', '#ff9f1a', '#5fd8ff', '#f0485a'];
 
+// Temps restant avant minuit (nouveau jour) : « 4 h 12 » ou « 12 min »
+export function untilMidnight() {
+  const n = new Date(), m = new Date(n); m.setHours(24, 0, 0, 0);
+  const s = Math.max(60, (m - n) / 1000), h = Math.floor(s / 3600), mn = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${String(mn).padStart(2, '0')}` : `${mn} min`;
+}
 // Petites puces de récompense (icône + valeur)
 export function rewardChips(r) {
   const out = [];
@@ -36,17 +42,17 @@ function rewardArt(r) {
 export const Daily = {
   dailyBadge(tab) { return tab === 'menu' ? this.save.dailyCount() : 0; },
   // Boutons autour du château (accueil)
-  homeDaily(left, right, side) {
+  homeDaily(left, right, crest) {
     const sv = this.save; sv.dailyTick();
-    const qn = sv.questsReady(), pn = sv.passReady(), ch = sv.challenge();
-    side(left, `<span class="ra-ico">${icon('gift')}</span>`, 'Cadeau', () => this.openDaily('calendar'), sv.calendarReady() ? true : 0, sv.calendarReady() ? 'glow' : '');
-    side(left, `<span class="ra-ico">${icon('scroll')}</span>`, 'Quêtes', () => this.openDaily('quests'), qn, qn ? 'glow' : '');
-    side(right, `<span class="ra-ico">${icon('wheel')}</span>`, 'Roue', () => this.openDaily('wheel'), sv.wheelReady() ? true : 0, sv.wheelReady() ? 'glow spin' : '');
-    side(right, `<span class="ra-ico">${icon('pass')}</span>`, 'Passe', () => this.openDaily('pass'), pn, pn ? 'glow' : '');
-    side(right, `<span class="ra-ico">${icon('challenge')}</span>`, 'Défi', () => this.openDaily('challenge'), ch.done ? 0 : true, ch.done ? 'done' : '');
+    const D = sv.data.daily, qn = sv.questsReady(), pn = sv.passReady(), ch = sv.challenge(), cal = sv.calendarReady(), wh = sv.wheelReady();
+    const qdone = D.quests.filter((q) => q.claimed || q.prog >= sv.questDef(q).n).length;
+    crest(left, { art: icon('gift'), label: 'Cadeau', color: 'gift', fn: () => this.openDaily('calendar'), badge: cal ? 1 : 0, info: cal ? 'Prêt !' : untilMidnight(), go: cal, cls: cal ? 'ready' : '' });
+    crest(left, { art: icon('scroll'), label: 'Quêtes', color: 'quests', fn: () => this.openDaily('quests'), badge: qn, info: qn ? 'Prêt !' : `${qdone}/${D.quests.length}`, go: !!qn, cls: qn ? 'ready' : '' });
+    crest(right, { art: icon('wheel'), label: 'Roue', color: 'wheel', fn: () => this.openDaily('wheel'), badge: wh ? 1 : 0, info: wh ? 'Gratuit !' : untilMidnight(), go: wh, cls: wh ? 'ready spin' : '' });
+    crest(right, { art: icon('pass'), label: 'Passe', color: 'pass', fn: () => this.openDaily('pass'), badge: pn, info: pn ? 'Prêt !' : `Palier ${sv.passTier()}`, go: !!pn, cls: pn ? 'ready' : '' });
+    crest(right, { art: icon('challenge'), label: 'Défi', color: 'challenge', fn: () => this.openDaily('challenge'), info: ch.done ? untilMidnight() : 'À relever' });
     // le cadeau du jour s'ouvre tout seul à la première visite de la journée
-    const D = sv.data.daily;
-    if (sv.calendarReady() && D.popped !== D.day && !sv.data.notice && sv.data.settings.tutorialDone !== false) { D.popped = D.day; sv.persist(); setTimeout(() => { if (this.screen === 'menu' && !$('#overlay.show')) this.openDaily('calendar'); }, 600); }
+    if (cal && D.popped !== D.day && !sv.data.notice && sv.data.settings.tutorialDone !== false) { D.popped = D.day; sv.persist(); setTimeout(() => { if (this.screen === 'menu' && !$('#overlay.show')) this.openDaily('calendar'); }, 600); }
   },
   openDaily(kind) {
     this.audio.play('sheet');
