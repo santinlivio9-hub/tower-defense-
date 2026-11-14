@@ -116,7 +116,7 @@ export const End = {
       // ---------------------------------------------------------------- 3. récompenses
       seq.fast = false;
       const pills = el('div', 'es-pills'); stage.append(pills);
-      const cp = el('div', 'es-pill coin', `${coin()}<b>+${fmt(rc)}</b>`), gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `<i class="es-orb"></i><b>+${fmt(r.xp)} XP</b>`);
+      const cp = el('div', 'es-pill coin', `${coin()}<b>+${fmt(rc)}</b>`), gp = el('div', 'es-pill gem', `${gem()}<b>+${fmt(r.gems)}</b>`), xp = el('div', 'es-pill xp', `${icon('xp')}<b>+${fmt(r.xp)} XP</b>`);
       if (rc > 0) pills.append(cp);
       pills.append(gp, xp);
       for (const t of r.rewards || []) { const kind = /dor/i.test(t) ? 'gold' : 'wood'; pills.append(el('div', 'es-pill chest', `${chestSvg(kind)}<b>${t}</b>`)); }

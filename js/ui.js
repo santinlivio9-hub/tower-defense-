@@ -139,14 +139,14 @@ export class UI {
     const r = el('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.05; r.value = s.volume;
     r.oninput = () => { this.audio.setVolume(+r.value); this.save.persist(); }; r.onchange = () => this.audio.play('coin');
     vol.append(r); box.append(vol);
-    box.append(this.switchRow('Musique', 'Musique de fond (plus intense contre les boss)', 'sound', 'music', () => this.music.apply()));
+    box.append(this.switchRow('Musique', 'Musique de fond (plus intense contre les boss)', 'music', 'music', () => this.music.apply()));
     box.append(this.switchRow('Vibrations', 'Retour haptique', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
     box.append(this.switchRow('Tremblement d\'écran', 'Explosions et boss', 'quake', 'shake'));
     box.append(this.switchRow('Chiffres de dégâts', 'Nombres flottants', 'numbers', 'damageNumbers'));
-    box.append(this.switchRow('Indicateurs', 'Flèche UP et socles achetables', 'up', 'hints'));
+    box.append(this.switchRow('Indicateurs', 'Flèche UP et socles achetables', 'arrowup', 'hints'));
     box.append(this.switchRow('Vague suivante automatique', `Elle part ${GAME.interWaveTime} s après la fin de la précédente`, 'wave', 'autoWave'));
-    const tut = el('div', 'setting', `<span class="lab">${icon('book')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
-    const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('book')); }; tut.append(tb); box.append(tut);
+    const tut = el('div', 'setting', `<span class="lab">${icon('bulb')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
+    const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('bulb')); }; tut.append(tb); box.append(tut);
     const rs = el('div', 'setting', `<span class="lab">${icon('trash')}<span>Réinitialiser<small>Efface toute la progression</small></span></span>`);
     const rb = el('button', 'btn sm red', 'Effacer');
     rb.onclick = () => { if (confirm('Effacer toute la progression (gemmes, déblocages, étoiles, records) ?')) { this.save.reset(); this.audio.settings = this.haptics.settings = this.save.data.settings; this.audio.applyVolume(); this.renderSettings(); this.toast('Progression effacée', '', icon('trash')); } };
