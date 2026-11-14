@@ -1,6 +1,6 @@
 // Cinématiques de progression : nouvelle arme débloquée, récompense de fin de monde, transition vers le monde suivant.
 // Méthodes ajoutées à la classe UI.
-import { TOWERS, WORLDS, SHOP, WORLD_REWARD, UNLOCKS } from './config.js';
+import { PER_WORLD, TOWERS, WORLDS, SHOP, WORLD_REWARD, UNLOCKS } from './config.js';
 import { THEMES } from './maps.js';
 import { towerImg } from './sprites.js';
 import { computeStats } from './towers.js';
@@ -36,7 +36,7 @@ export const Reveal = {
   async worldReward(wi) {
     const d = this.save.data, W = WORLD_REWARD;
     // skin exclusif de ce boss (débloqué en battant le dernier niveau du monde)
-    const skinId = Object.keys(UNLOCKS.skins).find((k) => UNLOCKS.skins[k] === (wi + 1) * 6 + 1), skin = SHOP.skins.find((s) => s.id === skinId);
+    const skinId = Object.keys(UNLOCKS.skins).find((k) => UNLOCKS.skins[k] === (wi + 1) * PER_WORLD + 1), skin = SHOP.skins.find((s) => s.id === skinId);
     const root = el('div', 'reveal world', `<div class="rays"></div><small class="rv-kick">MONDE ${wi + 1} TERMINÉ !</small>
       <h2 class="rv-title">${WORLDS[wi].name}</h2><div class="rv-chest">${chestSvg(W.chest)}</div><div class="rv-cards"></div>`);
     const cards = $('.rv-cards', root), ok = el('button', 'btn primary big cta', 'Continuer'); ok.style.visibility = 'hidden'; root.append(ok);

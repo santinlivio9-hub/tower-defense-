@@ -8,6 +8,7 @@ import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
+import { initMech, updateMech, drawPatches, drawMechOver, patchAt } from './mechanics.js';
 import { drawCastle, drawCastleLights, castleGunY, castleBounds, nightLevel } from './castle.js';
 
 const TAU = Math.PI * 2;
@@ -59,6 +60,7 @@ export class Game {
     this.shakeMag = 0; this.baseFlash = 0; this.banner = null; this.scale = 1; this.bg = null;
     this.onEvent = () => {};
     this._nextCache = null; this.useSlots = true;
+    initMech(this, challenge && challenge.noMech ? null : this.world.mech);
     this.setView(1, 0, 0, VIEW.W, VIEW.H);
   }
 
@@ -75,6 +77,7 @@ export class Game {
     if (!c) { this.bgOk = false; return; }   // plus de mémoire canvas (Safari iOS) : la partie continue sur un fond uni
     this.bgOk = true; c.setTransform(S, 0, 0, S, ox * S, oy * S);
     drawMapBackground(c, this.theme, this.field, this.ext, { slots: this.useSlots });
+    drawPatches(c, this);
   }
   shake(m) { if (this.save.data.settings.shake) this.shakeMag = Math.min(18, Math.max(this.shakeMag, m)); }
   showBanner(title, sub, color = '#fff', dur = 2.2, big = false, sub2 = '') { this.banner = { title, sub, sub2, color, t: 0, dur, big }; }
@@ -135,7 +138,7 @@ export class Game {
 
   // --- ciblage ---------------------------------------------------------------
   canTarget(t, e) {
-    return !e.dead && !e.hidden && Math.hypot(e.x - t.x, e.y - t.y) <= t.stats.range + e.r * 0.5;
+    return !e.dead && !e.hidden && Math.hypot(e.x - t.x, e.y - t.y) <= t.stats.range * this.rangeK + e.r * 0.5;
   }
   findTarget(t) {
     let best = null, bv = -Infinity;
@@ -198,6 +201,7 @@ export class Game {
     if (o.crit) { this.dmgText(e, amount, true); this.audio.play('crit'); if (amount >= e.maxHp * JUICE.bigHit) { this.hitStop(); this.shake(5); } }
     else if (o.dot || o.group || amount < 9) { if (e.pendingText <= 0) e.textT = 0.3; e.pendingText += amount; }
     else this.dmgText(e, amount, false);
+    if (e.cfg.glide && !o.dot) e.glide = 0;   // touché : le glisseur perd son élan
     if (e.hp <= 0) this.kill(e, tower);
   }
   kill(e, tower) {
@@ -358,15 +362,20 @@ export class Game {
     for (const t of this.towers) {
       if (t.disabledT > 0 || t.type === 'mine') continue;
       const r = t.stats.detect ? t.stats.range : GAME.stealthRevealRange;
-      for (const e of this.enemies) if (e.cfg.stealth && Math.hypot(e.x - t.x, e.y - t.y) <= r + e.r) e.revealT = Math.max(e.revealT, 0.4);
+      const see = this.mech && this.mech.kind === 'grass' ? Math.max(r, this.mech.see) : r;
+      for (const e of this.enemies) if ((e.cfg.stealth || e.inGrass || e.camo) && Math.hypot(e.x - t.x, e.y - t.y) <= (e.cfg.stealth || e.camo ? r : see) + e.r) e.revealT = Math.max(e.revealT, 0.4);
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.update(dt, this);
       if (e.reached) this.leak(e);
     }
+    // aura glacée des yétis : la cadence des tourelles proches baisse
+    for (const t of this.towers) t.chill = Math.max(0, (t.chill || 0) - dt);
+    for (const e of this.enemies) if (e.cfg.chill && !e.dead) for (const t of this.towers) if (Math.hypot(t.x - e.x, t.y - e.y) < e.cfg.chill.radius) t.chill = 0.3;
     for (const t of this.towers) t.update(dt, this);
     this.updateCastle(dt);
+    updateMech(this, dt);
     this.hintT -= dt;
     if (this.hintT <= 0) { this.hintT = 0.3; this.hintsNow(); }
     for (const p of this.projectiles) p.update(dt, this);
@@ -692,6 +701,7 @@ export class Game {
     for (const e of ground) e.draw(c);
     for (const t of this.towers) if (t.type !== 'mine') t.draw(c, skin);
     for (const e of this.enemies) if (e.flying) e.draw(c);
+    drawMechOver(c, this);
     this.fx.drawTracers(c);
     for (const p of this.projectiles) p.draw(c);
     this.fx.draw(c);
@@ -748,6 +758,9 @@ export class Game {
       c.strokeStyle = `rgba(255,190,60,${0.45 + k * 0.4})`; c.lineWidth = 3;
       for (const t of this.towers) if (t.type !== 'mine') { c.beginPath(); c.arc(t.x, t.y, 30 + k * 4, 0, TAU); c.stroke(); }
     }
+    // tourelles glacées par un yéti : givre autour du socle
+    for (const t of this.towers) if (t.chill > 0) { c.strokeStyle = 'rgba(190,240,255,.85)'; c.lineWidth = 3; c.setLineDash([6, 5]); c.beginPath(); c.arc(t.x, t.y, 32, 0, TAU); c.stroke(); c.setLineDash([]); }
+    for (const e of this.enemies) if (e.cfg.chill && !e.dead) { c.fillStyle = 'rgba(190,240,255,.10)'; c.beginPath(); c.arc(e.x, e.gy, e.cfg.chill.radius, 0, TAU); c.fill(); }
     for (const bl of this.bolts) {
       const a = bl.t / 0.45; let x = bl.x + Math.sin(bl.seed) * 30, y = E.t;
       c.strokeStyle = `rgba(255,250,200,${a})`; c.lineWidth = 7; if (!this.lowFx) { c.shadowColor = '#ffd23f'; c.shadowBlur = 14; }

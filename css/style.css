@@ -1753,3 +1753,6 @@ body[data-screen="game"] { background: #1c1530; }
 .setting.vol .pct { flex: none; width: 46px; text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
 .setting.vol .lab { flex: none; }
 .setting.vol .lab { width: 96px; }
+
+/* carte : niveau ajouté par une mise à jour dans un monde déjà fini */
+.node .nnew { position: absolute; left: 50%; top: -14px; transform: translateX(-50%); padding: 1px 6px; border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #3d2c4e; background: var(--gold); border: 2px solid var(--ink); white-space: nowrap; animation: pulse 1.2s ease-in-out infinite; }

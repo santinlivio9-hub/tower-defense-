@@ -9,6 +9,7 @@ export const THEMES = {
   desert:  { g1: '#f6d58c', g2: '#efc673', g3: '#e2b25c', path: '#c9935a', path2: '#b98249', edge: '#7f5330', deco: 'desert', flower: ['#ff8a5c', '#fff3c4', '#ffd23f'], cloud: 'rgba(120,80,20,0.10)', stem: '#5c8a3a' },
   volcano: { g1: '#75608a', g2: '#665179', g3: '#56436a', path: '#f7bfd0', path2: '#eda6bd', edge: '#8f3f5e', deco: 'volcano', flower: ['#8ff0e0', '#ffd23f', '#ff7a5c'], cloud: 'rgba(20,10,30,0.14)', stem: '#3f8f7a' },
   ice:     { g1: '#eaf7ff', g2: '#d3ecfb', g3: '#b9dcf2', path: '#a7bde0', path2: '#93a9d2', edge: '#55679a', deco: 'ice', flower: ['#8fe3ff', '#ffffff', '#c9a6ff'], cloud: 'rgba(40,70,120,0.10)', stem: '#5f9fbf' },
+  jungle:  { g1: '#4fae4a', g2: '#3f9a3e', g3: '#2f8434', path: '#c99a62', path2: '#b5844c', edge: '#6e4524', deco: 'jungle', flower: ['#ff5d8f', '#ffd23f', '#ff9f1a'], cloud: 'rgba(10,50,20,0.14)', stem: '#1f6a2a' },
   candy:   { g1: '#ffcfe6', g2: '#ffb6d8', g3: '#f79ac6', path: '#fff3c4', path2: '#ffe39a', edge: '#c9577f', deco: 'candy', flower: ['#ffffff', '#8fe3ff', '#ffd23f'], cloud: 'rgba(140,40,90,0.10)', stem: '#3fae7a' },
 };
 
@@ -187,9 +188,17 @@ const DECO = {
   icecube(c) { DECO.crystal(c, '#bfeaff'); },
   lollipop(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, 14); c.lineTo(0, -4); c.strokeStyle = '#fff'; c.lineWidth = 5; c.stroke(); c.strokeStyle = INK; c.lineWidth = 3; blob(c, 0, -10, 11, ['#ff5d8f', '#5fd8ff', '#ffd23f'][Math.floor(k * 3) % 3]); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2.5; c.beginPath(); c.arc(0, -10, 6, 0.4, 4); c.stroke(); },
   gumdrop(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = ['#9b6bff', '#3fd873', '#ff9f1a'][Math.floor(k * 3) % 3]; c.beginPath(); c.moveTo(-12, 9); c.quadraticCurveTo(-13, -12, 0, -12); c.quadraticCurveTo(13, -12, 12, 9); c.closePath(); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(-4, -5, 3, 5, 0.4, 0, 7); c.fill(); },
+  // jungle : palmier, fougère, champignon, liane
+  palm(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.lineJoin = 'round'; c.fillStyle = '#9a6a3a'; c.beginPath(); c.moveTo(-3, 14); c.quadraticCurveTo(-6, -2, 2, -16); c.lineTo(6, -15); c.quadraticCurveTo(0, -2, 4, 14); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#2fae52'; for (const a of [-2.6, -1.9, -1.2, -0.5, 0.2]) { c.save(); c.translate(3, -16); c.rotate(a + k * 0.3); c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(10, -9, 22, -2); c.quadraticCurveTo(10, 2, 0, 0); c.fill(); c.stroke(); c.restore(); }
+    c.fillStyle = '#8a5530'; c.beginPath(); c.arc(1, -14, 3.2, 0, 7); c.arc(6, -13, 3.2, 0, 7); c.fill(); c.stroke(); },
+  fern(c) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#3fbf5a'; for (const a of [-2.4, -1.6, -0.8]) { c.save(); c.rotate(a + 1.57); c.beginPath(); c.moveTo(0, 6); c.quadraticCurveTo(-7, -8, 0, -20); c.quadraticCurveTo(7, -8, 0, 6); c.fill(); c.stroke(); c.restore(); }
+    c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 4); c.lineTo(0, -14); c.stroke(); },
+  mushroom(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#fff3dc'; c.beginPath(); c.roundRect(-4, -4, 8, 14, 3); c.fill(); c.stroke(); c.fillStyle = k < 0.5 ? '#ff5d6c' : '#ff9f1a'; c.beginPath(); c.ellipse(0, -6, 13, 9, 0, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(-5, -9, 2.4, 0, 7); c.arc(4, -11, 2, 0, 7); c.fill(); },
   donut(c) { c.lineWidth = 3; c.strokeStyle = INK; blob(c, 0, 0, 12, '#f2c27a'); c.strokeStyle = '#ff7eb6'; c.lineWidth = 6; c.beginPath(); c.arc(0, 0, 7.5, 0, 7); c.stroke(); blob(c, 0, 0, 3.5, 'rgba(0,0,0,.25)', 2); },
 };
-const DECO_SETS = { meadow: ['bush', 'tree', 'rock', 'tree'], desert: ['cactus', 'dune', 'rock', 'dune'], volcano: ['crystal', 'lava', 'rock'], ice: ['pine', 'snow', 'icecube', 'snow'], candy: ['lollipop', 'gumdrop', 'donut', 'lollipop'] };
+const DECO_SETS = { meadow: ['bush', 'tree', 'rock', 'tree'], desert: ['cactus', 'dune', 'rock', 'dune'], volcano: ['crystal', 'lava', 'rock'], ice: ['pine', 'snow', 'icecube', 'snow'], candy: ['lollipop', 'gumdrop', 'donut', 'lollipop'], jungle: ['palm', 'fern', 'mushroom', 'palm', 'fern'] };
 
 // Positions libres pour le décor (ni sur le chemin, ni sur un socle, ni sur le château)
 function decoSpots(field, rnd, n, margin, ext) {
@@ -219,6 +228,7 @@ const SLAB = {
   volcano: { top: '#5c4f6e', side: '#3a2f4a', crack: '#ff7a3c', tuft: null },
   ice:     { top: '#e6f6ff', side: '#9cc4e6', crack: 'rgba(85,103,154,.35)', tuft: null },
   candy:   { top: '#ffe6f0', side: '#e8a3c4', crack: 'rgba(201,87,127,.35)', tuft: '#3fae7a' },
+  jungle:  { top: '#a8b59a', side: '#6f7d62', crack: 'rgba(30,60,30,.4)', tuft: '#1f8a3a' },
 };
 export const SLOT_R = Math.round(GAME.towerRadius * 0.72);
 function drawSlot(c, s, deco = 'meadow') {

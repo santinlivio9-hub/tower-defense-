@@ -1,7 +1,7 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
 import { QUALITY, GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
-import { Meta } from './meta.js';
+import { Meta, MECH_ICON } from './meta.js';
 import { Reveal } from './reveal.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
@@ -245,6 +245,7 @@ export class UI {
     g.speed = this.save.data.settings.speed || 1; this.syncSpeed(); $('#hud-money b').textContent = short(g.money); $('#hud-score b').textContent = '0';
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
+    if (g.mech) this.toast(g.mech.name, g.mech.desc, icon(MECH_ICON[g.mech.kind] || 'bolt'));
     if (g.heroic) this.toast('Défi héroïque : ' + g.heroic.name, g.heroic.desc, icon('crown'));
     if (g.challenge) this.toast('Défi du jour : ' + g.challenge.name, g.challenge.desc, icon('target'));
     window.__game = g; // pratique pour le débogage / l'équilibrage en console
@@ -258,7 +259,7 @@ export class UI {
     clearTimeout(this.endT); clearTimeout(this.endWatch); clearTimeout(this.comboHide); this.endT = this.endWatch = null;
     if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
     this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
-    $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly').forEach((e) => e.remove());
+    $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly, .up-float, #toasts > *').forEach((e) => e.remove());
     for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
     $('#radial').innerHTML = '';
     if (window.__game) window.__game = null;

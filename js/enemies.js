@@ -1,6 +1,7 @@
 // Ennemis : déplacement, états (ralenti, gel, brûlure), capacités, dessin.
 import { ENEMIES, WAVES } from './config.js';
 import { enemyFrames } from './sprites.js';
+import { patchAt } from './mechanics.js';
 
 const TAU = Math.PI * 2;
 
@@ -28,17 +29,19 @@ export class Enemy {
     this.pendingText = 0; this.textT = 0;
     this.dead = false; this.reached = false; this.enraged = false;
     this.blinkT = 1 + Math.random() * 3; this.enterT = cfg.boss ? 1 : 0; this.spawnT = d < 5 && !cfg.boss ? 1 : 0;
+    this.glide = 0; this.hopT = cfg.hop ? cfg.hop.every * (0.5 + Math.random() * 0.5) : 0; this.jumpT = 0; this.camoT = Math.random() * 2; this.camo = false;
     this.x = 0; this.y = 0; this.gy = 0;
     this.place();
   }
-  get hidden() { return !!this.cfg.stealth && this.revealT <= 0; }
+  // caché : invisible de nature, camouflé (caméléon) ou dans les hautes herbes, tant qu'il n'est pas révélé
+  get hidden() { return (!!this.cfg.stealth || this.camo || this.inGrass) && this.revealT <= 0; }
   get remaining() { return this.path.total - this.d; }
 
   place() {
     const p = this.path.pointAt(this.d);
     this.x = p.x - Math.sin(p.ang) * this.off;
     this.gy = p.y + Math.cos(p.ang) * this.off;
-    this.y = this.gy - (this.flying ? 34 + Math.sin(this.walk * 0.05 + this.phase) * 5 : 0);
+    this.y = this.gy - (this.flying ? 34 + Math.sin(this.walk * 0.05 + this.phase) * 5 : 0) - (this.jumpT > 0 ? Math.sin((1 - this.jumpT / this.cfg.hop.dur) * Math.PI) * 46 : 0);
     const cx = Math.cos(p.ang);
     if (cx > 0.3) this.dir = 1; else if (cx < -0.3) this.dir = -1;
   }
@@ -57,8 +60,19 @@ export class Enemy {
     this.enterT = Math.max(0, this.enterT - dt * 0.9); this.spawnT = Math.max(0, this.spawnT - dt * 3);
     this.slowT -= dt; this.stunT -= dt; this.vulnT -= dt; this.shieldT -= dt; this.revealT -= dt;
     let sp = this.speed;
+    // terrain : plaque de glace (glisse plus vite) ou hautes herbes (caché)
+    const q = game.patches.length && !this.boss ? patchAt(game, this) : null;
+    this.inGrass = !!q && game.mech.kind === 'grass';
+    if (q && game.mech.kind === 'ice') sp *= game.mech.speed;
     if (this.stunT > 0) sp = 0; else if (this.slowT > 0) sp *= 1 - this.slowF;
     if (this.enraged) sp *= 1.45;
+    const cfg0 = this.cfg;
+    if (cfg0.glide) { this.glide = Math.min(cfg0.glide.max, this.glide + cfg0.glide.rate * dt); sp *= 1 + this.glide; }   // glisse de plus en plus vite
+    if (cfg0.hop && this.stunT <= 0) {   // bond en avant
+      if (this.jumpT > 0) { this.jumpT -= dt; sp += cfg0.hop.dist / cfg0.hop.dur; }
+      else if ((this.hopT -= dt) <= 0) { this.hopT = cfg0.hop.every; this.jumpT = cfg0.hop.dur; game.fx.burst(this.x, this.gy, '#e8d27a', 6, 110, 4); }
+    }
+    if (cfg0.camo) { this.camoT += dt; const was = this.camo; this.camo = this.camoT % cfg0.camo.every > cfg0.camo.every - cfg0.camo.dur; if (this.camo && !was) game.fx.burst(this.x, this.y, '#7fe08a', 8, 90, 4); }
     this.d += sp * dt; this.walk += sp * dt + (this.flying ? 40 * dt : 0);
     if (this.d >= this.path.total) { this.reached = true; this.dead = true; return; }
     this.place();
