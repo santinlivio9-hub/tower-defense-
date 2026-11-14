@@ -10,9 +10,10 @@ export class AudioSys {
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AC();
-        this.master = this.ctx.createGain();
+        // effets (master) et musique (bus de js/music.js) se rejoignent dans « out », puis le compresseur
+        this.out = this.ctx.createGain(); this.master = this.ctx.createGain();
         const comp = this.ctx.createDynamicsCompressor();
-        this.master.connect(comp); comp.connect(this.ctx.destination);
+        this.master.connect(this.out); this.out.connect(comp); comp.connect(this.ctx.destination);
         const len = this.ctx.sampleRate;
         this.noiseBuf = this.ctx.createBuffer(1, len, len);
         const d = this.noiseBuf.getChannelData(0);
@@ -23,9 +24,12 @@ export class AudioSys {
     // iOS : le contexte passe à « interrupted » après un appel ou un changement d'appli ; on le relance au toucher suivant
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') { try { const r = this.ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
   }
-  applyVolume() { if (this.master) this.master.gain.value = this.settings.muted ? 0 : this.settings.volume * 0.6; }
+  applyVolume() { if (this.master) this.master.gain.value = this.settings.muted ? 0 : (this.settings.sfxVol ?? 0.7) * 0.6; }
   setMuted(m) { this.settings.muted = m; this.applyVolume(); }
-  setVolume(v) { this.settings.volume = v; this.applyVolume(); }
+  setVolume(v) { this.settings.sfxVol = v; this.applyVolume(); }
+  // arrière-plan : tout le son s'arrête (et reprend au retour)
+  pause() { if (this.ctx && this.ctx.state === 'running') { try { this.ctx.suspend(); } catch (e) { /* ignore */ } } }
+  resume() { if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') { try { const r = this.ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } } }
 
   tone({ type = 'square', f0 = 440, f1 = f0, dur = 0.1, gain = 0.2, delay = 0 }) {
     const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();

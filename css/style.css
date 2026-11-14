@@ -1742,3 +1742,14 @@ body[data-screen="game"] { background: #1c1530; }
 .upp-title .upp-desc { font-size: 13px; }
 .up-float { position: fixed; z-index: 8; transform: translate(-50%, 0); pointer-events: none; white-space: nowrap; font-size: 24px; font-weight: 700; color: #8dffae; paint-order: stroke fill; -webkit-text-stroke: 6px var(--ink); text-shadow: 0 3px 0 rgba(0, 0, 0, .3); animation: up-float 1.6s cubic-bezier(.2, .9, .3, 1) forwards; }
 @keyframes up-float { 0% { transform: translate(-50%, 20px) scale(.4); opacity: 0; } 15% { transform: translate(-50%, 0) scale(1.2); opacity: 1; } 30% { transform: translate(-50%, -6px) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -60px) scale(1); opacity: 0; } }
+
+/* ------------------------------------------------------------- curseurs de volume (musique / effets) */
+.setting.vol { gap: 10px; }
+.setting.vol input[type=range] { flex: 1; min-width: 0; height: 44px; -webkit-appearance: none; appearance: none; background: transparent; margin: 0; }
+.setting.vol input[type=range]::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; border: 2px solid var(--ink); background: linear-gradient(90deg, var(--green-2) var(--v, 50%), rgba(20, 10, 40, .7) var(--v, 50%)); }
+.setting.vol input[type=range]::-moz-range-track { height: 12px; border-radius: 6px; border: 2px solid var(--ink); background: linear-gradient(90deg, var(--green-2) var(--v, 50%), rgba(20, 10, 40, .7) var(--v, 50%)); }
+.setting.vol input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -10px; border-radius: 50%; background: linear-gradient(180deg, #fff, #ddd3ee); border: 3px solid var(--ink); box-shadow: 0 3px 0 #6f6490; }
+.setting.vol input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid var(--ink); }
+.setting.vol .pct { flex: none; width: 46px; text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
+.setting.vol .lab { flex: none; }
+.setting.vol .lab { width: 96px; }
