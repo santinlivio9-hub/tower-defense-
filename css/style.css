@@ -356,7 +356,6 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .node.boss b { align-self: end; margin-bottom: -15px; font-size: 14px; padding: 1px 9px; border-radius: 999px; color: #fff; background: #e0283c; border: 2.5px solid var(--ink); text-shadow: none; }
 .node.boss.locked img { filter: brightness(0) opacity(.45); }
 .node.boss.locked .ico { position: relative; }
-.world-foot { padding: 10px 14px calc(var(--safe-b) + 12px); background: linear-gradient(180deg, #33265a, #241a44); border-top: 3px solid var(--ink); }
 
 /* ------------------------------------------------------------- préparation de niveau, cartes de présentation */
 .panel .close { position: absolute; right: 10px; top: 10px; width: 36px; height: 36px; }
@@ -805,7 +804,6 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 .avatar.walk .av-in, .avatar.walk i { animation: av-walk .18s ease-in-out infinite alternate; }
 @keyframes av-bob { to { transform: translateY(-8px); } }
 @keyframes av-walk { from { transform: translateY(-6px) rotate(-8deg); } to { transform: translateY(0) rotate(8deg); } }
-#screen-world .world-foot { padding-bottom: 10px; }
 
 /* fin de niveau : pièces */
 .es-pill .coin-ico { width: 28px; height: 28px; } .es-pill.coin b { color: var(--gold); }
@@ -1093,3 +1091,59 @@ html, body { background: #22183f; }   /* sous la barre d'onglets (bug iOS en ple
 .csh-arrow { display: grid; transform: rotate(90deg); } .csh-arrow .ico { width: 30px; height: 30px; }
 .cs-tap { left: 0; right: 0; margin: 0 auto; width: max-content; transform: none; }
 .cs-name { flex-direction: row; }
+/* ------------------------------------------------------------- carte de campagne */
+.wsec { border-top: 0; }
+.road path { vector-effect: none; }
+.road .r4 { stroke: rgba(255, 255, 255, .45); stroke-width: 3; stroke-dasharray: 2 12; }
+.road .rv0, .road .rv1, .road .rv2 { fill: none; stroke-linecap: round; }
+.road .rv0 { stroke-width: 32; } .road .rv1 { stroke-width: 26; } .road .rv2 { stroke-width: 4; stroke-dasharray: 10 16; opacity: .8; }
+.wsec.locked .wprop, .wsec.locked .wdeco { opacity: .8; }
+/* panneau de monde en bois */
+.wsign { position: absolute; z-index: 2; transform: translate(-50%, -50%); pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+.ws-board { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 6px 14px 7px; border-radius: 12px; text-align: center;
+  background: linear-gradient(180deg, #e8b878, #c98a4b); border: 3px solid var(--ink); box-shadow: 0 4px 0 #6b3e1e, 0 8px 14px rgba(0, 0, 0, .3); color: #fff; text-shadow: var(--ol); }
+.ws-board small { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #fff6c8; }
+.ws-board b { font-size: 17px; line-height: 1.1; white-space: nowrap; }
+.ws-board span { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; }
+.ws-board .ico { width: 16px; height: 16px; } .ws-board .ico.on { color: var(--gold); }
+.wsign i { position: absolute; bottom: -16px; width: 7px; height: 22px; border-radius: 2px; background: #8a5530; border: 2.5px solid var(--ink); }
+.wsign i:nth-of-type(1) { left: 26%; } .wsign i:nth-of-type(2) { right: 26%; }
+.wmark { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; }
+.wmark b { font-size: 14px; font-weight: 700; color: #fff; text-shadow: var(--ol); white-space: nowrap; }
+.wmark.end .ico { width: 64px; height: 64px; }
+.wmark.start { transform: translate(-130%, -80%); }
+/* nœuds en blason */
+.node.crestn { width: 58px; height: 64px; margin: -32px 0 0 -29px; border-radius: 0; background: none !important; box-shadow: none !important; filter: drop-shadow(0 4px 0 rgba(26, 14, 46, .5)); }
+.node.crestn .nc { position: absolute; inset: 0; width: 100%; height: 100%; }
+.node.crestn b { position: relative; margin-top: -8px; font-size: 18px; color: #fff; text-shadow: var(--ol); }
+.node.crestn.done b { color: #fff; }
+.node.crestn > .ico { position: relative; width: 28px; height: 28px; margin-top: -8px; opacity: 1; }
+.node.crestn.locked { opacity: .9; }
+.node.crestn .stars { bottom: -14px; }
+.node.crestn.open { animation: node-pulse 1.2s ease-in-out infinite; }
+@keyframes node-pulse { 50% { transform: scale(1.1); filter: drop-shadow(0 4px 0 rgba(26, 14, 46, .5)) drop-shadow(0 0 12px #fff); } }
+.node.boss { border: 4px solid var(--ink); }
+.node.boss.locked { background: #4a3b6e; }
+/* mode infini : petit blason flottant */
+.endless-crest { position: absolute; z-index: 4; right: 10px; bottom: calc(var(--tabh) + 10px); width: 84px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; touch-action: manipulation; color: #fff; }
+.endless-crest .cs { position: relative; width: 50px; height: 55px; display: grid; place-items: center; filter: drop-shadow(0 4px 0 rgba(26, 14, 46, .55)); }
+.endless-crest .cs .nc { position: absolute; inset: 0; width: 100%; height: 100%; }
+.endless-crest .cs .ico { position: relative; width: 30px; height: 30px; margin-top: -6px; }
+.endless-crest small { font-size: 14px; font-weight: 700; text-shadow: var(--ol); }
+.endless-crest .info { font-style: normal; font-size: 13px; font-weight: 700; padding: 2px 7px 3px; border-radius: 999px; background: rgba(26, 14, 46, .82); border: 1.5px solid rgba(255, 255, 255, .25); white-space: nowrap; }
+.endless-crest.ready .info { background: linear-gradient(180deg, #c98cff, #8a3fe0); border-color: var(--ink); text-shadow: var(--ol); }
+.endless-crest:active .cs { transform: scale(.9); }
+.node.crestn { border: 0; }
+#world-map { padding-bottom: 16px; }
+.wsec.final .wmark.end { transform: translate(-50%, -50%); }
+.wsec.final .wmark.end .ico { width: 72px; height: 72px; }
+/* mode infini : petit blason dans l'en-tête de la carte */
+#screen-world .tbar h2 { flex: 1; min-width: 0; font-size: 21px; }
+.endless-crest { position: relative; right: auto; bottom: auto; width: auto; flex: none; flex-direction: row; gap: 4px; padding: 0 2px; min-height: 44px; }
+.endless-crest .cs { width: 36px; height: 40px; }
+.endless-crest .cs .ico { width: 22px; height: 22px; margin-top: -5px; }
+.endless-crest .lab { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.endless-crest .lab small { font-size: 14px; }
+.endless-crest .lab em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-soft); white-space: nowrap; }
+.endless-crest.ready .lab em { color: #d9b8ff; }
+.endless-crest .lab em { text-shadow: var(--ol); color: #fff; }
