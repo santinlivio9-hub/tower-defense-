@@ -44,7 +44,7 @@ b { font-weight: 700; }
 #bg i:nth-child(4) { width: 240px; height: 240px; right: -60px; bottom: 8%; background: #ffb224; animation-delay: -12s; opacity: .36; }
 @keyframes drift { to { transform: translate(40px, 50px) scale(1.15); } }
 
-#app { position: absolute; z-index: 1; top: 0; bottom: 0; left: 50%; width: min(100%, 520px); transform: translateX(-50%); overflow: hidden; }
+#app { position: fixed; z-index: 1; top: 0; bottom: 0; left: 50%; width: min(100%, 520px); transform: translateX(-50%); overflow: hidden; }
 @media (min-width: 560px) { #app { box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 0 80px rgba(0, 0, 0, .5); } }
 
 .screen { position: absolute; inset: 0; display: none; flex-direction: column; overflow: hidden; overflow: clip; }
@@ -186,7 +186,7 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 /* ------------------------------------------------------------- jeu : HUD */
 #screen-game { background: #2a2140; }
 #wave-preview { text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
-#hud { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-t) + 6px) 8px 8px; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(30, 16, 50, .5), rgba(30, 16, 50, 0)); }
+#hud { position: relative; flex: none; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-t) + 6px) 8px 8px; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(30, 16, 50, .5), rgba(30, 16, 50, 0)); }
 #hud > * { pointer-events: auto; }
 #hud .stat, #hud .icon-btn { background: rgba(48, 34, 78, .88); }
 .stat { display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 7px 0 5px; border-radius: 12px; font-size: 14.500px; font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; box-shadow: 0 2px 0 var(--edge); }
@@ -206,11 +206,14 @@ input[type=range] { width: 150px; accent-color: var(--accent); }
 #hud .icon-btn .ico { width: 19px; height: 19px; }
 #hud .icon-btn b { font-size: 14px; }
 
-#stage { position: absolute; inset: 0; overflow: hidden; }
+/* écran de jeu en colonne : HUD / zone jouable (#field, flex 1) / barre du bas. Le canvas (#stage) passe derrière,
+   sur tout l'écran, pour que le décor remplisse aussi le dessous du HUD et de la barre. */
+#stage { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+#field { flex: 1 1 0; min-height: 0; pointer-events: none; }
 #game { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
 
 /* ------------------------------------------------------------- jeu : barre du bas */
-#dock { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(var(--safe-b) + 8px); display: flex; flex-direction: column; gap: 7px; z-index: 3; pointer-events: none; background: linear-gradient(0deg, rgba(30, 16, 50, .55), rgba(30, 16, 50, 0)); }
+#dock { position: relative; flex: none; padding: 8px 8px calc(var(--safe-b) + 8px); display: flex; flex-direction: column; gap: 7px; z-index: 3; pointer-events: none; background: linear-gradient(0deg, rgba(30, 16, 50, .55), rgba(30, 16, 50, 0)); }
 #dock button, #dock .tb { pointer-events: auto; }
 .wave-row { display: flex; align-items: center; gap: 8px; min-height: 46px; }
 #wave-preview { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; overflow: hidden; font-size: 14px; color: var(--text-soft); }
@@ -1325,10 +1328,7 @@ html, body { background: #22183f; }   /* sous la barre d'onglets (bug iOS en ple
    Dans Safari, la zone sous la page appartient au navigateur : on n'y touche pas (barre comme avant).
    En mode installé (classe .standalone posée par main.js, ou display-mode: standalone), #app prend la hauteur
    physique de l'écran (--app-h) et la barre d'onglets descend jusqu'au bord, safe-area comprise une seule fois. */
-html.standalone #app { position: fixed; top: 0; bottom: auto; height: var(--app-h, 100%); }
-html.standalone, html.standalone body { background: #2a1d52; }
-html.standalone #tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: #2a1d52; pointer-events: none; }
-html.standalone #screen-game::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: #1c1530; }
+/* (la taille de #app ne dépend plus du mode : position fixed, inset 0, voir viewport.js) */
 /* l'onglet central surélevé ne chevauche jamais le bouton JOUER */
 .home { padding-bottom: 30px; }
 /* ------------------------------------------------------------- talents (de haut en bas) */
@@ -1477,7 +1477,7 @@ html.standalone #screen-game::after { content: ""; position: absolute; left: 0; 
 .crest em.dot { min-width: 14px; width: 14px; height: 14px; padding: 0; top: 0; right: 6px; background: #ffd23f; animation: none; }
 .tower-tip.low { top: auto; bottom: calc(var(--safe-b) + 142px); } .tt-d { font-size: 14px; font-weight: 600; line-height: 1.2; } .map-btn em.dot { min-width: 14px; width: 14px; height: 14px; padding: 0; background: #ffd23f; }
 .map-btn em { position: absolute; top: -6px; right: -6px; border-radius: 999px; border: 2.5px solid var(--ink); font-style: normal; }
-#tabbar { background: linear-gradient(180deg, #4a3480 0, #2f2160 68px, #2f2160 100%); } html.standalone #tabbar::after { background: #2f2160; }
+#tabbar { background: linear-gradient(180deg, #4a3480 0, #2f2160 68px, #2f2160 100%); }
 /* ------------------------------------------------------------- coffres : dessin et ouverture */
 .chest-svg { overflow: visible; }
 .chest-svg .cracks path { opacity: 0; filter: drop-shadow(0 0 4px #fff6c8); }
@@ -1587,3 +1587,41 @@ html.standalone #screen-game::after { content: ""; position: absolute; left: 0; 
 .wmark.start { transform: translate(-50%, -50%); }
 .nbub { padding: 4px 6px 4px 4px; gap: 5px; }
 .nbub.compact .nb-art { width: 30px; height: 30px; } .nbub.compact .nb-art img { width: 28px; height: 28px; } .nbub.compact b { font-size: 14px; }
+
+/* ------------------------------------------------------------- fond hors de #app : même couleur que le bas de l'écran */
+html, body { background: #2f2160; }
+body[data-screen="game"] { background: #1c1530; }
+/* ------------------------------------------------------------- petits écrans : la barre du bas du jeu se tasse */
+@media (max-height: 720px) {
+  #dock { gap: 5px; padding-top: 5px; padding-bottom: calc(var(--safe-b) + 6px); }
+  #dock .ab { width: 46px; height: 46px; } #dock .bo { width: 40px; height: 40px; }
+  .wave-row { min-height: 42px; } #btn-wave { min-height: 42px; font-size: 15.5px; }
+  .speed-btn { height: 44px; width: 50px; }
+}
+@media (max-height: 600px) {
+  #dock .ab { width: 40px; height: 40px; } #dock .bo { width: 36px; height: 36px; }
+  .wave-row { min-height: 38px; } #btn-wave { min-height: 38px; min-width: 132px; font-size: 14.5px; } #btn-wave small { font-size: 12px; }
+  .speed-btn { height: 40px; width: 48px; } .speed-btn b { font-size: 17px; }
+}
+/* ------------------------------------------------------------- mode debug (?debug=1 ou 5 tapes sur le logo) */
+#debug { position: fixed; z-index: 200; left: 6px; right: 6px; top: calc(var(--safe-t) + 6px); max-width: 500px; margin: 0 auto; padding: 8px; border-radius: 12px; background: rgba(10, 6, 20, .93); border: 1.5px solid #ff5d8f; color: #fff; font: 500 12px/1.35 ui-monospace, Menlo, monospace; text-shadow: none; }
+#debug .dbg-head { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; } #debug .dbg-head b { flex: 1; font-size: 13px; color: #ffd23f; }
+#debug button { min-height: 30px; padding: 0 9px; border-radius: 8px; background: #3a2a66; color: #fff; font: 600 12px/1 ui-monospace, Menlo, monospace; border: 1px solid #6a55a8; }
+#debug button.on { background: #ffd23f; color: #2a1d52; border-color: #ffd23f; }
+#debug .dbg-body div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(255, 255, 255, .08); padding: 1px 0; }
+#debug .dbg-body span { color: #c5b5dc; flex: none; } #debug .dbg-body b { text-align: right; font-weight: 600; word-break: break-word; }
+#debug .dbg-modes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+#debug .dbg-note { margin: 6px 0 0; color: #c5b5dc; }
+.dbg-corner { position: absolute; z-index: 150; width: 22px; height: 22px; border: 0 solid #ff2d55; pointer-events: none; }
+.dbg-corner.tl { left: 0; top: 0; border-width: 4px 0 0 4px; } .dbg-corner.tr { right: 0; top: 0; border-width: 4px 4px 0 0; }
+.dbg-corner.bl { left: 0; bottom: 0; border-width: 0 0 4px 4px; } .dbg-corner.br { right: 0; bottom: 0; border-width: 0 4px 4px 0; }
+
+/* ------------------------------------------------------------- filets : passer la séquence de fin, écran de secours, « Oups » */
+.es-skip { position: absolute; z-index: 6; right: 10px; bottom: calc(var(--safe-b) + 12px); min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 15px; font-weight: 700; color: #fff; background: rgba(20, 10, 40, .72); border: 1.5px solid rgba(255, 255, 255, .35); cursor: pointer; }
+.endseq.done .es-skip { display: none; }
+.btn-row.three .btn { flex: 1 1 0; min-width: 0; min-height: 56px; padding: 4px 2px; flex-direction: column; font-size: 14px; gap: 2px; white-space: nowrap; }
+.btn-row.three .btn .ico { width: 20px; height: 20px; }
+.es-fallback .btns, #crash .btns { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+#crash { position: absolute; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: calc(var(--safe-t) + 14px) 16px calc(var(--safe-b) + 14px); background: rgba(20, 10, 40, .78); }
+#crash .panel { width: min(100%, 360px); }
+.crash-msg { margin: 6px 0 0; font: 500 12px/1.3 ui-monospace, Menlo, monospace; color: var(--text-soft); word-break: break-word; text-shadow: none; }
