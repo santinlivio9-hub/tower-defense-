@@ -53,7 +53,12 @@ export const Talents = {
       card.innerHTML = `<span class="tc-ico">${icon(n.icon)}</span><div class="tc-txt"><b>${n.name}</b><small>${n.desc}${n.max > 1 ? ' par rang' : ''}</small>
         <div class="pips">${Array.from({ length: n.max }, (_, k) => `<i class="${k < rank ? 'on' : ''}"></i>`).join('')}</div>
         ${open ? '' : `<small class="need">${icon('lock')}${i > 0 && !sv.talent(ns[i - 1].id) ? `Débloque d'abord « ${ns[i - 1].name} »` : `${n.need} points dans la branche`}</small>`}</div>`;
-      const btn = el('button', 'btn green' + (sv.canTalent(bid, n) ? '' : ' off'), rank >= n.max ? icon('check') + 'Max' : icon('up') + 'Améliorer');
+      const can = sv.canTalent(bid, n);
+      // états : max = coche, possible = vif, pas de point = « Il manque », verrouillé = sombre + condition
+      const btn = rank >= n.max ? el('button', 'owned wide', icon('check') + 'Rang max atteint')
+        : can ? el('button', 'btn green can', icon('up') + 'Améliorer')
+        : open ? el('button', 'btn green poor', `<span class="price">${icon('up')}Améliorer</span><small class="miss">Il manque 1 point de talent</small>`)
+        : el('button', 'btn locked', icon('lock') + 'Verrouillé');
       btn.onclick = () => {
         if (!sv.canTalent(bid, n)) { this.audio.play('error'); this.haptics.pulse(1); if (!d.talentPts && rank < n.max) this.toast('Pas de point de talent', 'Monte de niveau de joueur pour en gagner', icon('talent')); return; }
         d.talents[n.id] = rank + 1; d.talentPts--; sv.persist();

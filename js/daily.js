@@ -98,7 +98,8 @@ export const Daily = {
         <span class="q-txt"><b>${def.text.replace('{n}', fmt(def.n))}</b><span class="progress"><i style="width:${p * 100}%"></i></span><small>${fmt(Math.min(q.prog, def.n))} / ${fmt(def.n)}</small></span>
         <span class="q-rw">${rewardChips(def.reward)}<span class="rw pass">${icon('ticket')}<b>+${def.pass}</b></span></span>`);
       if (q.claimed) r.append(el('span', 'owned', icon('check')));
-      else { const b = el('button', 'btn sm ' + (done ? 'green' : 'off'), done ? 'Récupérer' : icon('lock')); b.onclick = () => { const t = sv.claimQuest(q); if (!t) { this.audio.play('error'); return; } this.afterClaim(t, rewardArt(def.reward)); this.openDaily('quests'); }; r.append(b); }
+      else if (!done) r.append(el('span', 'state-wip', `En cours<b>${fmt(Math.min(q.prog, def.n))}/${fmt(def.n)}</b>`));
+      else { const b = el('button', 'btn sm green cta', 'Récupérer'); b.onclick = () => { const t = sv.claimQuest(q); if (!t) { this.audio.play('error'); return; } this.afterClaim(t, rewardArt(def.reward)); this.openDaily('quests'); }; r.append(b); }
       return r;
     };
     m.append(el('small', 'kicker', 'AUJOURD\'HUI'));
@@ -124,12 +125,12 @@ export const Daily = {
     for (let k = 0; k < 16; k++) { const b = el('i', 'bulb'); b.style.transform = `rotate(${k * 22.5}deg) translateY(-128px)`; b.style.animationDelay = `${(k % 2) * 0.4}s`; box.append(b); }
     m.append(box);
     const free = sv.wheelReady();
-    const go = el('button', 'btn big ' + (free ? 'primary' : 'pink'), free ? icon('play') + 'Tourner (gratuit)' : `Tour bonus ${gem()}${DAILY.wheelExtraCost}`);
+    const go = el('button', 'btn big ' + (free ? 'green cta' : 'pink'), free ? icon('play') + 'TOURNER' : `Tour bonus ${gem()}${DAILY.wheelExtraCost}`);
     let spinning = false;
     go.onclick = () => {
       if (spinning) return;
       if (!sv.wheelReady()) { if (!sv.spend(DAILY.wheelExtraCost, 'gems')) { this.audio.play('error'); this.toast('Pas assez de gemmes', 'Le tour gratuit revient demain', gem()); return; } sv.data.daily.wheel = ''; }
-      spinning = true; go.classList.add('off');
+      spinning = true; go.classList.remove('cta'); go.classList.add('locked');
       const res = sv.spinWheel();
       const turns = 6 * 360 + (360 - res.i * seg) + (Math.random() - 0.5) * seg * 0.6;
       const svg = $('svg', wheel); const labs = $$('.wl', wheel);
@@ -169,14 +170,14 @@ export const Daily = {
     m.append(el('h2', 'win', 'PASSE DE PROGRESSION'));
     m.append(el('div', 'pass-head', `<span class="pt">${tier}</span><div class="ph-bar"><div class="progress"><i style="width:${tier >= PASS.tiers ? 100 : (into / PASS.perTier) * 100}%"></i></div><small>${tier >= PASS.tiers ? 'Passe terminé !' : `${fmt(into)} / ${PASS.perTier} points jusqu'au palier ${tier + 1}`}</small></div>`));
     m.append(el('p', 'sub', `Gagne des points avec l'XP, les étoiles (+${PASS.perStar} chacune), les quêtes et le défi du jour.`));
-    if (sv.passReady() > 1) { const all = el('button', 'btn green', icon('gift') + `Tout récupérer (${sv.passReady()})`); all.onclick = () => { const out = []; for (let i = 1; i <= tier; i++) { const t = sv.claimPass(i); if (t) out.push(t); } this.afterClaim(`${out.length} paliers récupérés`, `<span class="ra-ico">${icon('ticket')}</span>`); this.openDaily('pass'); }; m.append(all); }
+    if (sv.passReady() > 1) { const all = el('button', 'btn green cta', icon('gift') + `Tout récupérer (${sv.passReady()})`); all.onclick = () => { const out = []; for (let i = 1; i <= tier; i++) { const t = sv.claimPass(i); if (t) out.push(t); } this.afterClaim(`${out.length} paliers récupérés`, `<span class="ra-ico">${icon('ticket')}</span>`); this.openDaily('pass'); }; m.append(all); }
     const track = el('div', 'pass-track');
     let focus = null;
     for (let i = 1; i <= PASS.tiers; i++) {
       const r = passReward(i), got = P.claimed.includes(i), open = i <= tier;
       const row = el('div', 'ptier' + (got ? ' got' : open ? ' ready' : '') + (i % 5 === 0 ? ' big' : ''), `<span class="pn">${i}</span><span class="pr">${rewardChips(r)}</span>`);
       if (got) row.append(el('span', 'owned', icon('check')));
-      else if (open) { const b = el('button', 'btn sm green', 'Récupérer'); b.onclick = () => { const t = sv.claimPass(i); if (t) { this.afterClaim(t, rewardArt(r)); this.openDaily('pass'); } }; row.append(b); if (!focus) focus = row; }
+      else if (open) { const b = el('button', 'btn sm green cta', 'Récupérer'); b.onclick = () => { const t = sv.claimPass(i); if (t) { this.afterClaim(t, rewardArt(r)); this.openDaily('pass'); } }; row.append(b); if (!focus) focus = row; }
       else row.append(el('span', 'lockpts', `${icon('lock')}${fmt(i * PASS.perTier)}`));
       if (!focus && !open) focus = row;
       track.append(row);

@@ -57,7 +57,9 @@ export const Hub = {
   // Bouton d'achat (pièces ou gemmes)
   buyButton(cost, currency, label, fn, cls = '') {
     const d = this.save.data;
-    const b = el('button', 'btn sm ' + cls + (d[currency] < cost ? ' off' : ''), `${label}${label ? ' ' : ''}${cur(currency)}${fmt(cost)}`);
+    // pas assez : couleur normale, prix en rouge + « Il manque X » ; sinon reflet qui passe
+    const miss = cost - (d[currency] || 0), price = `${label}${label ? ' ' : ''}${cur(currency)}${fmt(cost)}`;
+    const b = el('button', 'btn sm ' + cls + (miss > 0 ? ' poor' : ' can'), miss > 0 ? `<span class="price">${price}</span><small class="miss">Il manque ${fmt(miss)}</small>` : price);
     b.onclick = (e) => {
       if (!this.save.spend(cost, currency)) { this.audio.play('error'); this.toast(currency === 'coins' ? 'Pas assez de pièces' : 'Pas assez de gemmes', 'Joue des niveaux pour en gagner', cur(currency)); return; }
       const r = fn(e); this.save.persist(); this.audio.play('buy'); this.haptics.pulse(1); this.announce(this.save.checkAchievements());
