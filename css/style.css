@@ -1321,3 +1321,15 @@ html, body { background: #22183f; }   /* sous la barre d'onglets (bug iOS en ple
 .cal { overflow: clip; }
 .cal .rw { background: rgba(20, 10, 40, .78); color: #fff; }
 .chest-card .btn.ghostgem { background: rgba(20, 10, 40, .62); }
+/* ------------------------------------------------------------- plein écran iPhone (Safari et PWA)
+   #app est fixe et prend la hauteur réelle de l'écran (--app-h, calculée dans main.js) ;
+   la safe-area du bas n'est comptée qu'une fois (dans la barre d'onglets / le dock),
+   et le fond de la barre déborde sous le bord de l'écran pour qu'aucune bande ne reste visible. */
+html, body { height: 100%; height: 100dvh; }
+#app { position: fixed; top: 0; bottom: auto; height: 100%; height: var(--app-h, 100dvh); }
+#tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 160px; background: #22183f; pointer-events: none; }
+#screen-game::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 160px; background: #1c1530; }
+:root { --tab-pad: calc(var(--safe-b) * .62); --tabh: calc(var(--tab-pad) + 68px); }
+#tabbar { padding-bottom: var(--tab-pad); background: linear-gradient(180deg, #4d3786 0, #3a2a6e 68px, #3a2a6e 100%); }
+#tabbar::after { background: #3a2a6e; }
+html, body { background: #3a2a6e; }
