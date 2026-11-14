@@ -1,4 +1,6 @@
 // Simulation d'équilibrage (robot joueur, sans affichage).
+// GOAL=1 : le robot vise le 3e objectif d'étoile (limite de tourelles respectée, vagues lancées en avance quand il
+//          reste RUSH ennemis ou moins, 3 par défaut). Sans GOAL, il joue sans s'en occuper.
 // Lancer un serveur local sur le port 8123 (python3 -m http.server 8123), puis :
 //   NODE_PATH=$(npm root -g) node tools/simulate.cjs <niveaux> <jeu> [investissement] [réglage]
 //   niveaux : liste, ex. "1,3,6" ; jeu : good (joue bien), mid (joueur moyen), bad (joue mal), boost (joue bien + utilise ses boosts)
@@ -13,7 +15,7 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
   await p.goto('http://localhost:8123/'); await p.waitForTimeout(500);
   await p.evaluate(async (tweak) => { const C = await import('./js/config.js'); window.C = C; if (tweak) eval(tweak); }, tweak);
   for (const n of levels) {
-    const r = await p.evaluate(({ n, skill, prog }) => {
+    const r = await p.evaluate(({ n, skill, prog, process_goal, rushAt }) => {
       const ui = __ui, sv = ui.save; sv.reset(); ui.simulating = true;
       const d = sv.data; d.settings.tutorialDone = true; d.settings.muted = true;
       // progression « normale » : niveaux précédents terminés, tourelles débloquées, château/talents selon le monde
@@ -38,7 +40,8 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
         }
         if (skill === 'mid' && (steps / 15) % 3 !== 0) return;   // réagit moins souvent
         for (let guard = 0; guard < 6; guard++) {
-          const want = Math.min(slots.length, (skill === 'mid' ? 1 : 2) + Math.floor(g.wave * (skill === 'mid' ? 0.45 : 0.55)));
+          const g3 = g.goals && g.goals[2], capN = process_goal && g3 && g3.id === 'towers' ? g3.n : 99;
+          const want = Math.min(capN, slots.length, (skill === 'mid' ? 1 : 2) + Math.floor(g.wave * (skill === 'mid' ? 0.45 : 0.55)));
           // amélioration la moins chère
           let bt = null, bo = null;
           for (const t of g.towers) for (const o of t.upgradeOptions().filter((u) => !u.locked).slice(0, 1)) if (!bo || o.cost < bo.cost) { bo = o; bt = t; }
@@ -65,14 +68,16 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
           }
         }
         if (g.wave === 0 && steps > 60) g.startNextWave(false);
+        if (process_goal && g.goals && g.goals[2].id === 'time' && g.wave > 0 && g.canStartNext && g.enemies.length <= rushAt && steps % 15 === 0) g.startNextWave(true);
         const bb = g.enemies.find((e) => e.boss && !e.mini); if (bb) bossInfo = `boss ${Math.round(bb.hp)}/${bb.maxHp} à ${Math.round((bb.d / bb.path.total) * 100)} %`;
         if (g.lives < g.maxLives && lowAt == null) lowAt = g.wave;
         g.update(1 / 30);
       }
       ui.simulating = false;
       const t = g.towers.map((x) => x.type[0] + x.level).join(' ');
-      return `L${n} ${skill}: ${g.result ? (g.result.victory ? 'WIN ' + g.result.stars + '*' : 'LOSE') : 'TIMEOUT'} vague ${g.wave}/${g.totalWaves} PV ${g.lives}/${g.maxLives} premier dégât v${lowAt} ${(g.time / 60).toFixed(1)} min | ${g.towers.length} tours [${t}] or ${Math.round(g.money)} gagné ${Math.round(g.stats.earned)} ${bossInfo}`;
-    }, { n, skill, prog });
+      const G3 = g.goals ? g.goals[2] : null, obj = g.result && g.result.obj ? g.result.obj.map((v) => (v ? 'o' : '-')).join('') : '';
+      return `L${n} ${skill}: ${g.result ? (g.result.victory ? 'WIN ' + g.result.stars + '* [' + obj + '] ' + (G3 ? (G3.id === 'time' ? 'temps ' + Math.round(g.time) + '/' + G3.n + ' s' : 'tours ' + g.peakTowers + '/' + G3.n) : '') : 'LOSE') : 'TIMEOUT'} vague ${g.wave}/${g.totalWaves} PV ${g.lives}/${g.maxLives} premier dégât v${lowAt} ${(g.time / 60).toFixed(1)} min | ${g.towers.length} tours [${t}] or ${Math.round(g.money)} gagné ${Math.round(g.stats.earned)} ${bossInfo}`;
+    }, { n, skill, prog, process_goal: !!process.env.GOAL, rushAt: +(process.env.RUSH || 3) });
     console.log(r);
   }
   await b.close();

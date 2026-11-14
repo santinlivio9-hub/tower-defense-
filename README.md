@@ -237,3 +237,17 @@ Une seule clé `localStorage` (`brainrot-bastion-save-v1`), plus des copies : `-
 une réinitialisation ou un import). Une sauvegarde illisible est remplacée par la copie de secours la plus récente.
 Paramètres : Exporter / Importer (texte `BRAINROT1:...`), Effacer (annulable). `node tools/save-test.cjs` vérifie
 la conversion des anciennes versions, la réparation des valeurs abîmées, la récupération, l'export / import.
+
+### Étoiles par objectifs
+
+Chaque niveau a 3 objectifs indépendants (`starGoals` dans `js/config.js`) : gagner, ne perdre aucun PV, et un
+troisième selon le niveau (nombre maximum de tourelles, ou temps limite). Une étoile obtenue reste acquise : on peut
+les réunir en plusieurs parties (`levels[n].obj` dans la sauvegarde ; les anciennes sauvegardes gardent leurs
+étoiles). Réglages dans `STARS` : `towersRatio`, `timeRatio`, `timeRatioBoss` et `par` (durée de référence de chaque
+niveau, à remesurer avec `node tools/simulate.cjs 1,2,...,30 good` après un changement de vagues).
+`GOAL=1 node tools/simulate.cjs <niveaux> good` fait viser le 3e objectif au robot.
+
+### Qualité graphique automatique
+
+`QUALITY` dans `js/config.js` : si le calcul d'une image reste trop long pendant 3 s, le jeu descend d'un cran
+(définition du canvas, nombre de particules, ombres floues). Le cran courant s'affiche dans le mode debug.

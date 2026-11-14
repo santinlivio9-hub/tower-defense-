@@ -129,6 +129,8 @@ export class Save {
 
   // ------------------------------------------------------------- campagne
   levelData(n) { return (this.data.levels[n] ||= { stars: 0, best: 0, heroic: 0, heroicBest: 0 }); }
+  // objectifs d'étoiles obtenus [gagner, aucun PV perdu, 3e objectif] ; anciennes sauvegardes : les n premières étoiles
+  levelObj(n) { const l = this.data.levels[n]; if (!l) return [false, false, false]; return Array.isArray(l.obj) ? [0, 1, 2].map((i) => !!l.obj[i]) : [0, 1, 2].map((i) => i < (l.stars || 0)); }
   levelDone(n) { return !!this.data.levels[n] && this.data.levels[n].stars > 0; }
   levelUnlocked(n) { return n <= 1 || this.levelDone(n - 1); }
   progress() { let p = 0; while (p < LEVELS.length && this.levelDone(p + 1)) p++; return p; }   // nombre de niveaux terminés à la suite

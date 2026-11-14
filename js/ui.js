@@ -1,6 +1,6 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
+import { QUALITY, GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
 import { Meta } from './meta.js';
 import { Reveal } from './reveal.js';
 import { Hub } from './hub.js';
@@ -250,7 +250,7 @@ export class UI {
     if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
     this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
     $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly').forEach((e) => e.remove());
-    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial']) $(id).hidden = true;
+    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
     $('#radial').innerHTML = '';
     if (window.__game) window.__game = null;
   }
@@ -468,7 +468,7 @@ export class UI {
     if (!g.paused) { this.closeOverlay(); return; }
     this.closeMenu(); this.aiming = null;
     const m = el('div', 'panel glass pause', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
-      <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
+      <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>${g.goals ? this.goalList(g.goals, this.save.levelObj(g.level.n), g.goalState()) : ''}`);
     const btns = el('div', 'btns');
     const b1 = el('button', 'btn primary big', icon('play') + 'Reprendre'); b1.onclick = () => this.togglePause();
     const row = el('div', 'btn-row three');
@@ -528,7 +528,7 @@ export class UI {
     const st = $('#stage').getBoundingClientRect(), fd = $('#field').getBoundingClientRect();
     if (!st.width || !st.height) return;
     // zone jouable = #field (l'espace flex entre le HUD et la barre du bas), mesurée et non calculée
-    const top = Math.max(0, fd.top - st.top), free = Math.max(40, fd.height), bot = Math.max(0, st.bottom - fd.bottom), dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    const top = Math.max(0, fd.top - st.top), free = Math.max(40, fd.height), bot = Math.max(0, st.bottom - fd.bottom), dpr = Math.min(QUALITY.dpr[this.quality || 0], window.devicePixelRatio || 1);
     const s = Math.min(st.width / VIEW.W, free / VIEW.H);
     const w = Math.round(st.width * dpr), h = Math.round(st.height * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
@@ -543,9 +543,11 @@ export class UI {
     try { this.tick(ts); } catch (e) { this.crash(e, 'boucle'); }
   }
   tick(ts) {
-    const dt = Math.min(0.1, (ts - this.last) / 1000 || 0); this.last = ts;
+    const raw = (ts - this.last) / 1000 || 0, dt = Math.min(0.1, raw); this.last = ts;
     const g = this.game;
-    if (g && this.screen === 'game' && !this.simulating) { if (!this.crashOpen) { g.frame(dt); this.updateHud(); } }
+    if (g && this.screen === 'game' && !this.simulating) {
+      if (!this.crashOpen) { const t0 = performance.now(); g.frame(dt); this.updateHud(); this.watchQuality(g, raw, performance.now() - t0); }
+    }
     else if (this.screen === 'castle') this.tickCastle(ts);
     else if (this.screen === 'menu') this.tickHome(ts);
     // construction du château terminée (temps réel), vérifiée chaque seconde ; jamais pendant une partie
@@ -554,6 +556,16 @@ export class UI {
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
     if (this.save.saveFailed && !this._sfWarn) { this._sfWarn = true; this.toast('Sauvegarde impossible', 'Le stockage du téléphone est plein ou bloqué : exporte ta progression dans les Paramètres', icon('trash')); }
     if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
+  }
+  // Qualité automatique (voir QUALITY) : moyenne glissante du temps de calcul et de l'intervalle entre images
+  watchQuality(g, dt, work) {
+    const q = this.quality || 0;
+    if (g.fx.max !== QUALITY.particles[q]) { g.fx.max = QUALITY.particles[q]; g.lowFx = q > 0; }
+    if (g.paused || g.over || document.hidden || dt <= 0 || dt >= 0.5 || q >= QUALITY.dpr.length - 1) { this.slowT = 0; return; }
+    this.workAvg = (this.workAvg || 0) * 0.95 + work * 0.05; this.gapAvg = (this.gapAvg || 16) * 0.95 + dt * 1000 * 0.05;
+    const slow = this.workAvg > QUALITY.slowWork || (this.gapAvg > QUALITY.slowGap && this.workAvg > QUALITY.slowGapWork);
+    this.slowT = slow ? (this.slowT || 0) + dt : 0;
+    if (this.slowT >= QUALITY.hold) { this.quality = q + 1; this.slowT = 0; this.workAvg = 0; this.gapAvg = 16; this.resize(); }
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
   // compteur qui défile vers sa valeur
@@ -593,9 +605,30 @@ export class UI {
         w.append(enemyImg(type, boss ? 34 : 28), el('b', '', boss ? 'BOSS' : '×' + count)); box.append(w);
       }
     });
+    this.updateGoals();
     this.updateRadial();
     if (this.updateDock) this.updateDock();
     this.updateTutorial();
+  }
+
+  // Objectifs d'étoiles en partie : 3 pastilles sous le HUD (tenu / raté), avec le compteur du 3e objectif
+  updateGoals() {
+    const g = this.game, box = $('#goals');
+    if (!g.goals) { if (!box.hidden) box.hidden = true; return; }
+    const st = g.goalState(), g3 = g.goals[2];
+    const left = g3.id === 'time' ? Math.max(0, Math.ceil(g3.n - g.time)) : 0;
+    const txt = g3.id === 'towers' ? `${g.towers.filter((t) => t.type !== 'mine').length}/${g3.n}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    const key = st.join() + txt + g.over;
+    this.set('goals', key, () => {
+      box.hidden = g.over;
+      box.innerHTML = `<span class="gl ${st[1] ? 'on' : 'off'}">${icon('star')}${icon('heart')}</span><span class="gl ${st[2] ? 'on' : 'off'}${g3.id === 'time' && st[2] && left <= 20 ? ' hurry' : ''}">${icon('star')}${icon(g3.id === 'towers' ? 'cannon' : 'hourglass')}<b>${txt}</b></span>`;
+    });
+    // objectif perdu : petit message, une seule fois
+    for (const i of [1, 2]) if (!st[i] && !g['_goalLost' + i] && !g.over) { g['_goalLost' + i] = true; this.toast('Étoile manquée', g.goals[i].text, icon('star')); }
+  }
+  // liste des objectifs (fiche de niveau, pause, fin) : done = déjà obtenus, now = état de la partie en cours
+  goalList(goals, done = [], now = null) {
+    return `<div class="goal-list">${goals.map((q, i) => `<div class="${done[i] ? 'got' : ''}${now && !now[i] ? ' lost' : ''}">${icon('star', done[i] ? 'on' : '')}<span>${q.text}</span>${done[i] ? icon('check') : ''}</div>`).join('')}</div>`;
   }
 
   // ------------------------------------------------------------------ stats affichées
@@ -662,8 +695,9 @@ export class UI {
     const bs = towerSprite(best.type, best.level, best.branch, skinFinish(this.save.data.skin));
     if (bs.base) draw(bs.base.cv, 900, 1180, 330); draw(bs.head.cv, 900, 1180, 330);
     text(location.host + location.pathname.replace(/index\.html$/, ''), 1300, 34, '#c5b5dc', 8);
-    this.shareFile = null; this.shareCanvas = c;
-    c.toBlob((b) => { if (b) this.shareFile = new File([b], 'brainrot-td-score.png', { type: 'image/png' }); }, 'image/png');
+    this.shareFile = null;
+    // le canvas (6 Mo) est libéré dès que le fichier est prêt
+    c.toBlob((b) => { if (b) this.shareFile = new File([b], 'brainrot-bastion-score.png', { type: 'image/png' }); c.width = c.height = 0; }, 'image/png');
   }
   async shareScore(r) {
     const g = this.game, url = location.origin + location.pathname;

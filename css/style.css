@@ -1632,3 +1632,35 @@ body[data-screen="game"] { background: #1c1530; }
 .panel.ask .btn-row { margin-top: 14px; } .panel.ask .btn-row .btn { flex: 1; width: auto; }
 .save-txt { width: 100%; height: 110px; margin-top: 10px; padding: 8px; border-radius: 12px; border: 1.5px solid var(--glass-border); background: rgba(20, 10, 40, .7); color: #fff; font: 500 12px/1.3 ui-monospace, Menlo, monospace; resize: none; -webkit-user-select: text; user-select: text; text-shadow: none; }
 .ask-err { margin: 8px 0 0; color: #ff8a9a; font-size: 14px; }
+
+/* ------------------------------------------------------------- étoiles par objectifs */
+#goals { position: absolute; z-index: 3; left: 8px; top: calc(var(--safe-t) + 50px); display: flex; gap: 5px; pointer-events: none; }
+#goals .gl { display: inline-flex; align-items: center; gap: 2px; height: 26px; padding: 0 7px 0 4px; border-radius: 999px; background: rgba(48, 34, 78, .88); border: 1.5px solid rgba(255, 255, 255, .16); font-size: 14px; font-variant-numeric: tabular-nums; color: #fff; }
+#goals .gl .ico { width: 16px; height: 16px; } #goals .gl .ico:first-child { color: var(--gold); }
+#goals .gl.off { opacity: .55; filter: grayscale(1); } #goals .gl.off b { text-decoration: line-through; }
+#goals .gl.hurry { border-color: #ff5d6c; animation: pulse 1s ease-in-out infinite; } #goals .gl.hurry b { color: #ff8a9a; }
+.goal-list { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 10px; text-align: left; }
+.goal-list > div { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 3px 10px; border-radius: 12px; background: rgba(20, 10, 40, .5); font-size: 14.5px; color: var(--text); }
+.goal-list > div > .ico:first-child { width: 22px; height: 22px; flex: none; color: rgba(255, 255, 255, .22); } .goal-list > div > .ico.on { color: var(--gold); }
+.goal-list > div span { flex: 1; } .goal-list > div > .ico:last-child:not(:first-child) { width: 18px; height: 18px; color: #6dff9a; flex: none; }
+.goal-list > div.lost:not(.got) span { text-decoration: line-through; color: var(--text-soft); }
+.prep-goals { width: 100%; } .prep-goals .goal-list { margin-top: 2px; }
+.es-goals { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 8px; }
+.es-goals span { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
+.es-goals span.show { opacity: 1; transform: none; } .es-goals .ico { width: 16px; height: 16px; }
+.es-goals .ok { color: #8dffae; } .es-goals .old { color: var(--gold); } .es-goals .ko { color: var(--text-soft); }
+.es-miss { margin: 2px 0 0; font-size: 14px; color: var(--text-soft); display: flex; align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; text-align: center; }
+.es-miss .ico { width: 15px; height: 15px; color: rgba(255, 255, 255, .3); }
+
+/* fiche de niveau : le bouton JOUER reste toujours visible ; sur petit écran, tout se tasse */
+.prep { overflow-y: auto; overscroll-behavior: contain; }
+.prep > .cta { position: sticky; bottom: 0; z-index: 2; flex: none; }
+@media (max-height: 720px) {
+  .prep { padding-top: 12px; padding-bottom: 12px; gap: 6px; }
+  .prep .thumb { width: 74px; height: auto; } .prep-info { gap: 3px; font-size: 14px; }
+  .prep .goal-list { gap: 3px; } .prep .goal-list > div { min-height: 27px; padding: 2px 10px; font-size: 14px; }
+  .prep .foes { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding: 6px; gap: 5px; scrollbar-width: none; } .prep .foes::-webkit-scrollbar { display: none; }
+  .prep .foes .foe { flex: none; }
+  .prep-rw .pr-row { min-height: 34px; padding-top: 3px; padding-bottom: 3px; }
+  .prep .btn.big { min-height: 50px; }
+}

@@ -12,7 +12,7 @@ export class Fx {
   }
   clear() { this.p.length = this.tracers.length = this.rings.length = this.texts.length = this.coins.length = 0; }
 
-  add(o) { if (this.p.length < MAX_PARTICLES) this.p.push(o); }
+  add(o) { if (this.p.length < (this.max || MAX_PARTICLES)) this.p.push(o); }
 
   burst(x, y, color, n = 8, speed = 140, size = 4) {
     for (let i = 0; i < n; i++) {

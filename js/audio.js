@@ -20,7 +20,8 @@ export class AudioSys {
         this.applyVolume();
       } catch (e) { this.ctx = null; }
     }
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    // iOS : le contexte passe à « interrupted » après un appel ou un changement d'appli ; on le relance au toucher suivant
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') { try { const r = this.ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
   }
   applyVolume() { if (this.master) this.master.gain.value = this.settings.muted ? 0 : this.settings.volume * 0.6; }
   setMuted(m) { this.settings.muted = m; this.applyVolume(); }
