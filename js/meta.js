@@ -194,6 +194,13 @@ export const Meta = {
     eb.innerHTML = `<span class="cs">${crestNode(eo ? "#b05cff" : "#4a3b6e", eo ? "#7a2fd0" : "#2f2450")}${icon(eo ? "infinity" : "lock")}</span><span class="lab"><small>Infini</small><em>${eo ? "Jouer" : `Après M${CAMPAIGN.endlessAfter / 6}`}</em></span>`;
     requestAnimationFrame(() => {
       const sc = $('#world-scroll');
+      if (this.panToWorld != null && current) { // panoramique : du boss vaincu jusqu'au premier niveau du nouveau monde
+        this.panToWorld = null;
+        const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.5, from = Math.min(sc.scrollHeight, goal + SEC_H * 0.9), t0 = performance.now();
+        sc.scrollTop = from;
+        const step = (now) => { const u = Math.min(1, (now - t0) / 2200), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; sc.scrollTop = from + (goal - from) * e; if (u < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step); return;
+      }
       if (!current) { sc.scrollTop = prog >= LEVELS.length ? 0 : sc.scrollHeight; return; }
       const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.5;
       sc.scrollTop = Math.min(sc.scrollHeight, goal + sc.clientHeight * 0.4);   // part d'un peu plus bas…

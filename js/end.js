@@ -46,7 +46,7 @@ export const End = {
   showEnd(r) {
     const g = this.game; if (!g || g.result !== r) return;
     this.closeMenu(); this.aiming = null;
-    if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.showIntro(r.towers.map((id) => ({ kind: 'tower', id })), () => this.showEnd(r)); return; }
+    if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.weaponReveal(r.towers, () => this.showEnd(r)); return; }
     const d = this.save.data, win = r.victory;
     const root = el('div', 'endseq ' + (win ? 'win' : 'lose'));
     root.innerHTML = `<canvas class="es-fx"></canvas>
@@ -153,7 +153,8 @@ export const End = {
       if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
       if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
       if (win && !g.heroic && g.level.n === 12 && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });
-      for (const t of r.towers || []) badges.push({ ico: 'plus', name: TOWERS[t].name, sub: 'Nouvelle tourelle' });
+      for (const t of r.towers || []) badges.push({ ico: 'cannon', name: TOWERS[t].name, sub: 'Nouvelle arme' });
+      if (r.legend && r.legend.length) badges.push({ ico: 'crown', name: 'Améliorations légendaires', sub: r.legend.map((t) => TOWERS[t].name).join(', ') });
       if (badges.length) {
         const box = $('.es-badges', root);
         for (const [i, b] of badges.slice(0, END.maxBadges).entries()) {
@@ -253,7 +254,8 @@ export const End = {
     }
     const leave = (fn) => () => { this.game = null; fn(); };
     const main = $('.es-main', f);
-    if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.playLevel(nextN); }; main.append(nx); }
+    if (r.worldDone != null) { const wr = el('button', 'btn primary big cta', icon('chest') + 'Récompense du monde !'); wr.onclick = () => { this.game = null; this.worldReward(r.worldDone); }; main.append(wr); }
+    else if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.game = null; this.playLevel(nextN); }; main.append(nx); }
     else if (!win && !r.endless) { const rt = el('button', 'btn green big', icon('restart') + 'Réessayer'); rt.onclick = () => this.replay(); main.append(rt); }
     else { const rp = el('button', 'btn primary big', icon('restart') + 'Rejouer'); rp.onclick = () => this.replay(); main.append(rp); }
     const round = $('.es-round', f);
