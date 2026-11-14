@@ -242,7 +242,7 @@ export class Game {
   explode(x, y, radius, damage, tower, o = {}) {
     this.fx.explosion(x, y, radius, o.mini ? '#ffd23f' : '#ff9f1a');
     this.shake(o.mini ? 2 : Math.min(8, radius / 14));
-    this.audio.play('explosion'); if (!o.mini) this.onEvent('haptic', 1);
+    this.audio.play('explosion'); this.onEvent('haptic', o.mini ? 1 : 2);
     for (const e of this.enemies) {
       if (e.dead || (o.groundOnly && e.flying)) continue;
       const d = Math.hypot(e.x - x, e.y - y);
@@ -278,7 +278,8 @@ export class Game {
     const t = new Tower(this, type, slot.x, slot.y); t.legendLocked = !this.save.legendOk(type);
     t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
     this.towers.push(t); this.stats.built++; this.hintT = 0;
-    this.fx.ring(t.x, t.y, 6, 46, '#ffffff', 0.3, 5); this.fx.burst(t.x, t.y, '#d9c7a0', 12, 150, 5);
+    this.fx.ring(t.x, t.y, 6, 46, '#ffffff', 0.3, 5); this.fx.ring(t.x, t.y + 6, 10, 70, 'rgba(255,240,200,.9)', 0.45, 4); this.fx.burst(t.x, t.y + 8, '#d9c7a0', 16, 170, 6); this.shake(2.2);
+    this.firstOfType = !(this.save.data.placedTypes || []).includes(type);
     this.audio.play('place');
     this.onEvent('placed', t);
     return t;
@@ -376,10 +377,13 @@ export class Game {
         if (rep && this.wave % rep === 0 && this.lives < this.maxLives) { this.lives++; this.fx.text(this.base.x, this.base.y - 100, '+1 PV', '#6dff9a', 22, 1.2); }
         this.cleared = this.wave;
         this.addMoney(bonus);
-        if (!(this.endless ? false : this.wave >= this.totalWaves)) this.showBanner(`VAGUE ${this.wave} TERMINÉE !`, `+${bonus} pièces`, '#6dff9a', 1.8);
+        const perfect = this.cleanWave && this.wave >= 1;
+        if (perfect) { bonus += GAME.perfectBonus; this.addMoney(GAME.perfectBonus); }
+        if (!(this.endless ? false : this.wave >= this.totalWaves)) this.showBanner(perfect ? 'PARFAIT !' : `VAGUE ${this.wave} TERMINÉE !`, perfect ? `Aucune fuite · +${bonus} pièces` : `+${bonus} pièces`, perfect ? '#8fe9ff' : '#6dff9a', perfect ? 2.2 : 1.8, perfect);
+        if (perfect) { this.audio.play('tier'); this.onEvent('haptic', 1); }
         for (let k = 0; k < 16; k++) this.fx.add({ k: 'coin', x: VIEW.W / 2 + (Math.random() - 0.5) * 220, y: 60 - Math.random() * 120, vx: 0, vy: 260 + Math.random() * 200, life: 1.1, max: 1.1, size: 7 + Math.random() * 3, rot: Math.random() * 6, vr: 9, color: '#ffd23f' });
         this.onEvent('coins', { x: VIEW.W / 2, y: 240, n: 8, amount: bonus });
-        if (this.cleanWave) { const b = this.addScore(SCORE.cleanWave + SCORE.cleanWavePerWave * this.wave); this.fx.text(VIEW.W / 2, 262, `VAGUE PARFAITE +${b}`, '#8fe9ff', 22, 1.8); }
+        if (this.cleanWave) { const b = this.addScore(SCORE.cleanWave + SCORE.cleanWavePerWave * this.wave); this.fx.text(VIEW.W / 2, 262, `+${b} au score`, "#8fe9ff", 20, 1.6); }
         this.cleanWave = true;
         this.audio.play('wave_clear');
         this.onEvent('cleared', this.wave);

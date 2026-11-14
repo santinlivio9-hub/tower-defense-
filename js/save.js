@@ -22,7 +22,7 @@ const defaults = () => ({
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
-  starChests: {}, hintTowers: [], castleFree: 0, pendingWorld: null, skinShown: [],
+  starChests: {}, hintTowers: [], placedTypes: [], castleFree: 0, pendingWorld: null, skinShown: [],
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
   legacyStars: 0, notice: null,
@@ -46,6 +46,7 @@ export class Save {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
     for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
+    if (!raw.placedTypes && (raw.stats || {}).towersBuilt > 0) d.placedTypes = [...(raw.towers || [])];
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
   }
   // Ancienne sauvegarde (3 cartes, 3 difficultés, bonus permanents) -> nouveau système

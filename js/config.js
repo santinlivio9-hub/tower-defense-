@@ -7,6 +7,8 @@ export const VIEW = { W: 600, H: 940 };    // zone jouable en portrait (le déco
 
 export const GAME = {
   sellRatio: 0.7,          // revente : 70 % de l'investissement
+  perfectBonus: 15,        // pièces en plus pour une vague « PARFAIT ! » (aucune fuite)
+  maxBadges: 3,            // badges chiffrés visibles en même temps dans la barre d'onglets
   critChance: 0.08,        // chance de critique de base
   critMult: 2,             // multiplicateur de critique de base
   interWaveTime: 5,        // secondes avant le lancement auto de la vague suivante (désactivable)
