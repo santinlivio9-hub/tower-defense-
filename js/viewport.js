@@ -81,6 +81,7 @@ export function measures() {
     'barre d\'onglets': rect('tabbar') || '—',
     'barre du bas (jeu)': rect('dock') || '—',
     'canvas du jeu': cv && cv.offsetParent ? `${cv.clientWidth} × ${cv.clientHeight} css, ${cv.width} × ${cv.height} px` : '—',
+    'qualité graphique': window.__ui ? `cran ${window.__ui.quality || 0} (calcul ${(window.__ui.workAvg || 0).toFixed(1)} ms, intervalle ${(window.__ui.gapAvg || 0).toFixed(1)} ms)` : '—',
     'version': window.__version || '?',
     'navigateur': navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90),
   };

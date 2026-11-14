@@ -106,8 +106,13 @@ export const End = {
         if (win) {
           const row = el('div', 'es-stars', [0, 1, 2].map(() => `<span>${icon('star')}</span>`).join('')); stage.append(row);
           await wait(250);
+          // une étoile par objectif : allumée si l'objectif est acquis (cette partie ou une précédente)
+          const lit = r.goals && r.objAll ? r.objAll : [0, 1, 2].map((i) => i < r.stars), fresh = r.goals && r.obj ? r.obj : lit;
+          const cap = r.goals ? el('div', 'es-goals', r.goals.map((q, i) => `<span class="${fresh[i] ? 'ok' : lit[i] ? 'old' : 'ko'}">${icon(fresh[i] || lit[i] ? 'check' : 'close')}${q.text}</span>`).join('')) : null;
+          if (cap) stage.append(cap);
           for (let i = 0; i < 3; i++) {
-            if (i < r.stars) {
+            if (cap) cap.children[i].classList.add('show');
+            if (lit[i]) {
               const s = row.children[i]; s.classList.add('on');
               await wait(160);
               const [x, y] = center(s); fx.burst(x, y, 22, ['#ffd23f', '#fff6c8', '#ffb224'], 340);
@@ -266,7 +271,8 @@ export const End = {
     const f = el('div', 'es-final');
     f.innerHTML = `<div class="es-banner sm"><b>${win ? (g.level.boss ? 'BOSS VAINCU !' : 'VICTOIRE !') : r.endless ? 'FIN DE SÉRIE' : 'DÉFAITE'}</b></div>
       <p class="es-sub">${this.levelLabel(g)}</p>
-      ${win ? `<div class="es-stars sm">${[0, 1, 2].map((i) => `<span class="${i < r.stars ? 'on' : ''}">${icon('star')}</span>`).join('')}</div>` : ''}
+      ${win ? `<div class="es-stars sm">${[0, 1, 2].map((i) => `<span class="${(r.goals && r.objAll ? r.objAll[i] : i < r.stars) ? 'on' : ''}">${icon('star')}</span>`).join('')}</div>` : ''}
+      ${win && r.goals && r.stars < 3 ? `<p class="es-miss">${icon('star')}Il manque : ${r.goals.filter((q, i) => !r.objAll[i]).map((q) => q.text).join(' · ')}</p>` : ''}
       <div class="es-score sm"><span>Score</span><b>${fmt(r.score)}</b>${r.record ? `<em>${icon('trophy')}Record !</em>` : ''}</div>
       <div class="es-mid"></div>
       <div class="es-kpis">${[['Kills', fmt(s.kills)], ['Dégâts', short(s.damage)], ['PV', `${Math.max(0, g.lives)}/${g.maxLives}`]].map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('')}</div>

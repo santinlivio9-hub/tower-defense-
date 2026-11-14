@@ -1,8 +1,8 @@
-/* Brainrot TD — service worker : jeu jouable hors ligne, et surtout fichiers TOUJOURS de la même version.
+/* Brainrot Bastion — service worker : jeu jouable hors ligne, et surtout fichiers TOUJOURS de la même version.
    À l'installation, tous les fichiers du jeu sont téléchargés d'un coup (sans passer par le cache HTTP) dans un
    cache propre à la version. Le jeu est ensuite servi depuis ce cache : jamais de mélange entre anciens et
    nouveaux fichiers après une mise à jour. Changer VERSION à chaque publication (tools/check.cjs le vérifie). */
-const VERSION = 'v33';
+const VERSION = 'v36';
 const CACHE = 'brainrot-td-' + VERSION, FONTS = 'brainrot-td-fonts';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',

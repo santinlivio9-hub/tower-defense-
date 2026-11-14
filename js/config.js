@@ -242,7 +242,7 @@ export const CAMPAIGN = {
     ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'tour'],
   ],
   hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1], // PV des ennemis par monde...
-  bossLevelHp: [1.1, 1.0, 1.35, 1.1, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.015,                      // ...puis +1,5 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
@@ -435,7 +435,34 @@ export const SCORE = {
 };
 
 // Étoiles : part des PV restants nécessaire
-export const STARS = { three: 0.9, two: 0.5 };
+// Qualité graphique automatique : si les images mettent trop de temps à se calculer, on descend d'un cran
+// (définition du canvas et nombre de particules). On ne remonte pas en cours de session, pour éviter les à-coups.
+export const QUALITY = {
+  dpr: [2.5, 2, 1.5],               // définition maximale du canvas (pixels par point) par cran
+  particles: [1400, 800, 400],      // particules simultanées
+  slowWork: 11,                     // ms de calcul par image (moyenne glissante) au-delà desquelles on descend
+  slowGap: 26, slowGapWork: 4,      // ou : intervalle entre images > slowGap ms alors que le calcul dépasse slowGapWork ms
+  hold: 3,                          // secondes de lenteur continue avant de descendre
+};
+// Étoiles : 3 objectifs indépendants par niveau (une étoile gagnée le reste, on peut les obtenir en plusieurs fois)
+//   1. gagner   2. aucun PV perdu   3. selon le niveau : N tourelles maximum, ou finir avant un temps limite
+// three / two = anciens seuils (part de PV restants), encore utilisés pour le défi Héroïque et le défi du jour.
+export const STARS = {
+  three: 0.9, two: 0.5,
+  towersRatio: 0.55,          // tourelles autorisées = emplacements x ce ratio (mines non comptées)
+  timeRatio: 0.82,            // temps limite = durée de référence x ce ratio, arrondi à 15 s
+  timeRatioBoss: 0.92,        // niveaux de boss : le combat contre le boss ne se raccourcit presque pas
+  // durée de référence (s) des 30 niveaux, vagues lancées automatiquement (mesurée par tools/simulate.cjs, robot « good »)
+  par: [282, 252, 336, 396, 420, 582, 276, 336, 384, 312, 396, 570, 282, 312, 258, 432, 432, 654, 240, 222, 372, 390, 318, 851, 240, 234, 396, 306, 456, 840],
+};
+const mmss = (s) => `${Math.floor(s / 60)} min${s % 60 ? ' ' + String(s % 60).padStart(2, '0') : ''}`;
+// Les 3 objectifs d'un niveau : [{ id, text, n }]
+export function starGoals(L) {
+  const third = !L.boss && L.idx % 2 === 0
+    ? (() => { const n = Math.max(3, Math.round(L.slots * STARS.towersRatio)); return { id: 'towers', n, text: `${n} tourelles maximum` }; })()
+    : (() => { const n = Math.max(60, Math.round(((STARS.par[L.n - 1] || 300) * (L.boss ? STARS.timeRatioBoss : STARS.timeRatio)) / 15) * 15); return { id: 'time', n, text: `Finir en moins de ${mmss(n)}` }; })();
+  return [{ id: 'win', text: 'Gagner le niveau' }, { id: 'clean', text: 'Aucun PV perdu' }, third];
+}
 
 // ----------------------------------------------------------------------------
 //  SUCCÈS — "stat" lit save.stats[stat] ; "special" est géré dans save.js

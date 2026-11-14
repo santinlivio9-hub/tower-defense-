@@ -1,6 +1,6 @@
 // Écrans hors partie : carte du monde, préparation d'un niveau, cartes de présentation, mode infini.
 // Ces méthodes sont ajoutées à la classe UI (voir la fin de ui.js).
-import { LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS } from './config.js';
+import { LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS, starGoals } from './config.js';
 import { chestSvg } from './loot.js';
 import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { levelEnemies } from './waves.js';
@@ -280,9 +280,9 @@ export const Meta = {
       <div>${icon('wave')}<b>${L.waves}</b> vagues${L.boss ? ' · mini-boss' : ''}</div>
       <div>${coin()}<b>${money}</b> pièces au départ</div>
       <div>${icon('target')}<b>${L.slots}</b> emplacements</div>
-      <div>${stars(ld.stars)}</div>
       <div>${icon('trophy', 'gold')}Record <b>${fmt(heroic ? ld.heroicBest : ld.best)}</b></div>`);
     top.append(cv, info); m.append(top);
+    if (!heroic) m.append(el('div', 'prep-goals', this.goalList(starGoals(L), sv.levelObj(n))));
     const foes = el('div', 'foes');
     const seen = sv.data.seen.enemies;
     for (const t of [...levelEnemies(L), ...(L.boss ? [w.boss] : [])]) {
@@ -299,7 +299,7 @@ export const Meta = {
       if (u.legend.length) first.push(`<span class="rw">${icon('crown')}<b>Légendaires</b></span>`);
       const st = sv.worldStars(L.world);
       m.append(el('div', 'prep-rw', `<div class="pr-row${done ? ' done' : ''}"><small>${done ? icon('check') : ''}1re victoire</small><div>${done ? '<b class="pr-ok">Déjà gagné</b>' : first.join('')}</div></div>
-        <div class="pr-row${ld.stars >= 3 ? ' done' : ''}"><small>${ld.stars >= 3 ? icon('check') : ''}3 étoiles</small><div><span class="rw">${gem()}<b>+${CAMPAIGN.gemsPerStar * 3 * gm}</b></span><span class="rw">${icon('star', 'gold')}<b>Coffre d'étoiles ${st}/18</b></span></div></div>`));
+        <div class="pr-row${ld.stars >= 3 ? ' done' : ''}"><small>${ld.stars >= 3 ? icon('check') : ''}3 étoiles</small><div><span class="rw">${gem()}<b>+${CAMPAIGN.gems3Stars * gm}</b></span><span class="rw">${icon('star', 'gold')}<b>Coffre d'étoiles ${st}/18</b></span></div></div>`));
     }
     const seg = el('div', 'seg' + (done ? '' : ' hidden-seg'));
     const b1 = el('button', heroic ? '' : 'sel', 'Normal'); b1.onclick = () => this.openPrep(n, false);

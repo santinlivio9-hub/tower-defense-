@@ -1,6 +1,6 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
+import { QUALITY, GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
 import { Meta } from './meta.js';
 import { Reveal } from './reveal.js';
 import { Hub } from './hub.js';
@@ -65,6 +65,8 @@ export class UI {
     this.buildTabbar();
 
     this.show('menu');
+    if (save.recovered === 'backup') setTimeout(() => this.toast('Sauvegarde récupérée', 'Elle était abîmée : la copie de secours a été chargée', icon('check')), 900);
+    else if (save.recovered === 'lost') setTimeout(() => this.toast('Sauvegarde illisible', 'Elle est mise de côté, rien n\'est effacé. Importe une copie dans les Paramètres.', icon('trash')), 900);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.resize());
     requestAnimationFrame((ts) => this.loop(ts));
   }
@@ -153,12 +155,50 @@ export class UI {
     box.append(this.switchRow('Vague suivante automatique', `Elle part ${GAME.interWaveTime} s après la fin de la précédente`, 'wave', 'autoWave'));
     const tut = el('div', 'setting', `<span class="lab">${icon('bulb')}<span>Tutoriel<small>Le revoir à la prochaine partie</small></span></span>`);
     const tb = el('button', 'btn sm ghost', 'Revoir'); tb.onclick = () => { s.tutorialDone = false; this.save.persist(); this.toast('Tutoriel réactivé', '', icon('bulb')); }; tut.append(tb); box.append(tut);
+    // sauvegarde : export / import (texte à garder ailleurs), réinitialisation avec annulation
+    const sync = () => { this.audio.settings = this.haptics.settings = this.music.settings = this.save.data.settings; this.audio.applyVolume(); this.music.apply(); preloadSprites(this.save.data.skin); this.show('settings', true); };
+    const ex = el('div', 'setting', `<span class="lab">${icon('share')}<span>Sauvegarde<small>Garde une copie, ou reprends-la sur un autre appareil</small></span></span>`);
+    const eb = el('button', 'btn sm ghost', 'Exporter'); eb.onclick = () => this.exportSave();
+    const ib = el('button', 'btn sm ghost', 'Importer'); ib.onclick = () => this.importSave(sync);
+    const eg = el('span', 'set-btns'); eg.append(eb, ib); ex.append(eg); box.append(ex);
     const rs = el('div', 'setting', `<span class="lab">${icon('trash')}<span>Réinitialiser<small>Efface toute la progression</small></span></span>`);
     const rb = el('button', 'btn sm red', 'Effacer');
-    rb.onclick = () => { if (confirm('Effacer toute la progression (gemmes, déblocages, étoiles, records) ?')) { this.save.reset(); this.audio.settings = this.haptics.settings = this.save.data.settings; this.audio.applyVolume(); this.renderSettings(); this.toast('Progression effacée', '', icon('trash')); } };
+    rb.onclick = () => this.ask('Tout effacer ?', 'Gemmes, pièces, château, talents, étoiles et records repartent de zéro. Tu pourras annuler juste après.', 'Effacer', () => { this.save.reset(); sync(); this.toast('Progression effacée', 'Bouton « Annuler » dans les Paramètres', icon('trash')); }, 'red');
     rs.append(rb); box.append(rs);
+    if (this.save.hasUndo()) {
+      const un = el('div', 'setting', `<span class="lab">${icon('restart')}<span>Annuler<small>Revenir à la progression d'avant l'effacement ou l'import</small></span></span>`);
+      const ub = el('button', 'btn sm green', 'Restaurer'); ub.onclick = () => { if (this.save.restoreUndo()) { sync(); this.toast('Progression restaurée', '', icon('check')); } };
+      un.append(ub); box.append(un);
+    }
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
     box.append(el('p', 'hint version', `Version ${window.__version || 'locale'} · 5 tapes sur le logo de l'accueil : mode debug affichage`));
+  }
+  // Boîte de confirmation dans le style du jeu (remplace confirm() du navigateur)
+  ask(title, text, okLabel, onOk, cls = 'primary') {
+    const m = el('div', 'panel glass ask', `<h2 class="lose"></h2><p class="sub"></p>`);
+    $('h2', m).textContent = title; $('.sub', m).textContent = text;
+    const row = el('div', 'btn-row');
+    const no = el('button', 'btn ghost', 'Annuler'); no.onclick = () => this.closeOverlay();
+    const ok = el('button', 'btn ' + cls, okLabel); ok.onclick = () => { this.closeOverlay(); onOk(); };
+    row.append(no, ok); m.append(row); this.openOverlay(m);
+  }
+  exportSave() {
+    const txt = this.save.exportText();
+    const m = el('div', 'panel glass ask', `<h2 class="win">Exporter</h2><p class="sub">Copie ce texte et garde-le (Notes, Fichiers, message à toi-même). Il contient toute ta progression.</p><textarea readonly class="save-txt"></textarea>`);
+    $('textarea', m).value = txt;
+    const row = el('div', 'btn-row');
+    const cp = el('button', 'btn primary', 'Copier');
+    cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = 'Copié !'; } catch (e) { const t = $('textarea', m); t.focus(); t.select(); try { document.execCommand('copy'); cp.textContent = 'Copié !'; } catch (e2) { cp.textContent = 'Sélectionne et copie'; } } };
+    const ok = el('button', 'btn ghost', 'Fermer'); ok.onclick = () => this.closeOverlay();
+    row.append(ok, cp); m.append(row); this.openOverlay(m);
+  }
+  importSave(after) {
+    const m = el('div', 'panel glass ask', `<h2 class="win">Importer</h2><p class="sub">Colle ici le texte exporté. Il remplace la progression actuelle (annulable ensuite).</p><textarea class="save-txt" placeholder="BRAINROT1:..."></textarea><p class="ask-err" hidden>Ce texte n'est pas une sauvegarde valide.</p>`);
+    const row = el('div', 'btn-row');
+    const no = el('button', 'btn ghost', 'Annuler'); no.onclick = () => this.closeOverlay();
+    const ok = el('button', 'btn primary', 'Importer');
+    ok.onclick = () => { if (this.save.importText($('textarea', m).value)) { this.closeOverlay(); after(); this.toast('Sauvegarde importée', '', icon('check')); } else { $('.ask-err', m).hidden = false; this.audio.play('error'); } };
+    row.append(no, ok); m.append(row); this.openOverlay(m);
   }
   // Compteur de kills enchaînés sur le côté (x5, x10, x25 « CARNAGE ! »)
   showCombo(n, tier) {
@@ -210,7 +250,7 @@ export class UI {
     if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
     this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
     $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly').forEach((e) => e.remove());
-    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial']) $(id).hidden = true;
+    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
     $('#radial').innerHTML = '';
     if (window.__game) window.__game = null;
   }
@@ -428,7 +468,7 @@ export class UI {
     if (!g.paused) { this.closeOverlay(); return; }
     this.closeMenu(); this.aiming = null;
     const m = el('div', 'panel glass pause', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
-      <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
+      <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>${g.goals ? this.goalList(g.goals, this.save.levelObj(g.level.n), g.goalState()) : ''}`);
     const btns = el('div', 'btns');
     const b1 = el('button', 'btn primary big', icon('play') + 'Reprendre'); b1.onclick = () => this.togglePause();
     const row = el('div', 'btn-row three');
@@ -462,7 +502,7 @@ export class UI {
   }
   // « Oups, un bug ! » : la progression est sauvegardée, on propose de reprendre ou de revenir au menu
   crash(err, where = '') {
-    try { console.error('[Brainrot TD]', where, err); } catch (e) { /* ignore */ }
+    try { console.error('[Brainrot Bastion]', where, err); } catch (e) { /* ignore */ }
     const msg = String((err && (err.message || err.reason)) || err || 'erreur inconnue');
     if (/ResizeObserver|AbortError|NotAllowedError|Script error|play\(\) request|The operation was aborted/i.test(msg + ' ' + ((err && err.name) || ''))) return;
     (window.__errors = window.__errors || []).push(`${where} : ${msg}`);
@@ -488,7 +528,7 @@ export class UI {
     const st = $('#stage').getBoundingClientRect(), fd = $('#field').getBoundingClientRect();
     if (!st.width || !st.height) return;
     // zone jouable = #field (l'espace flex entre le HUD et la barre du bas), mesurée et non calculée
-    const top = Math.max(0, fd.top - st.top), free = Math.max(40, fd.height), bot = Math.max(0, st.bottom - fd.bottom), dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    const top = Math.max(0, fd.top - st.top), free = Math.max(40, fd.height), bot = Math.max(0, st.bottom - fd.bottom), dpr = Math.min(QUALITY.dpr[this.quality || 0], window.devicePixelRatio || 1);
     const s = Math.min(st.width / VIEW.W, free / VIEW.H);
     const w = Math.round(st.width * dpr), h = Math.round(st.height * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
@@ -503,16 +543,29 @@ export class UI {
     try { this.tick(ts); } catch (e) { this.crash(e, 'boucle'); }
   }
   tick(ts) {
-    const dt = Math.min(0.1, (ts - this.last) / 1000 || 0); this.last = ts;
+    const raw = (ts - this.last) / 1000 || 0, dt = Math.min(0.1, raw); this.last = ts;
     const g = this.game;
-    if (g && this.screen === 'game' && !this.simulating) { if (!this.crashOpen) { g.frame(dt); this.updateHud(); } }
+    if (g && this.screen === 'game' && !this.simulating) {
+      if (!this.crashOpen) { const t0 = performance.now(); g.frame(dt); this.updateHud(); this.watchQuality(g, raw, performance.now() - t0); }
+    }
     else if (this.screen === 'castle') this.tickCastle(ts);
     else if (this.screen === 'menu') this.tickHome(ts);
     // construction du château terminée (temps réel), vérifiée chaque seconde ; jamais pendant une partie
     // (le château d'un niveau ne change pas en cours de route : le chantier se termine au retour au hub)
     if (this.save.data.build && this.screen !== 'game' && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
+    if (this.save.saveFailed && !this._sfWarn) { this._sfWarn = true; this.toast('Sauvegarde impossible', 'Le stockage du téléphone est plein ou bloqué : exporte ta progression dans les Paramètres', icon('trash')); }
     if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
+  }
+  // Qualité automatique (voir QUALITY) : moyenne glissante du temps de calcul et de l'intervalle entre images
+  watchQuality(g, dt, work) {
+    const q = this.quality || 0;
+    if (g.fx.max !== QUALITY.particles[q]) { g.fx.max = QUALITY.particles[q]; g.lowFx = q > 0; }
+    if (g.paused || g.over || document.hidden || dt <= 0 || dt >= 0.5 || q >= QUALITY.dpr.length - 1) { this.slowT = 0; return; }
+    this.workAvg = (this.workAvg || 0) * 0.95 + work * 0.05; this.gapAvg = (this.gapAvg || 16) * 0.95 + dt * 1000 * 0.05;
+    const slow = this.workAvg > QUALITY.slowWork || (this.gapAvg > QUALITY.slowGap && this.workAvg > QUALITY.slowGapWork);
+    this.slowT = slow ? (this.slowT || 0) + dt : 0;
+    if (this.slowT >= QUALITY.hold) { this.quality = q + 1; this.slowT = 0; this.workAvg = 0; this.gapAvg = 16; this.resize(); }
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
   // compteur qui défile vers sa valeur
@@ -552,9 +605,30 @@ export class UI {
         w.append(enemyImg(type, boss ? 34 : 28), el('b', '', boss ? 'BOSS' : '×' + count)); box.append(w);
       }
     });
+    this.updateGoals();
     this.updateRadial();
     if (this.updateDock) this.updateDock();
     this.updateTutorial();
+  }
+
+  // Objectifs d'étoiles en partie : 3 pastilles sous le HUD (tenu / raté), avec le compteur du 3e objectif
+  updateGoals() {
+    const g = this.game, box = $('#goals');
+    if (!g.goals) { if (!box.hidden) box.hidden = true; return; }
+    const st = g.goalState(), g3 = g.goals[2];
+    const left = g3.id === 'time' ? Math.max(0, Math.ceil(g3.n - g.time)) : 0;
+    const txt = g3.id === 'towers' ? `${g.towers.filter((t) => t.type !== 'mine').length}/${g3.n}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    const key = st.join() + txt + g.over;
+    this.set('goals', key, () => {
+      box.hidden = g.over;
+      box.innerHTML = `<span class="gl ${st[1] ? 'on' : 'off'}">${icon('star')}${icon('heart')}</span><span class="gl ${st[2] ? 'on' : 'off'}${g3.id === 'time' && st[2] && left <= 20 ? ' hurry' : ''}">${icon('star')}${icon(g3.id === 'towers' ? 'cannon' : 'hourglass')}<b>${txt}</b></span>`;
+    });
+    // objectif perdu : petit message, une seule fois
+    for (const i of [1, 2]) if (!st[i] && !g['_goalLost' + i] && !g.over) { g['_goalLost' + i] = true; this.toast('Étoile manquée', g.goals[i].text, icon('star')); }
+  }
+  // liste des objectifs (fiche de niveau, pause, fin) : done = déjà obtenus, now = état de la partie en cours
+  goalList(goals, done = [], now = null) {
+    return `<div class="goal-list">${goals.map((q, i) => `<div class="${done[i] ? 'got' : ''}${now && !now[i] ? ' lost' : ''}">${icon('star', done[i] ? 'on' : '')}<span>${q.text}</span>${done[i] ? icon('check') : ''}</div>`).join('')}</div>`;
   }
 
   // ------------------------------------------------------------------ stats affichées
@@ -621,15 +695,16 @@ export class UI {
     const bs = towerSprite(best.type, best.level, best.branch, skinFinish(this.save.data.skin));
     if (bs.base) draw(bs.base.cv, 900, 1180, 330); draw(bs.head.cv, 900, 1180, 330);
     text(location.host + location.pathname.replace(/index\.html$/, ''), 1300, 34, '#c5b5dc', 8);
-    this.shareFile = null; this.shareCanvas = c;
-    c.toBlob((b) => { if (b) this.shareFile = new File([b], 'brainrot-td-score.png', { type: 'image/png' }); }, 'image/png');
+    this.shareFile = null;
+    // le canvas (6 Mo) est libéré dès que le fichier est prêt
+    c.toBlob((b) => { if (b) this.shareFile = new File([b], 'brainrot-bastion-score.png', { type: 'image/png' }); c.width = c.height = 0; }, 'image/png');
   }
   async shareScore(r) {
     const g = this.game, url = location.origin + location.pathname;
-    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot TD (${this.levelLabel(g)}) ! Tu fais mieux ?`;
+    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot Bastion (${this.levelLabel(g)}) ! Tu fais mieux ?`;
     try {
-      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot TD', text: text + ' ' + url }); return; }
-      if (navigator.share) { await navigator.share({ title: 'Brainrot TD', text, url }); return; }
+      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot Bastion', text: text + ' ' + url }); return; }
+      if (navigator.share) { await navigator.share({ title: 'Brainrot Bastion', text, url }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     if (this.shareFile) { const a = document.createElement('a'); a.href = URL.createObjectURL(this.shareFile); a.download = this.shareFile.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
     try { await navigator.clipboard.writeText(text + ' ' + url); this.toast('Image enregistrée', 'Texte et lien copiés dans le presse-papier', icon('share')); }

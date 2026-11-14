@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
 import { levelRewards } from './economy.js';
-import { WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, starGoals, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -43,6 +43,8 @@ export class Game {
     this.slots = [...this.field.slots, ...this.field.mines].map((s) => ({ ...s, tower: null }));
     this.selected = null; this.hoverTower = null; this.menuSlot = null; this.preview = null; this.freeNext = false;
     this.hintT = 0; this.canBuy = false;
+    // objectifs d'étoiles (campagne normale uniquement)
+    this.goals = !this.endless && !this.heroic && !challenge ? starGoals(level) : null; this.lostLife = false; this.peakTowers = 0;
     // château : apparence, canon, capacités actives
     this.castleTier = save.castleTier(); this.night = nightLevel();
     // le château garde à peu près la même emprise sur le terrain, quel que soit son palier
@@ -281,6 +283,7 @@ export class Game {
     const t = new Tower(this, type, slot.x, slot.y); t.legendLocked = !this.save.legendOk(type);
     t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
     this.towers.push(t); this.stats.built++; this.hintT = 0;
+    this.peakTowers = Math.max(this.peakTowers, this.towers.filter((x) => x.type !== 'mine').length);
     this.fx.ring(t.x, t.y, 6, 46, '#ffffff', 0.3, 5); this.fx.ring(t.x, t.y + 6, 10, 70, 'rgba(255,240,200,.9)', 0.45, 4); this.fx.burst(t.x, t.y + 8, '#d9c7a0', 16, 170, 6); this.shake(2.2);
     this.firstOfType = !(this.save.data.placedTypes || []).includes(type);
     this.audio.play('place');
@@ -411,7 +414,7 @@ export class Game {
       return;
     }
     const lk = e.boss ? 'boss' : e.type === 'mini' ? 'splitter' : e.type; this.stats.leakBy[lk] = (this.stats.leakBy[lk] || 0) + e.leakDmg;
-    this.lives -= e.leakDmg; this.cleanWave = false; this.onEvent('haptic', 2);
+    this.lives -= e.leakDmg; this.cleanWave = false; this.lostLife = true; this.onEvent('haptic', 2);
     this.baseFlash = 1; this.shake(e.boss ? 16 : 6); this.audio.play('leak');
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);
     this.fx.text(this.base.x, this.base.y - 96, e.leakDmg >= 99 ? 'CHÂTEAU DÉTRUIT' : '-' + e.leakDmg + ' PV', '#ff5d6c', 26, 1);
@@ -568,12 +571,14 @@ export class Game {
     if (this.over) return;
     this.over = true; this.selected = null; this.menuSlot = null; this.preview = null;
     const ratio = Math.min(1, this.lives / this.maxLives);
-    const stars = victory ? (ratio >= STARS.three ? 3 : ratio >= STARS.two ? 2 : 1) : 0;
+    // objectifs réussis pendant CETTE partie ; hors campagne normale : étoiles selon les PV restants
+    const obj = this.goalState().map((ok) => victory && ok);
+    const stars = !victory ? 0 : this.goals ? obj.filter(Boolean).length : ratio >= STARS.three ? 3 : ratio >= STARS.two ? 2 : 1;
     const wavesDone = victory ? this.wave : Math.max(0, this.cleared);
     let best = null;
     for (const t of this.towers) if (!best || t.dmg > best.dmg) best = t;
     const lifeBonus = victory ? this.addScore(this.lives * SCORE.lifeBonus) : 0;
-    this.result = { victory, stars, wavesDone, best, endless: this.endless, heroic: !!this.heroic, score: this.score, lifeBonus };
+    this.result = { victory, stars, obj, goals: this.goals, time: this.time, wavesDone, best, endless: this.endless, heroic: !!this.heroic, score: this.score, lifeBonus };
     // l'écran de fin doit TOUJOURS être annoncé, même si l'écriture de la progression rencontre un souci
     try { this.commit(victory, stars, wavesDone); } catch (e) { console.error(e); this.commitError = e; try { this.save.persist(); } catch (e2) { /* ignore */ } }
     try {
@@ -581,6 +586,12 @@ export class Game {
       if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
     } catch (e) { console.error(e); }
     this.onEvent('end', this.result);
+  }
+  // État des 3 objectifs à cet instant : [gagner (toujours vrai en cours de partie), aucun PV perdu, 3e objectif encore tenable]
+  goalState() {
+    if (!this.goals) return [true, false, false];
+    const g3 = this.goals[2];
+    return [true, !this.lostLife, g3.id === 'towers' ? this.peakTowers <= g3.n : this.time <= g3.n];
   }
   // Libère la mémoire de la partie (les canvas hors écran comptent dans la limite mémoire de Safari iOS)
   dispose() {
@@ -598,7 +609,11 @@ export class Game {
     let newStars = 0;
     r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;
     r.rewards = [];
-    const E = levelRewards({ victory, stars, prevStars: ld.stars, wavesDone, boss: L.boss, hero, heroDone: !!ld.heroic, endless: this.endless, challenge: !!this.challenge, killCost: g.cost, gemMult: this.mods.gemMult });
+    // étoiles : les objectifs s'additionnent d'une partie à l'autre
+    const prevObj = sv.levelObj(L.n), allObj = prevObj.map((v, i) => v || !!(r.obj && r.obj[i]));
+    const total = this.goals && victory ? allObj.filter(Boolean).length : stars;
+    r.objAll = allObj; r.objPrev = prevObj; r.runStars = stars; if (this.goals && victory) r.stars = total;
+    const E = levelRewards({ victory, stars: total, prevStars: ld.stars, wavesDone, boss: L.boss, hero, heroDone: !!ld.heroic, endless: this.endless, challenge: !!this.challenge, killCost: g.cost, gemMult: this.mods.gemMult });
     r.firstClear = E.firstClear;
     if (this.challenge) {
       if (victory) {
@@ -610,7 +625,7 @@ export class Game {
       if (this.score > 0 && this.result) r.rank = sv.addEndless({ score: this.score, wave: wavesDone, world: L.world, t: Date.now() });
     } else if (victory) {
       s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (hero) s.heroicWins++;
-      if (!hero) { newStars = E.newStars; ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
+      if (!hero) { newStars = E.newStars; ld.stars = Math.max(ld.stars, total); ld.obj = allObj.map((v) => (v ? 1 : 0)); ld.best = Math.max(ld.best, this.score); }
       else { ld.heroic = 1; ld.heroicBest = Math.max(ld.heroicBest, this.score); }
       if (r.firstClear && hero) r.rewards.push(sv.grant({ chest: 'wood', talent: E.talent }));
       if (r.firstClear && L.boss && !hero) { // fin de monde : grosse récompense (montrée par worldReward)
@@ -629,7 +644,7 @@ export class Game {
     const safe = (fn, fb) => { try { return fn(); } catch (e) { console.error(e); return fb; } };
     r.levelUps = safe(() => sv.addXp(r.xp), []);
     safe(() => sv.addPass(E.pass));
-    safe(() => sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? stars : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone }));
+    safe(() => sv.trackDaily({ kills: g.kills, wins: victory ? 1 : 0, boosts: g.boosts || 0, stars: victory && !this.endless ? (r.runStars ?? stars) : 0, built: g.built, upgrades: g.upgrades || 0, combo: this.chainBest || 0, bosses: g.bosses || 0, drops: g.drops || 0, waves: wavesDone }));
     r.achievements = safe(() => sv.checkAchievements(), []);
     sv.persist();
   }
@@ -728,7 +743,7 @@ export class Game {
     }
     for (const bl of this.bolts) {
       const a = bl.t / 0.45; let x = bl.x + Math.sin(bl.seed) * 30, y = E.t;
-      c.strokeStyle = `rgba(255,250,200,${a})`; c.lineWidth = 7; c.shadowColor = '#ffd23f'; c.shadowBlur = 14;
+      c.strokeStyle = `rgba(255,250,200,${a})`; c.lineWidth = 7; if (!this.lowFx) { c.shadowColor = '#ffd23f'; c.shadowBlur = 14; }
       c.beginPath(); c.moveTo(x, y);
       for (let i = 1; i <= 8; i++) { y = E.t + (bl.y - E.t) * (i / 8); x = (i === 8 ? bl.x : bl.x + Math.sin(bl.seed + i * 2.3) * 26 * (1 - i / 8)); c.lineTo(x, y); }
       c.stroke(); c.lineWidth = 2.5; c.strokeStyle = `rgba(255,255,255,${a})`; c.stroke(); c.shadowBlur = 0;
@@ -742,7 +757,7 @@ export class Game {
       const ring = (d.t * 1.4) % 1; c.strokeStyle = `rgba(255,255,255,${0.8 * (1 - ring)})`; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, r + 4 + ring * 22, 0, TAU); c.stroke();
       c.rotate(Math.sin(d.t * 4) * 0.12);
       const g = c.createRadialGradient(-r * 0.3, -r * 0.35, 2, 0, 0, r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, C.color); g.addColorStop(1, C.color);
-      c.shadowColor = C.color; c.shadowBlur = 18; c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.shadowBlur = 0;
+      if (!this.lowFx) { c.shadowColor = C.color; c.shadowBlur = 18; } c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.shadowBlur = 0;
       c.lineWidth = 3.5; c.strokeStyle = '#3d2c4e'; c.stroke();
       c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, r - 5, -2.4, -1.5); c.stroke();
       const im = boostGlyph(d.id); if (im.complete) c.drawImage(im, -r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
