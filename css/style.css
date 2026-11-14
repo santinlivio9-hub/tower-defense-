@@ -1321,18 +1321,16 @@ html, body { background: #22183f; }   /* sous la barre d'onglets (bug iOS en ple
 .cal { overflow: clip; }
 .cal .rw { background: rgba(20, 10, 40, .78); color: #fff; }
 .chest-card .btn.ghostgem { background: rgba(20, 10, 40, .62); }
-/* ------------------------------------------------------------- plein écran iPhone (Safari et PWA)
-   #app est fixe et prend la hauteur réelle de l'écran (--app-h, calculée dans main.js) ;
-   la safe-area du bas n'est comptée qu'une fois (dans la barre d'onglets / le dock),
-   et le fond de la barre déborde sous le bord de l'écran pour qu'aucune bande ne reste visible. */
-html, body { height: 100%; height: 100dvh; }
-#app { position: fixed; top: 0; bottom: auto; height: 100%; height: var(--app-h, 100dvh); }
-#tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 160px; background: #22183f; pointer-events: none; }
-#screen-game::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 160px; background: #1c1530; }
-:root { --tab-pad: calc(var(--safe-b) * .62); --tabh: calc(var(--tab-pad) + 68px); }
-#tabbar { padding-bottom: var(--tab-pad); background: linear-gradient(180deg, #4d3786 0, #3a2a6e 68px, #3a2a6e 100%); }
-#tabbar::after { background: #3a2a6e; }
-html, body { background: #3a2a6e; }
+/* ------------------------------------------------------------- mode installé (écran d'accueil iPhone)
+   Dans Safari, la zone sous la page appartient au navigateur : on n'y touche pas (barre comme avant).
+   En mode installé (classe .standalone posée par main.js, ou display-mode: standalone), #app prend la hauteur
+   physique de l'écran (--app-h) et la barre d'onglets descend jusqu'au bord, safe-area comprise une seule fois. */
+html.standalone #app { position: fixed; top: 0; bottom: auto; height: var(--app-h, 100%); }
+html.standalone, html.standalone body { background: #2a1d52; }
+html.standalone #tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: #2a1d52; pointer-events: none; }
+html.standalone #screen-game::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: #1c1530; }
+/* l'onglet central surélevé ne chevauche jamais le bouton JOUER */
+.home { padding-bottom: 30px; }
 /* ------------------------------------------------------------- talents (de haut en bas) */
 .thint { margin: 0 0 4px; text-align: center; font-size: 14px; font-weight: 700; color: var(--text-soft); } .thint b { color: var(--gold); }
 .ttree { height: auto; margin: 0 0 12px; }
@@ -1479,3 +1477,4 @@ html, body { background: #3a2a6e; }
 .crest em.dot { min-width: 14px; width: 14px; height: 14px; padding: 0; top: 0; right: 6px; background: #ffd23f; animation: none; }
 .tower-tip.low { top: auto; bottom: calc(var(--safe-b) + 142px); } .tt-d { font-size: 14px; font-weight: 600; line-height: 1.2; } .map-btn em.dot { min-width: 14px; width: 14px; height: 14px; padding: 0; background: #ffd23f; }
 .map-btn em { position: absolute; top: -6px; right: -6px; border-radius: 999px; border: 2.5px solid var(--ink); font-style: normal; }
+#tabbar { background: linear-gradient(180deg, #4a3480 0, #2f2160 68px, #2f2160 100%); } html.standalone #tabbar::after { background: #2f2160; }
