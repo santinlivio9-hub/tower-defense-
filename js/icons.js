@@ -170,6 +170,13 @@ const ART = {
   arrowup: `${SH(12)}<path d="M24 4L41 21H31v19H17V21H7z" fill="#3fd873" ${O}/><path d="M28 23v14" stroke="#1f9a4c" stroke-width="3.5" stroke-linecap="round"/>${HL('M14 19l8-8', 2.6)}`,
   trash: `${SH(12)}<path d="M11 14h26l-3 27H14z" fill="#f0485a" ${O}/><path d="M19 19l1 17M24 19v17M29 19l-1 17" stroke="#a8182a" stroke-width="2.6" stroke-linecap="round"/>
     <rect x="8" y="9" width="32" height="6" rx="3" fill="#ff8a9a" ${O}/><path d="M19 9V6h10v3" fill="none" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>${HL('M14 18l1.5 12', 2.2)}`,
+  piggy: `${SH(15)}<path d="M9 24c0-8 7-13 15-13 6 0 10 2 13 5l5-1-1 6c1 2 2 4 2 6v4l-4 1c-1 3-3 5-6 6v4h-6v-3h-8v3h-6v-5c-3-2-4-5-4-8l-3-1v-6z" fill="#ff9dbb" ${O}/>
+    <path d="M19 9h10" stroke="${K}" stroke-width="3" stroke-linecap="round"/><rect x="19" y="13.5" width="10" height="3" rx="1.5" fill="${K}"/><circle cx="34" cy="22" r="2" fill="${K}"/>
+    <path d="M12 33c3 2 7 3 11 3" stroke="#e86a96" stroke-width="3" fill="none" stroke-linecap="round"/>${COIN(24, 6, 5)}${HL('M14 21a9 9 0 0 1 6-5', 2.6)}`,
+  hourglass: `${SH(11)}<rect x="10" y="4" width="28" height="6" rx="3" fill="#a0642e" ${O}/><rect x="10" y="38" width="28" height="6" rx="3" fill="#a0642e" ${O}/>
+    <path d="M14 10h20c0 8-6 11-7 14 1 3 7 6 7 14H14c0-8 6-11 7-14-1-3-7-6-7-14z" fill="#d9f7ff" ${O}/><path d="M18 14h12c-1 4-4 6-6 8-2-2-5-4-6-8zM16 36c1-4 5-6 8-7 3 1 7 3 8 7z" fill="#ffd23f"/>
+    <path d="M24 22v8" stroke="#ffd23f" stroke-width="2" stroke-dasharray="2 2"/>${HL('M17 13c1 3 2 5 4 6', 2.2)}`,
+  crit: `${SH(12)}<path d="M24 3l5 11 12-4-6 11 10 7-12 2 1 13-10-8-10 8 1-13-12-2 10-7-6-11 12 4z" fill="#ff7a1a" ${O}/><path d="${star5(24, 25, 9, 4.5)}" fill="#ffd23f" stroke="${K}" stroke-width="2" stroke-linejoin="round"/>`,
   medal: '', // = pass (défini plus bas)
   bag: '',   // = boost
   cart: '',  // = shop

@@ -334,22 +334,22 @@ export const XP = {
 };
 export const TALENTS = {
   attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
-    { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02 },
-    { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02 },
-    { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02 },
-    { id: 'crit', icon: 'star',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01 },
+    { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02, pct: 1, fx: '+{v} % dégâts' },
+    { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02, pct: 1, fx: '+{v} % cadence' },
+    { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02, pct: 1, fx: '+{v} % portée' },
+    { id: 'crit', icon: 'crit',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01, pct: 1, fx: '+{v} % critiques' },
   ] },
   economy: { name: 'Économie', color: '#ffd23f', icon: 'coins', nodes: [
-    { id: 'start', icon: 'coins', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15 },
-    { id: 'kill', icon: 'skull',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03 },
-    { id: 'wave', icon: 'wave',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1 },
-    { id: 'gems', icon: 'gem',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05 },
+    { id: 'start', icon: 'piggy', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15, fx: '+{v} pièces' },
+    { id: 'kill', icon: 'coins',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03, pct: 1, fx: '+{v} % pièces' },
+    { id: 'wave', icon: 'gift',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1, pct: 1, fx: '+{v} % bonus' },
+    { id: 'gems', icon: 'gem',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05, pct: 1, fx: '+{v} % gemmes' },
   ] },
   castle: { name: 'Château', color: '#5c9df2', icon: 'shield', nodes: [
-    { id: 'lives', icon: 'heart', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1 },
-    { id: 'cd', icon: 'cannon',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04 },
-    { id: 'dur', icon: 'snow',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1 },
-    { id: 'slot', icon: 'bag',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6 },   // need = points déjà placés dans la branche
+    { id: 'lives', icon: 'heart', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1, fx: '+{v} PV' },
+    { id: 'cd', icon: 'hourglass',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04, pct: 1, fx: '-{v} % recharge' },
+    { id: 'dur', icon: 'snow',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1, pct: 1, fx: '+{v} % durée' },
+    { id: 'slot', icon: 'boost',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6, fx: '+{v} emplacement' },   // need = points déjà placés dans la branche
   ] },
 };
 export const CHESTS = {
@@ -495,6 +495,7 @@ export const MUSIC = {
 };
 
 // ----------------------------------------------------------------------------
+//  (talents : fx = texte de l'effet, {v} = per × rang, × 100 si pct)
 //  RAISONS DE REVENIR : cadeau du jour (7 jours), quêtes, roue, défi du jour, passe de progression.
 //  Tout est gratuit, aucun achat réel, aucun minuteur à attendre.
 //  Une récompense = { coins, gems, chest: 'wood'|'gold', boosts: nombre (au hasard) ou { id: nombre }, talent }
