@@ -9,12 +9,16 @@ export class Haptics {
       label.appendChild(input); document.head.appendChild(label); label.click(); label.remove();
     } catch (e) { /* ignore */ }
   }
+  light() { this.pulse(0); }    // tap d'interface
+  medium() { this.pulse(1); }   // pose, amélioration
+  heavy() { this.pulse(2); }    // boss, explosion, victoire
   // strength : 0 = léger (bouton), 1 = moyen, 2 = fort
   pulse(strength = 0) {
     if (!this.settings.haptics) return;
     const now = performance.now(); if (now - this.last < 60) return; this.last = now;
     if (this.canVibrate) { try { navigator.vibrate(strength >= 2 ? [30, 40, 40] : strength === 1 ? 22 : 10); } catch (e) { /* ignore */ } return; }
-    this.tick();
-    if (strength > 0) this.audio.thump(strength * 0.6);
+    this.tick();   // iPhone : clic du Taptic Engine (1 léger, 2 moyen, 3 fort)
+    if (strength > 0) { setTimeout(() => this.tick(), 45); this.audio.thump(strength * 0.6); }
+    if (strength > 1) setTimeout(() => this.tick(), 95);
   }
 }

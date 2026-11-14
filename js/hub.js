@@ -1,6 +1,6 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
-import { CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS } from './config.js';
+import { GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS } from './config.js';
 import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -52,12 +52,32 @@ export const Hub = {
   },
   // Badges rouges : quelque chose à faire dans l'onglet
   tabBadges() {
-    const sv = this.save, d = sv.data, set = (id, v) => { const e = $(`#tabbar .tab-${id} em`); if (!e) return; e.hidden = !v; e.textContent = v; };
+    const sv = this.save, d = sv.data, want = {}, set = (id, v, soft = false) => { want[id] = { v, soft }; };
     set('talents', d.talentPts || 0);
     set('shop', sv.chestCount());
     set('castle', this.castleAffordable() + (d.castleFree || 0));
     set('collection', sv.collectionNew());
     set('menu', this.dailyBadge ? this.dailyBadge('menu') : 0);
+      // priorité : récompenses à récupérer (chiffre rouge), 3 badges chiffrés au plus ; le reste = petit point discret
+    const order = ['menu', 'shop', 'talents', 'castle', 'collection'], soft = ['castle', 'collection'];
+    let shown = 0;
+    for (const id of order) {
+      const e = $(`#tabbar .tab-${id} em`); if (!e) continue;
+      const w = want[id] || { v: 0 }, isSoft = soft.includes(id);
+      if (!w.v) { e.hidden = true; continue; }
+      e.hidden = false;
+      // l'onglet de l'écran affiché n'a pas besoin de badge (l'accueil montre déjà ses blasons)
+      if (id === this.screen || (id === 'menu' && this.screen === 'world')) { e.hidden = true; continue; }
+      e.className = isSoft ? 'dot' : ''; e.textContent = isSoft ? '' : w.v; void shown;
+    }
+    this.capBadges();
+  },
+  // Jamais plus de 3 badges chiffrés visibles en même temps : les premiers (récompenses de l'écran) gardent leur
+  // chiffre, les suivants deviennent un petit point discret
+  capBadges() {
+    const scr = document.querySelector('.screen.active');
+    const list = [...(scr ? scr.querySelectorAll('.crest em, .map-btn em') : []), ...document.querySelectorAll('#tabbar .tab em')].filter((e) => !e.hidden && e.className !== 'dot');
+    list.forEach((e, i) => { if (i >= GAME.maxBadges) { e.className = 'dot'; e.textContent = ''; } });
   },
   castleAffordable() {
     const cs = this.save.data.castle, c = this.save.data.coins || 0;
@@ -87,7 +107,7 @@ export const Hub = {
     this.renderHomeSide();
     this.homeLay = null;
     // coffres d'étoiles prêts sur la carte
-    const mb = $('.home-play .map-btn'), sc = this.save.starChestsReady(); let em = $('em', mb); if (!em) { em = el('em', 'mb-badge'); mb.append(em); } em.hidden = !sc; em.textContent = sc;
+    const mb = $('.home-play .map-btn'), sc = this.save.starChestsReady(); let em = $('em', mb); if (!em) { em = el('em'); mb.append(em); } em.className = 'mb-badge'; em.hidden = !sc; em.textContent = sc; this.capBadges();
   },
   // Blasons autour du château : une couleur par fonction, info sous le label,
   // badge rouge UNIQUEMENT quand une récompense est à récupérer
@@ -101,6 +121,7 @@ export const Hub = {
     if (this.homeDaily) this.homeDaily(left, right, crest);
     crest(left, { art: icon('chest'), label: 'Coffres', color: 'chest', fn: () => { this.shopTab = 'chests'; this.show('shop'); },
       badge: nc, info: nc ? 'Ouvrir' : 'Boutique', go: !!nc, cls: nc ? 'ready' : '' });
+    this.capBadges();
     this.homeInfoT = performance.now();
   },
   // Zone libre pour le château, mesurée sur la page : jamais sous les blasons ni sous JOUER

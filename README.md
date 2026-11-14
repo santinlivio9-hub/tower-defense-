@@ -55,6 +55,12 @@ Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHu
   une partie ouvre sa fiche avec aperçu avant/après ; animation de chantier à chaque achat.
 - **Carte de campagne** : nœuds en blasons, décor propre à chaque monde, rivière et pont, panneaux de monde,
   chemin continu du départ au trophée final.
+- **Progression de la campagne** (`UNLOCKS` dans `js/config.js`) : chaque arme se débloque en battant un niveau
+  (1-1 Fusil et Mitraillette, 1-2 Pompe, 1-4 Mine, 1-6 Cryo, 2-1 Sniper, 2-4 Lance-roquettes, 3-1 Minigun), avec une
+  cinématique « NOUVELLE ARME » ; améliorations légendaires en 3-1, 4-1 et 5-1 ; un skin exclusif par boss. Bulles
+  « Débloque : … » sur la carte, fiche de niveau (ennemis, récompenses), coffres d'étoiles à 6 / 12 / 18 étoiles par
+  monde, mondes suivants dans le brouillard. Fin de monde : coffre légendaire, skin, boosts, gemmes et 3
+  améliorations du château offertes, puis écran « MONDE 2 DÉBLOQUÉ » et panoramique sur la carte.
 - **Icônes illustrées** (SVG en volume, contour épais) et code couleur fixe des récompenses : pièce or, gemme cyan,
   coffre bois / doré / légendaire violet, boost orange, XP vert, ticket du passe rose.
 - **Niveau de joueur** (XP), **arbre de talents** visuel à 3 branches, **collection** (tourelles, brainrots, boosts, succès).
@@ -110,7 +116,8 @@ js/talents.js         arbre de talents
 js/collection.js      collection et fiches
 js/boosts.js          boosts : cartes, emplacements rapides, activation
 js/daily.js           cadeau du jour, quêtes, roue, défi du jour, passe
-js/loot.js            coffres (boutique et ouverture)
+js/loot.js            coffres (boutique et ouverture), offre du jour
+js/reveal.js          cinématiques : nouvelle arme, fin de monde, transition vers le monde suivant
 tools/simulate.cjs    robot d'équilibrage (voir plus bas)
 ```
 

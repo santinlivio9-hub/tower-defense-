@@ -56,6 +56,8 @@ export class UI {
     window.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     this.bindGameInput();
+    // retour haptique léger sur tout bouton d'interface (les actions plus fortes vibrent avant, le léger est alors ignoré)
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button')) this.haptics.pulse(0); });
     $('#btn-endless').onclick = () => this.openEndless();
 
     this.buildTabbar();
@@ -203,7 +205,11 @@ export class UI {
   }
   onGameEvent(name, data) {
     if (name === 'end') setTimeout(() => this.showEnd(data), data.victory ? 1700 : 1100);
-    else if (name === 'upgraded' || name === 'placed') { this.cache.radial = null; this.haptics.pulse(name === 'upgraded' ? 2 : 1); }
+    else if (name === 'upgraded' || name === 'placed') {
+      this.cache.radial = null; this.haptics.pulse(1);
+      // première tourelle de ce type posée : petite carte d'info (une seule fois)
+      if (name === 'placed' && this.game && this.game.firstOfType && !this.simulating) { const d = this.save.data; d.placedTypes = [...(d.placedTypes || []), data.type]; this.save.persist(); this.towerTip(data.type, data); }
+    }
     else if (name === 'coins') this.flyCoins(data);
     else if (name === 'haptic') { if (!this.simulating) this.haptics.pulse(data); }
     else if (name === 'kill') { if (!this.simulating) { this.audio.pop(data); this.showCombo(data); } }
@@ -239,9 +245,18 @@ export class UI {
   // ------------------------------------------------------------------ menu radial d'un emplacement
   openMenu(slot) {
     const g = this.game; if (!g || g.over) return;
-    if (slot !== g.menuSlot) this.audio.play('sheet');
+    if (slot !== g.menuSlot) { this.audio.play(slot && !slot.tower ? 'tick' : 'sheet'); if (slot) this.haptics.pulse(0); }
     g.menuSlot = slot; g.selected = slot ? slot.tower : null; g.preview = null; this.armed = null; this.cache.radial = null;
     if (!slot) this.renderRadial();
+  }
+  // Carte d'info affichée la première fois qu'on pose une tourelle de ce type
+  towerTip(type, t) {
+    const cfg = TOWERS[type], st = computeStats(type, 1, null, this.game.mods);
+    const tip = el('div', 'tower-tip' + (this.toScreen(t.x, t.y).y < innerHeight * 0.45 ? ' low' : ''), `<span class="tt-art"></span><span class="tt-txt"><small>Nouvelle arme posée</small><b>${cfg.name}</b><span class="tt-d">${cfg.desc}</span><em>${this.statLine(type, st)}</em><i>Touche-la pour l'améliorer</i></span>`);
+    $('.tt-art', tip).append(towerImg(type, 52, this.save.data.skin, 1));
+    const close = () => { tip.classList.add('out'); setTimeout(() => tip.remove(), 250); };
+    tip.onclick = close; setTimeout(close, 5200);
+    $('#screen-game').append(tip);
   }
   closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
   statLine(type, s) { return this.statRows(type, s).map((r) => `${r[0]} <b>${r[1]}</b>`).join(' · '); }
@@ -452,10 +467,10 @@ export class UI {
     this.set('waveLabel', label, (v) => { btn.innerHTML = v; btn.style.visibility = v ? '' : 'hidden'; btn.disabled = !g.canStartNext; btn.classList.toggle('ready', g.canStartNext); btn.classList.toggle('busy', !g.canStartNext); });
     this.set('preview', g.over || !nw ? 0 : nw.n, (n) => {
       const box = $('#wave-preview'); box.innerHTML = ''; if (!n) return;
-      box.append(el('span', 'lbl', 'Suivante'));
-      for (const [type, count] of Object.entries(waveSummary(nw))) {
-        const w = el('span', 'wp' + (ENEMIES[type].boss ? ' boss' : ''));
-        w.append(enemyImg(type, 30), document.createTextNode(ENEMIES[type].boss ? 'BOSS' : '×' + count)); box.append(w);
+      box.append(el('span', 'lbl', `Vague ${n}`));
+      for (const [type, count] of Object.entries(waveSummary(nw))) {   // une bulle par brainrot : icône + nombre (BOSS en rouge)
+        const boss = ENEMIES[type].boss, w = el('span', 'wp' + (boss ? ' boss' : '') + (this.save.data.seen.enemies.includes(type) ? '' : ' new'));
+        w.append(enemyImg(type, boss ? 34 : 28), el('b', '', boss ? 'BOSS' : '×' + count)); box.append(w);
       }
     });
     this.updateRadial();
