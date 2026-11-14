@@ -18,11 +18,11 @@ const defaults = () => ({
   endless: [],           // classement local : [{ score, wave, world, t }]
   castle: { walls: 0, repair: 0, treasury: 0, cannon: 0, air: 0, blizzard: 0, gold: 0 },
   xp: 0, level: 1, talentPts: 0, talents: {},
-  boosts: { ...STARTER_BOOSTS }, chests: { wood: 1, gold: 0 }, loadout: [],
+  boosts: { ...STARTER_BOOSTS }, chests: { wood: 1, gold: 0, legend: 0 }, loadout: [],
   seen: { enemies: [], towers: [...SHOP.starterTowers] },
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
-  daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '' },
+  daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
   legacyStars: 0, notice: null,
   achievements: [],
@@ -136,6 +136,7 @@ export class Save {
     else if (r.boosts) { for (let i = 0; i < r.boosts; i++) { const id = BOOST_ORDER[Math.floor(Math.random() * 4)]; d.boosts[id]++; } out.push(r.boosts > 1 ? `${r.boosts} boosts` : '1 boost'); }
     return out.join(' + ');
   }
+  chestCount() { return Object.values(this.data.chests).reduce((a, b) => a + (b || 0), 0); }
   // Ouvre un coffre ; renvoie les cartes [{ kind: 'gems'|'boost', id, n }] (déjà ajoutées à l'inventaire)
   openChest(kind) {
     const d = this.data, c = CHESTS[kind]; if (!c || d.chests[kind] <= 0) return null;

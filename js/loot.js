@@ -1,5 +1,7 @@
 // Niveau de joueur (XP), talents, inventaire de boosts et coffres. Méthodes ajoutées à la classe UI (voir la fin de ui.js).
-import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, RARITY } from './config.js';
+import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, CHEST_ORDER, RARITY, OFFER, SHOP } from './config.js';
+import { untilMidnight } from './daily.js';
+import { towerImg } from './sprites.js';
 import { icon, gem } from './icons.js';
 import { boostArt } from './boosts.js';
 
@@ -9,30 +11,63 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const pips = (n, max) => `<div class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
 const boostIco = (id, cls = '') => `<i class="bico ${cls}" style="--bc:${BOOSTS[id].color}">${icon(BOOSTS[id].icon)}</i>`;
 
-// Coffre dessiné en SVG (fermé ou ouvert)
+// Coffre dessiné en SVG (fermé ou ouvert) : bois, doré (reflet qui passe), légendaire violet (gemme)
+const CHEST_COL = { wood: ['#d9a566', '#b27a40', '#7a4a22', '#f3d9a8'], gold: ['#ffe27a', '#f5b324', '#b8721a', '#fff6c8'], legend: ['#d9a6ff', '#9a5ce0', '#5a2a9a', '#f0dcff'] };
 export function chestSvg(kind, open = false) {
-  const c = kind === 'gold' ? ['#ffe27a', '#f0a81d', '#b8721a', '#fff6c8'] : ['#d9a566', '#b27a40', '#7a4a22', '#f3d9a8'];
-  const lid = `<g transform="${open ? 'rotate(-32 14 52) translate(0 -6)' : ''}"><path d="M12 52 Q12 18 60 18 Q108 18 108 52 Z" fill="${c[0]}" stroke="#3d2c4e" stroke-width="5" stroke-linejoin="round"/><path d="M34 22 V52 M86 22 V52" stroke="${c[2]}" stroke-width="7"/><path d="M24 40 Q30 26 46 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".55"/></g>`;
-  return `<svg viewBox="0 0 120 112" class="chest-svg">${open ? `<ellipse cx="60" cy="52" rx="44" ry="12" fill="#fff6c8"/><path d="M22 52 L38 6 L50 52 Z M52 52 L60 0 L70 52 Z M72 52 L86 8 L98 52 Z" fill="#fff6c8" opacity=".85"/>` : ''}
+  const c = CHEST_COL[kind] || CHEST_COL.wood, shine = !open && kind !== 'wood';
+  const lid = `<g transform="${open ? 'rotate(-32 14 52) translate(0 -6)' : ''}"><path d="M12 52 Q12 18 60 18 Q108 18 108 52 Z" fill="${c[0]}" stroke="#3d2c4e" stroke-width="5" stroke-linejoin="round"/><path d="M34 22 V52 M86 22 V52" stroke="${c[2]}" stroke-width="7"/><path d="M24 34 Q40 24 58 24" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none" opacity=".55"/></g>`;
+  const lock = kind === 'legend'
+    ? `<path d="M60 42l11 12-11 16-11-16z" fill="#5fd8ff" stroke="#3d2c4e" stroke-width="4" stroke-linejoin="round"/><path d="M53 52l7-7 3 3" stroke="#fff" stroke-width="2.5" fill="none" opacity=".8"/>`
+    : `<rect x="50" y="46" width="20" height="24" rx="6" fill="#ffd23f" stroke="#3d2c4e" stroke-width="4"/><circle cx="60" cy="57" r="3.5" fill="#3d2c4e"/>`;
+  const sweep = shine ? `<clipPath id="chc"><path d="M12 52 Q12 18 60 18 Q108 18 108 52 Z"/><rect x="12" y="50" width="96" height="52" rx="9"/></clipPath>
+    <g clip-path="url(#chc)"><rect x="-70" y="0" width="22" height="112" fill="#fff" opacity=".6" transform="skewX(-22)"><animate attributeName="x" values="-70;190;190" keyTimes="0;.55;1" dur="2.6s" repeatCount="indefinite"/></rect></g>` : '';
+  return `<svg viewBox="0 0 120 112" class="chest-svg ${kind}">${open ? `<ellipse cx="60" cy="52" rx="44" ry="12" fill="${kind === 'legend' ? '#f0dcff' : '#fff6c8'}"/><path d="M22 52 L38 6 L50 52 Z M52 52 L60 0 L70 52 Z M72 52 L86 8 L98 52 Z" fill="${kind === 'legend' ? '#f0dcff' : '#fff6c8'}" opacity=".85"/>` : ''}
     <ellipse cx="60" cy="104" rx="48" ry="7" fill="rgba(0,0,0,.3)"/>
     <rect x="12" y="50" width="96" height="52" rx="9" fill="${c[1]}" stroke="#3d2c4e" stroke-width="5"/><path d="M34 52 V100 M86 52 V100" stroke="${c[2]}" stroke-width="7"/>
-    <path d="M18 62 H102" stroke="${c[3]}" stroke-width="3" opacity=".5"/>${lid}
-    <rect x="50" y="46" width="20" height="24" rx="6" fill="#ffd23f" stroke="#3d2c4e" stroke-width="4"/><circle cx="60" cy="57" r="3.5" fill="#3d2c4e"/></svg>`;
+    <path d="M18 62 H102" stroke="${c[3]}" stroke-width="3" opacity=".5"/><path d="M14 92 H106" stroke="#000" stroke-width="7" opacity=".12"/>${lid}${lock}${sweep}</svg>`;
 }
+// Article de l'offre du jour (tiré selon la date)
+function dayHash(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 export const Loot = {
   // ------------------------------------------------------------------ menu : barre d'XP et pastilles
   // ------------------------------------------------------------------ boutique : coffres et boosts
   renderShopChests(grid) {
-    const d = this.save.data;
-    const row = el('div', 'chest-row');
-    for (const [kind, c] of Object.entries(CHESTS)) {
-      const n = d.chests[kind], card = el('div', 'chest-card' + (n ? ' has' : ''), `${chestSvg(kind)}<b>${c.name}</b><small>${c.cards} cartes · gemmes et boosts</small>${n ? `<em>×${n}</em>` : ''}`);
-      if (n) { const open = el('button', 'btn sm green cta', 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); }; card.append(open); }
-      card.append(this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
-      row.append(card);
+    const d = this.save.data, row = el('div', 'chest-row');
+    for (const kind of CHEST_ORDER) {
+      const c = CHESTS[kind], n = d.chests[kind] || 0;
+      const card = el('div', `chest-card ${kind}` + (n ? ' has' : ''), `<span class="cc-chest">${chestSvg(kind)}${kind === 'legend' ? '<i></i><i></i><i></i><i></i><i></i>' : ''}</span>
+        <span class="cc-txt"><b>${c.name}</b><small>${c.cards} cartes · ${kind === 'legend' ? 'beaucoup de gemmes, boosts rares' : 'pièces, gemmes et boosts'}</small></span>${n ? `<em>×${n}</em>` : ''}`);
+      const btns = el('div', 'cc-btns');
+      if (n) { const open = el('button', 'btn sm green cta', 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); }; btns.append(open); }
+      btns.append(this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, kind === 'legend' ? 'pink' : 'ghostgem'));
+      card.append(btns); row.append(card);
     }
-    grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss et en terminant les défis.'));
+    grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss, avec le cadeau du jour et le passe.'));
+  },
+  // Offre du jour : un article remisé, une fois par jour, avec minuteur
+  offerItem() {
+    const d = this.save.data, day = d.daily.day || new Date().toDateString(), pool = OFFER.pool.filter((o) => !(o.skin && d.skins.includes(o.skin)));
+    const o = pool[dayHash(day) % pool.length];
+    let base, name, art, cur = 'gems';
+    if (o.chest) { base = CHESTS[o.chest].cost; name = CHESTS[o.chest].name; art = chestSvg(o.chest); }
+    else if (o.boost) { const B = BOOSTS[o.boost]; base = B.cost * o.n; cur = B.cur || 'gems'; name = `${o.n} × ${B.name}`; art = boostArt(o.boost); }
+    else { const S = SHOP.skins.find((k) => k.id === o.skin); base = S.cost; name = `Finition ${S.name}`; art = ''; }
+    return { o, base, name, art, cur, price: Math.max(1, Math.round(base * (1 - OFFER.discount))), day };
+  },
+  shopDaily(grid) {
+    const d = this.save.data, it = this.offerItem(), bought = d.daily.offer === it.day;
+    const card = el('div', 'offer' + (bought ? ' bought' : ''), `<div class="of-head"><b>OFFRE DU JOUR</b><span class="timer">${icon('calendar')}Nouvelle offre dans <b>${untilMidnight()}</b></span></div>
+      <div class="of-body"><span class="of-art"></span><span class="of-txt"><b>${it.name}</b><span class="of-price"><s>${it.cur === 'coins' ? '' : gem()}${it.base}</s><em>-${Math.round(OFFER.discount * 100)} %</em></span></span></div>`);
+    const artBox = $('.of-art', card);
+    if (it.art) artBox.innerHTML = it.art; else artBox.append(towerImg('assault', 76, it.o.skin, 3));
+    if (bought) card.append(el('span', 'owned wide', icon('check') + 'Déjà acheté aujourd\'hui'));
+    else card.append(this.buyButton(it.price, it.cur, 'Acheter', () => {
+      const o = it.o; d.daily.offer = it.day;
+      if (o.chest) d.chests[o.chest]++; else if (o.boost) d.boosts[o.boost] = (d.boosts[o.boost] || 0) + o.n; else { if (!d.skins.includes(o.skin)) d.skins.push(o.skin); d.skin = o.skin; }
+      this.toast('Offre du jour achetée !', it.name, icon('shop'));
+    }, 'big'));
+    grid.append(card);
   },
   renderShopBoosts(grid) {
     const d = this.save.data, g = el('div', 'cgrid');
@@ -50,7 +85,7 @@ export const Loot = {
   // Ouverture : on tape 3 fois (le coffre tremble de plus en plus, la lumière filtre), il explose de lumière,
   // puis les cartes sortent et se retournent une à une, de la plus commune à la plus rare.
   openChest(kind) {
-    const stage = el('div', 'chest-stage'), c = CHESTS[kind], TAPS = 3;
+    const stage = el('div', 'chest-stage ' + kind), c = CHESTS[kind], TAPS = 3;
     stage.innerHTML = `<div class="rays"></div><div class="chest">${chestSvg(kind)}<i class="crack"></i></div><p class="sub tap">Touche le coffre !</p><div class="taps">${'<i></i>'.repeat(TAPS)}</div><div class="lcards"></div>`;
     const chest = $('.chest', stage), cards = $('.lcards', stage), tap = $('.tap', stage);
     let taps = 0, opened = false;
