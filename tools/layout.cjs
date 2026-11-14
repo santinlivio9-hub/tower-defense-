@@ -24,6 +24,16 @@ const out = process.argv[2];
     await p.evaluate(() => __ui.startGame(7, false, false, __ui.loadoutFor(window.__lv || { boss: false })));
     await p.waitForTimeout(700);
     await check('jeu', ['#dock', '#btn-wave', '#btn-speed', '#hud', '#abilities']);
+    // rangée du bas : aucun chevauchement, rien ne dépasse, sur une vague chargée et une vague de boss
+    for (const lv of [24, 30]) {
+      await p.evaluate((lv) => { const sv = __ui.save, d = sv.data; for (let n = 1; n < lv; n++) d.levels[n] = { stars: 2, best: 1, heroic: 0, heroicBest: 0 }; sv.grantUnlocks(); __ui.startGame(lv, false, false, __ui.loadoutFor({ boss: lv % 6 === 0 })); const g = __ui.game; for (let k = 0; k < 40 && !(g.nextWave && (lv % 6 === 0 ? g.nextWave.groups.some((q) => q.type.startsWith('boss')) : new Set(g.nextWave.groups.map((q) => q.type)).size > 3)); k++) { g.wave++; g._nextCache = null; } }, lv);
+      await p.waitForTimeout(400);
+      const o = await p.evaluate(() => { const els = [...document.querySelectorAll('#wave-preview .lbl, #wave-preview .wp, #wave-preview .wp-more, #btn-speed, #btn-wave')].map((e) => [e.className || e.id, e.getBoundingClientRect()]); const bad = []; for (let i = 0; i < els.length; i++) { const [n, a] = els[i]; if (a.right > innerWidth + 0.5 || a.left < -0.5) bad.push(n + ' dépasse'); for (let j = i + 1; j < els.length; j++) { const [m, b] = els[j]; if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1 && !(n.includes('wp') && m.includes('wp'))) bad.push(n + ' / ' + m); } } for (const e of document.querySelectorAll('#btn-wave .l, #btn-wave small, #btn-speed, #wave-preview')) { const q = e.getBoundingClientRect(), host = (e.closest('button') || e).getBoundingClientRect(); if (e.scrollWidth > e.clientWidth + 1 || q.right > host.right + 1 || q.left < host.left - 1) bad.push('texte coupé : ' + (e.className || e.id)); } return { bad, n: els.length }; });
+      if (o.bad.length) bad++;
+      console.log(`${o.bad.length ? 'KO ' : 'ok '} ${tag} rangée du bas (niveau ${lv}, ${o.n} éléments) ${o.bad.join(', ')}`);
+      await p.evaluate(() => { const g = __ui.game; g.wave = Math.max(1, g.wave); g.cleared = g.wave; g.countdown = 5; __ui.cache = {}; __ui.updateHud(); });
+      if (out) await p.screenshot({ path: `${out}/${tag}-bas-${lv}.png`, clip: { x: 0, y: H - 140, width: W, height: 140 } });
+    }
     const v = await p.evaluate(() => { const f = document.querySelector('#field').getBoundingClientRect(), v = __ui.view, c = document.querySelector('#game'); return { field: [Math.round(f.top), Math.round(f.bottom)], terrain: [Math.round(v.oy), Math.round(v.oy + 940 * v.s)], canvas: [c.clientWidth, c.clientHeight, c.width, c.height] }; });
     const fits = v.terrain[0] >= v.field[0] - 1 && v.terrain[1] <= v.field[1] + 1; if (!fits) bad++;
     console.log(`${fits ? 'ok ' : 'KO '} ${tag} terrain ${v.terrain.join(' → ')} dans la zone ${v.field.join(' → ')} ; canvas ${v.canvas.join(' ')}`);
