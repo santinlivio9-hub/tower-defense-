@@ -28,8 +28,8 @@ export const Loot = {
     const row = el('div', 'chest-row');
     for (const [kind, c] of Object.entries(CHESTS)) {
       const n = d.chests[kind], card = el('div', 'chest-card' + (n ? ' has' : ''), `${chestSvg(kind)}<b>${c.name}</b><small>${c.cards} cartes · gemmes et boosts</small>${n ? `<em>×${n}</em>` : ''}`);
-      const open = el('button', 'btn sm green' + (n ? '' : ' off'), 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); };
-      card.append(open, this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
+      if (n) { const open = el('button', 'btn sm green cta', 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); }; card.append(open); }
+      card.append(this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
       row.append(card);
     }
     grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss et en terminant les défis.'));
