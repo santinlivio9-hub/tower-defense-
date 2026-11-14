@@ -1,9 +1,9 @@
 /* Brainrot Bastion — service worker : jeu jouable hors ligne une fois chargé. */
-const CACHE = 'brainrot-td-v30';
+const CACHE = 'brainrot-td-v31';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/main.js', 'js/config.js', 'js/game.js', 'js/maps.js', 'js/waves.js', 'js/enemies.js', 'js/towers.js',
-  'js/projectiles.js', 'js/fx.js', 'js/sprites.js', 'js/icons.js', 'js/audio.js', 'js/haptics.js', 'js/save.js', 'js/ui.js', 'js/castle.js', 'js/meta.js', 'js/hub.js', 'js/loot.js', 'js/end.js', 'js/talents.js', 'js/collection.js', 'js/boosts.js', 'js/music.js', 'js/daily.js', 'js/reveal.js',
+  'js/projectiles.js', 'js/fx.js', 'js/sprites.js', 'js/icons.js', 'js/audio.js', 'js/haptics.js', 'js/save.js', 'js/ui.js', 'js/castle.js', 'js/meta.js', 'js/hub.js', 'js/loot.js', 'js/end.js', 'js/talents.js', 'js/collection.js', 'js/boosts.js', 'js/music.js', 'js/daily.js', 'js/reveal.js', 'js/economy.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
 ];
 

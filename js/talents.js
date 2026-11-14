@@ -1,7 +1,7 @@
 // Arbre de talents, lu de haut en bas : le niveau du joueur en haut, puis 3 branches de 4 talents.
 // Chaque nœud : icône illustrée, anneau qui se remplit selon les rangs, pastille « 2/5 » et nom dessous.
 // Toucher un nœud ouvre une bulle (effet actuel → effet suivant, bouton Améliorer).
-import { TALENTS } from './config.js';
+import { TALENTS, TALENT_ROWS, XP } from './config.js';
 import { icon } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -21,7 +21,11 @@ export const Talents = {
     $('#talent-pts').textContent = d.talentPts;
     $('#screen-talents .chip.pts').classList.toggle('glow', d.talentPts > 0);
     box.innerHTML = '';
-    box.append(el('p', 'thint', d.talentPts ? `<b>${d.talentPts} point${d.talentPts > 1 ? 's' : ''}</b> à placer : touche un talent qui brille` : 'Gagne des points de talent en montant de niveau'));
+    box.append(el('p', 'thint', d.talentPts ? `<b>${d.talentPts} point${d.talentPts > 1 ? 's' : ''}</b> à placer : touche un talent qui brille` : 'Un point tous les 2 niveaux de joueur, et 1 par victoire Héroïque'));
+    // barre vers le prochain point de talent (niveaux pairs)
+    const nextLvl = d.level + (d.level % 2 ? 1 : 2), need = (() => { let n = XP.need(d.level) - d.xp; for (let l = d.level + 1; l < nextLvl; l++) n += XP.need(l); return n; })();
+    const span = XP.need(d.level) + (nextLvl - d.level > 1 ? XP.need(d.level + 1) : 0), done = span - need;
+    box.append(el('div', 'tnext', `${icon('talent')}<span><small>Prochain point au niveau ${nextLvl}</small><span class="qbar"><i style="width:${(done / span) * 100}%"></i><em>encore ${need} XP</em></span></span>`));
     const tree = el('div', 'ttree'); tree.style.height = TREE_H + 'px';
     const branches = Object.entries(TALENTS);
     // lignes (x en %, y en px : le SVG garde l'échelle verticale)
@@ -42,9 +46,9 @@ export const Talents = {
       tree.append(Object.assign(el('div', 'tbranch', `${icon(br.icon)}<b>${br.name}</b><small>${sv.branchPoints(bid)} pts</small>`), { style: `left:${COLS[bi]}%;top:${HEAD_Y}px;--bc:${br.color}` }));
       br.nodes.forEach((n, i) => {
         const rank = sv.talent(n.id), open = sv.talentOpen(bid, n), can = sv.canTalent(bid, n), max = rank >= n.max;
-        const st = max ? 'max' : !open ? 'locked' : can ? 'can' : rank ? 'has' : 'open';
+        const st = max ? 'max' : !open ? 'locked' : can ? 'can' : rank ? 'has' : 'open', rowLock = !sv.talentRowOk(bid, n);
         const b = el('button', `tn ${st}` + (this.talentSel === n.id ? ' sel' : '') + (this.talentCharge === n.id ? ' pop' : ''),
-          `<span class="tn-ring"></span><span class="tn-in">${icon(n.icon)}</span>${!open ? `<i class="tn-badge lock">${icon('lock')}</i>` : max ? `<i class="tn-badge star">${icon('star')}</i>` : ''}
+          `<span class="tn-ring"></span><span class="tn-in">${icon(n.icon)}</span>${rowLock ? `<i class="tn-badge lvl">Niv.${TALENT_ROWS[i]}</i>` : !open ? `<i class="tn-badge lock">${icon('lock')}</i>` : max ? `<i class="tn-badge star">${icon('star')}</i>` : ''}
            <em class="tn-rk">${rank}/${n.max}</em><small class="tn-name">${n.name}</small>`);
         b.style.cssText = `left:${COLS[bi]}%;top:${ROWS[i]}px;--bc:${br.color};--p:${rank / n.max}`;
         b.setAttribute('aria-label', `${n.name}, rang ${rank} sur ${n.max}`);
@@ -67,7 +71,7 @@ export const Talents = {
     const sv = this.save, d = sv.data, rank = sv.talent(n.id), open = sv.talentOpen(bid, n), ns = br.nodes, max = rank >= n.max;
     const W = tree.clientWidth || 360, x = (COLS[bi] / 100) * W, below = i < ROWS.length - 1;
     const bw = Math.min(270, W - 16), left = Math.max(8, Math.min(W - bw - 8, x - bw / 2));
-    const need = !open ? (i > 0 && !sv.talent(ns[i - 1].id) ? `Débloque d'abord « ${ns[i - 1].name} »` : `Nécessite ${n.need} pts dans la branche ${br.name}`) : '';
+    const need = !sv.talentRowOk(bid, n) ? `Se débloque au niveau de joueur ${TALENT_ROWS[i]} (tu es niveau ${d.level})` : !open ? (i > 0 && !sv.talent(ns[i - 1].id) ? `Débloque d'abord « ${ns[i - 1].name} »` : `Nécessite ${n.need} pts dans la branche ${br.name}`) : '';
     const bub = el('div', 'tbubble' + (below ? '' : ' up'), `<i class="tb-arrow" style="left:${x - left}px"></i>
       <div class="tb-head"><span class="tb-ico" style="--bc:${br.color}">${icon(n.icon)}</span><span><b>${n.name}</b><small>Rang ${rank}/${n.max} · ${n.desc}${n.max > 1 ? ' par rang' : ''}</small></span></div>
       <div class="fx-big">${max ? `<b>${talentEffect(n, rank)}</b>` : `<span>${rank ? talentEffect(n, rank) : 'Aucun'}</span><i>${icon('arrowup')}</i><b>${talentEffect(n, rank + 1)}</b>`}</div>

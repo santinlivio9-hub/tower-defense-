@@ -250,7 +250,8 @@ export const CAMPAIGN = {
   miniBossHp: [0.12, 0.3, 0.5, 0.7],      // PV des mini-boss successifs (part des PV du boss)
   endlessAfter: 12,                       // le mode infini se débloque après ce niveau (fin du monde 2)
   // gemmes
-  gemsWin: 6, gemsPerStar: 3, gemsFirstClear: 10, gemsBossMult: 2, gemsPerWaveLost: 0.3, gemsPerWaveEndless: 0.8,
+  // gemmes : seulement à la 1re victoire et aux premières 3 étoiles (pas aux replays) ; ×2 pour un boss
+  gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 5, gems3Stars: 3, gemsHeroicFirst: 6, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.15,
 };
 // Liste à plat des 30 niveaux
 export const LEVELS = [];
@@ -283,20 +284,27 @@ export const heroicMod = (n) => HEROIC.mods[(n - 1) % HEROIC.mods.length];
 // ----------------------------------------------------------------------------
 //  CHÂTEAU (amélioré avec les gemmes entre les niveaux)
 // ----------------------------------------------------------------------------
+// coûts du château : ×CASTLE_GROWTH par rang (exponentiel)
+const CASTLE_GROWTH = 1.55;
+const grow = (base, n = 5) => Array.from({ length: n }, (_, i) => Math.round((base * CASTLE_GROWTH ** i) / 10) * 10);
 export const CASTLE = {
   upgrades: {
-    walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: [120, 260, 450, 700, 1000] },
-    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: [180, 360, 600, 900, 1300] },   // every[niveau] = toutes les N vagues
-    treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: [120, 260, 450, 700, 1000] },
-    cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: [250, 420, 650, 950, 1400] },
+    walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: grow(560) },
+    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: grow(720) },   // every[niveau] = toutes les N vagues
+    treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: grow(620) },
+    cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: grow(900) },
   },
   // capacités actives : niveau 0 = verrouillée. cd en secondes.
   abilities: {
-    air:      { name: 'Frappe aérienne', desc: 'Bombarde une zone ciblée', icon: 'bomb', color: '#ff7a3c', cd: [0, 50, 45, 40], damage: [0, 220, 380, 600], pct: 0.25, bossPct: 0.04, radius: [0, 90, 100, 115], costs: [300, 550, 950] },
-    blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: [400, 650, 1050] },
-    gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: [450, 700, 1150] },
+    air:      { name: 'Frappe aérienne', desc: 'Bombarde une zone ciblée', icon: 'bomb', color: '#ff7a3c', cd: [0, 50, 45, 40], damage: [0, 220, 380, 600], pct: 0.25, bossPct: 0.04, radius: [0, 90, 100, 115], costs: grow(1200, 3) },
+    blizzard: { name: 'Blizzard',        desc: "Ralentit tous les ennemis de l'écran", icon: 'snow', color: '#5fd8ff', cd: [0, 60, 55, 50], slow: [0, 0.5, 0.6, 0.7], dur: [0, 5, 6.5, 8], costs: grow(1400, 3) },
+    gold:     { name: "Pluie d'or",      desc: 'Fait tomber des pièces bonus', icon: 'coins', color: '#ffd23f', cd: [0, 75, 70, 60], coins: [0, 50, 80, 120], perWave: [0, 3, 4, 6], costs: grow(1500, 3) },
   },
-  tiers: [0, 5, 11, 18, 25],  // total de niveaux d'amélioration (29 au max) pour : fortin en bois, château de pierre, forteresse, citadelle, palais doré
+  build: { upgrades: [1, 3, 8, 15, 30], abilities: [5, 15, 30] },   // minutes de construction par rang (une à la fois)
+  speedGemsPerMin: 1 / 3,     // accélérer : 1 gemme par tranche de 3 minutes restantes
+  rankCap: { upgrades: [2, 4, 5, 5, 5], abilities: [1, 2, 3, 3, 3] },   // rang max selon le monde atteint (1 à 5)
+  // palier d'apparence k (k >= 1) : il faut aussi avoir battu le boss du monde k
+  tiers: [0, 7, 13, 20, 26],  // total de niveaux d'amélioration (29 au max) pour : fortin en bois, château de pierre, forteresse, citadelle, palais doré
 };
 
 // ----------------------------------------------------------------------------
@@ -327,12 +335,17 @@ export const STARTER_BOOSTS = { coins2: 1, heal: 1, free: 1, over: 1, shield: 0,
 //  NIVEAU DE JOUEUR, TALENTS, COFFRES
 // ----------------------------------------------------------------------------
 export const XP = {
-  perCost: 0.5,                 // XP par point de « coût » d'ennemi éliminé
-  perWave: 5, perStar: 30, win: 40,
-  need: (lvl) => 220 + 90 * (lvl - 1),      // XP pour passer du niveau lvl au suivant
+  perCost: 0.25,                // XP par point de « coût » d'ennemi éliminé
+  perWave: 4, perStar: 20, win: 30,
+  replay3: 0.25,                // XP d'un niveau déjà fait en 3 étoiles : ×0,25 (le replay rapporte surtout des pièces)
+  need: (lvl) => Math.round(260 + 95 * (lvl - 1) + 6 * (lvl - 1) ** 2),   // courbe plus raide
   // récompense de chaque niveau gagné (cycle), + un coffre doré tous les 10 niveaux
-  rewards: [{ talent: 1 }, { gems: 15 }, { talent: 1 }, { chest: 'wood' }, { talent: 1 }, { boosts: 2 }],
+  // récompense de chaque niveau atteint : 1 point de talent tous les 2 niveaux, sinon pièces / boosts ;
+  // coffre en bois tous les 5 niveaux, doré tous les 10
+  rewards: [{ talent: 1 }, { coins: 80 }, { talent: 1 }, { boosts: 1 }],
 };
+// rangée i de l'arbre (1 à 4) disponible à ce niveau de joueur ; 1 point de talent de plus par 1re victoire Héroïque
+export const TALENT_ROWS = [1, 8, 16, 25];
 export const TALENTS = {
   attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
     { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02, pct: 1, fx: '+{v} % dégâts' },
@@ -354,9 +367,9 @@ export const TALENTS = {
   ] },
 };
 export const CHESTS = {
-  wood: { name: 'Coffre en bois', cost: 30, cards: 3, coins: [80, 160], gems: [6, 14], boostChance: 0.6, rare: 0.15 },
-  gold: { name: 'Coffre doré',    cost: 75, cards: 5, coins: [220, 420], gems: [15, 35], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
-  legend: { name: 'Coffre légendaire', cost: 180, cards: 7, coins: [500, 900], gems: [30, 60], boostChance: 0.75, rare: 0.7 },
+  wood: { name: 'Coffre en bois', cost: 80, cards: 3, coins: [40, 90], gems: [2, 5], boostChance: 0.6, rare: 0.15 },
+  gold: { name: 'Coffre doré',    cost: 250, cards: 5, coins: [150, 280], gems: [6, 15], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
+  legend: { name: 'Coffre légendaire', cost: 0, noBuy: true, cards: 7, coins: [300, 600], gems: [12, 25], boostChance: 0.75, rare: 0.7 },   // récompense uniquement
 };
 export const CHEST_ORDER = ['wood', 'gold', 'legend'];
 // ----------------------------------------------------------------------------
@@ -376,12 +389,12 @@ export function unlocksOf(n) {
 // Coffres d'étoiles de chaque monde : [étoiles, coffre]
 export const STAR_CHESTS = [[6, 'wood'], [12, 'gold'], [18, 'legend']];
 // Fin de monde (boss vaincu la 1re fois) : grosse récompense, en plus du skin exclusif
-export const WORLD_REWARD = { chest: 'legend', gems: 60, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 3 };
+export const WORLD_REWARD = { chest: 'legend', gems: 15, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 2 };
 // Offre du jour (boutique) : un article tiré au sort chaque jour, remisé, achetable une fois
 export const OFFER = {
   discount: 0.4,
   pool: [
-    { chest: 'gold' }, { chest: 'legend' }, { boost: 'shield', n: 2 }, { boost: 'revive', n: 2 },
+    { chest: 'gold' }, { chest: 'wood' }, { boost: 'shield', n: 2 }, { boost: 'revive', n: 2 },
     { boost: 'over', n: 3 }, { boost: 'coins2', n: 3 }, { skin: 'neon' }, { skin: 'lava' }, { skin: 'candy' }, { skin: 'gold' },
   ],
 };
@@ -483,7 +496,7 @@ export const END = {
 export const COINS = {
   start: 150,                 // nouveau joueur
   migrateBase: 300, migratePerStar: 60,   // anciennes sauvegardes (avant les pièces)
-  win: 90, perStar: 35, perWave: 6, perWaveLost: 5, firstClear: 120, bossMult: 2, endlessPerWave: 8,
+  win: 45, perStar: 12, perWave: 3, perWaveLost: 2, firstClear: 60, bossMult: 2, endlessPerWave: 3,
 };
 // Barre d'onglets du hub (ordre affiché)
 export const TABS = [
@@ -527,32 +540,32 @@ export const MUSIC = {
 // ----------------------------------------------------------------------------
 export const DAILY = {
   calendar: [
-    { coins: 100 }, { gems: 5 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 250 },
-    { gems: 10 }, { boosts: { over: 1, shield: 1 } }, { chest: 'gold', gems: 10 },
+    { coins: 80 }, { gems: 2 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 150 },
+    { gems: 3 }, { boosts: { over: 1, shield: 1 } }, { chest: 'wood', gems: 5 },
   ],
   perDay: 3,                  // quêtes du jour
   quests: [                   // {n} = objectif ; pass = points de passe en plus de la récompense
-    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 150 }, pass: 40 },
-    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 200 }, pass: 50 },
-    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 120, gems: 3 }, pass: 40 },
-    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 180 }, pass: 50 },
-    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 150 }, pass: 40 },
-    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 150 }, pass: 40 },
-    { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'flame', reward: { gems: 5 }, pass: 40 },
-    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 250 }, pass: 50 },
+    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 90 }, pass: 40 },
+    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 120 }, pass: 50 },
+    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 80, gems: 1 }, pass: 40 },
+    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 110 }, pass: 50 },
+    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 90 }, pass: 40 },
+    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 90 }, pass: 40 },
+    { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'flame', reward: { gems: 2 }, pass: 40 },
+    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 150 }, pass: 50 },
     { id: 'drops', text: 'Ramasse {n} bulles de boost', n: 2, icon: 'gift', reward: { boosts: 1 }, pass: 40 },
-    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 150 }, pass: 40 },
+    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 90 }, pass: 40 },
   ],
   weekly: [                   // une grosse quête par semaine (lundi)
-    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 30 }, pass: 200 },
-    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 30 }, pass: 200 },
-    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 30 }, pass: 200 },
+    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 5 }, pass: 200 },
+    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 5 }, pass: 200 },
+    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 5 }, pass: 200 },
   ],
   wheel: [                    // segments de la roue (w = poids)
-    { coins: 80, w: 20 }, { gems: 3, w: 16 }, { coins: 150, w: 16 }, { boosts: 1, w: 14 },
-    { coins: 300, w: 10 }, { gems: 10, w: 8 }, { chest: 'wood', w: 12 }, { chest: 'gold', w: 4 },
+    { coins: 50, w: 22 }, { gems: 1, w: 16 }, { coins: 100, w: 16 }, { boosts: 1, w: 14 },
+    { coins: 200, w: 10 }, { gems: 4, w: 8 }, { chest: 'wood', w: 10 }, { chest: 'gold', w: 4 },
   ],
-  wheelExtraCost: 15,         // gemmes pour un tour bonus (le tour du jour est gratuit)
+  wheelExtraCost: 25,         // gemmes pour un tour bonus (le tour du jour est gratuit)
   challenges: [               // défi du jour : un niveau déjà joué + un modificateur fun
     { id: 'giant', name: 'Brainrots géants', desc: 'Énormes et coriaces, mais plus lents', size: 1.6, hp: 1.5, speed: 0.8 },
     { id: 'double', name: 'Tout en x2', desc: 'Deux fois plus de brainrots, deux fois plus de pièces', density: 2, coins: 2, money: 2 },
@@ -561,13 +574,14 @@ export const DAILY = {
     { id: 'tiny', name: 'Mini-invasion', desc: 'Brainrots minuscules, fragiles et très nombreux', size: 0.6, hp: 0.45, density: 2.4 },
     { id: 'sniper', name: 'Tireurs d\'élite', desc: 'Seul le sniper est autorisé', only: ['sniper'], money: 1.6 },
   ],
-  challengeReward: { chest: 'gold', gems: 15 }, challengePass: 80,
+  challengeReward: { chest: 'wood', gems: 4 }, challengePass: 80,
 };
 export const PASS = {
-  tiers: 30, perTier: 300,    // points par palier
-  perStar: 40,                // points par étoile gagnée (en plus de l'XP gagnée)
-  cycle: [{ coins: 150 }, { gems: 5 }, { boosts: 1 }, { coins: 250 }],
+  tiers: 30, perTier: 1050,    // points par palier (≈ 3 à 4 semaines de jeu régulier)
+  perStar: 25,                // points par étoile gagnée (en plus de la moitié de l'XP gagnée)
+  xpShare: 0.5,
+  cycle: [{ coins: 120 }, { gems: 2 }, { boosts: 1 }, { coins: 180 }],
   every5: { chest: 'gold' },  // paliers 5, 10, 15...
-  final: { coins: 1000, gems: 50, chest: 'legend' },
+  final: { coins: 800, gems: 20, chest: 'legend' },
 };
 export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);
