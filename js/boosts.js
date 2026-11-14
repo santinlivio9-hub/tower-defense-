@@ -84,7 +84,9 @@ export const BoostUI = {
       const c = el('button', 'bk' + (cur && cur.id === id ? ' sel' : '') + (!n || taken ? ' off' : ''), `${boostArt(id)}<b>${BOOSTS[id].name}</b><em>×${n}</em>`);
       c.onclick = () => {
         if (!n || taken) { this.audio.play('error'); return; }
-        g.boosts[i] = { id, used: false }; this.saveLoadout(); this.audio.play('card'); this.haptics.pulse(1);
+        // jamais de trou dans la liste : un emplacement vide plus loin que la fin s'ajoute à la suite
+        if (i >= g.boosts.length) g.boosts.push({ id, used: false }); else g.boosts[i] = { id, used: false };
+        this.saveLoadout(); this.audio.play('card'); this.haptics.pulse(1);
         this.closeBoostPicker(); this.cache.dock = null;
       };
       grid.append(c);

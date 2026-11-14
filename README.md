@@ -107,6 +107,7 @@ js/icons.js           icônes SVG illustrées (objets, récompenses) et pictogra
 js/audio.js           sons Web Audio
 js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
+js/viewport.js        taille de #app (jamais plus grande que la zone visible) et mode debug d'affichage
 js/save.js            sauvegarde, migration, progression, XP, coffres
 js/ui.js              navigation, HUD, menu radial, tutoriel, boutique, paramètres, partage
 js/hub.js             barre de ressources, onglets, accueil animé, écran Château, capacités en partie
@@ -201,3 +202,30 @@ tout maxé (talents et château) après 5-6 semaines.
 `tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
 et, en 390 px, la lisibilité : texte ≥ 14 px (13 px en gras pour les labels), zones tactiles ≥ 44 px, contraste
 WCAG AA sur fond uni, contour foncé sur les textes posés sur un décor. Il enregistre des captures en 390 × 844.
+
+### Tests de robustesse
+
+- `node tools/check.cjs` (sans navigateur, à lancer avant chaque publication) : tous les modules sont dans la liste
+  du service worker, chaque import existe, la syntaxe est valide. **Changer `VERSION` dans `sw.js` à chaque
+  publication** : le service worker télécharge alors tous les fichiers d'un coup dans un cache propre à cette
+  version, et la page se recharge toute seule dès qu'on n'est plus en partie. Le jeu ne tourne jamais avec un
+  mélange d'anciens et de nouveaux fichiers.
+- `node tools/layout.cjs [dossier]` : en 375 × 667, 390 × 844 et 430 × 932, en mode navigateur et installé (safe-areas
+  simulées), la barre du bas du jeu, le bouton de vague, le bouton de vitesse et la barre d'onglets sont entièrement
+  dans l'écran, et le terrain tient dans la zone jouable.
+- `node tools/chain.cjs [n]` : enchaîne n niveaux avec « Niveau suivant » dans l'interface réelle et vérifie que
+  l'écran de victoire apparaît à chaque fois, sans erreur de console.
+
+### Mode debug d'affichage
+
+`?debug=1` dans l'adresse, ou 5 tapes rapides sur le logo de l'accueil : affiche `innerHeight`, `clientHeight`,
+`visualViewport`, `screen`, les safe-areas réelles, le mode (navigateur / installé), la position de `#app`, de la
+barre d'onglets et de la barre du bas du jeu, et marque les 4 coins de `#app` en rouge. Les boutons du bas essaient
+d'autres façons de calculer la hauteur ; le choix est gardé en mémoire (`localStorage`, clé `brainrot-layout`).
+
+### Filets de sécurité
+
+La boucle de jeu se reprogramme avant de travailler, la fin de niveau est toujours annoncée même si l'écriture de
+la sauvegarde échoue, chaque étape de la séquence de fin est protégée, et un écran de fin de secours s'affiche si
+rien n'apparaît 3,5 s après le moment prévu. Toute erreur non rattrapée ouvre « Oups, un bug ! » (progression
+sauvegardée, Reprendre ou Retour au menu). `ui.clearGame()` remet tout à zéro entre deux parties.

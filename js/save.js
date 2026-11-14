@@ -49,6 +49,11 @@ export class Save {
     Object.assign(d, raw);
     for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
     if (!raw.placedTypes && (raw.stats || {}).towersBuilt > 0) d.placedTypes = [...(raw.towers || [])];
+    // valeurs numériques abîmées (NaN, null) : remises à leur valeur de départ, sans toucher au reste
+    for (const k of ['gems', 'coins', 'xp', 'talentPts', 'castleFree']) if (!Number.isFinite(d[k]) || d[k] < 0) d[k] = def[k];
+    if (!Number.isFinite(d.level) || d.level < 1) d.level = 1;
+    for (const o of [d.castle, d.boosts, d.chests, d.stats]) for (const k in o) if (typeof def[o === d.castle ? 'castle' : o === d.boosts ? 'boosts' : o === d.chests ? 'chests' : 'stats'][k] === 'number' && !Number.isFinite(o[k])) o[k] = 0;
+    if (!Array.isArray(d.towers)) d.towers = [...def.towers]; if (!Array.isArray(d.achievements)) d.achievements = []; if (!d.levels || typeof d.levels !== 'object') d.levels = {};
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
   }
   // Ancienne sauvegarde (3 cartes, 3 difficultés, bonus permanents) -> nouveau système

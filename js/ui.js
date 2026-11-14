@@ -52,6 +52,8 @@ export class UI {
     $$('[data-go]').forEach((b) => b.addEventListener('click', () => this.show(b.dataset.go)));
     $$('#shop-tabs [data-tab]').forEach((b) => b.addEventListener('click', () => { this.shopTab = b.dataset.tab; this.renderShop(); }));
     window.addEventListener('resize', () => this.resize());
+    // la zone jouable suit sa vraie taille (barre du bas qui change de hauteur, rotation, barres du navigateur)
+    if (window.ResizeObserver) { const ro = new ResizeObserver(() => this.resize()); ro.observe($('#field')); ro.observe($('#stage')); }
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
     window.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -156,6 +158,7 @@ export class UI {
     rb.onclick = () => { if (confirm('Effacer toute la progression (gemmes, déblocages, étoiles, records) ?')) { this.save.reset(); this.audio.settings = this.haptics.settings = this.save.data.settings; this.audio.applyVolume(); this.renderSettings(); this.toast('Progression effacée', '', icon('trash')); } };
     rs.append(rb); box.append(rs);
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
+    box.append(el('p', 'hint version', `Version ${window.__version || 'locale'} · 5 tapes sur le logo de l'accueil : mode debug affichage`));
   }
   // Compteur de kills enchaînés sur le côté (x5, x10, x25 « CARNAGE ! »)
   showCombo(n, tier) {
@@ -181,11 +184,12 @@ export class UI {
 
   // ------------------------------------------------------------------ partie
   startGame(n, heroic = false, endless = false, boosts = [], challenge = null) {
-    if (this.game) this.game.commit();
+    this.clearGame();
     const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts, challenge }));
     this.lastArgs = [n, heroic, endless, challenge];
     this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
-    g.onEvent = (name, data) => this.onGameEvent(name, data);
+    // un souci d'affichage (pièces qui volent, bulle d'info...) ne doit jamais interrompre la partie
+    g.onEvent = (name, data) => { try { this.onGameEvent(name, data, g); } catch (e) { console.error(e); if (name === 'end') this.endFallback(data); } };
     Object.defineProperty(g, 'simulating', { get: () => this.simulating });
     this.closeOverlay(); this.closeMenu();
     this.syncMute(); if (this.buildDock) this.buildDock();
@@ -199,12 +203,32 @@ export class UI {
   // Rejouer : on reprend les mêmes boosts s'il en reste
   replay() { const [n, h, e, ch] = this.lastArgs; this.startGame(n, h, e, this.loadoutFor ? this.loadoutFor(LEVELS[n - 1]) : [], ch); }
   levelLabel(g = this.game) { return g.challenge ? `Défi du jour · ${g.challenge.name}` : g.endless ? `Mode infini · ${g.world.name}` : `${g.heroic ? 'Héroïque' : 'Niveau'} ${g.level.id} · ${g.world.name}`; }
-  quitGame() {
-    if (this.game) { this.game.commit(); this.announce(this.save.checkAchievements()); }
-    this.game = null; this.show('world');
+  // Remise à zéro complète entre deux parties : minuteries, éléments flottants, états de l'interface, instance de jeu.
+  clearGame() {
+    const g = this.game;
+    clearTimeout(this.endT); clearTimeout(this.endWatch); clearTimeout(this.comboHide); this.endT = this.endWatch = null;
+    if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
+    this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
+    $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly').forEach((e) => e.remove());
+    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial']) $(id).hidden = true;
+    $('#radial').innerHTML = '';
+    if (window.__game) window.__game = null;
   }
-  onGameEvent(name, data) {
-    if (name === 'end') setTimeout(() => this.showEnd(data), data.victory ? 1700 : 1100);
+  // Quitter la partie (pause, écran de fin, écran d'erreur) : la progression est écrite, puis on change d'écran
+  quitGame(to = 'world') {
+    const had = !!this.game;
+    this.clearGame(); this.closeOverlay();
+    if (had) { try { this.announce(this.save.checkAchievements()); } catch (e) { console.error(e); } }
+    this.show(to);
+  }
+  onGameEvent(name, data, g = this.game) {
+    if (name === 'end') {
+      const delay = data.victory ? 1700 : 1100;
+      clearTimeout(this.endT); clearTimeout(this.endWatch);
+      this.endT = setTimeout(() => { if (this.game === g) this.showEnd(data); }, delay);
+      // filet : si rien ne s'affiche (séquence plantée), un écran de fin simple prend le relais
+      this.endWatch = setTimeout(() => { if (this.game === g && !this.endVisible()) this.endFallback(data); }, delay + 3500);
+    }
     else if (name === 'upgraded' || name === 'placed') {
       this.cache.radial = null; this.haptics.pulse(1);
       // première tourelle de ce type posée : petite carte d'info (une seule fois)
@@ -346,7 +370,8 @@ export class UI {
     const g = this.game, slot = g.menuSlot;
     if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; g.menuSlot = null; } return; }
     const t = slot.tower;
-    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', this.armed, this.menuItems(slot).map((i) => i.cls).join(), g.freeNext].join('/');
+    const afford = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : g.money >= o.cost ? 1 : 0)).join('') : g.buildable(slot).map((k) => (g.money >= g.costOf(k) ? 1 : 0)).join('');
+    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', this.armed, afford, g.freeNext].join('/');
     if (this.cache.radial !== key) { this.cache.radial = key; this.renderRadial(); }
     else if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { d.textContent = short(t.dmg); k.textContent = t.kills; } }
   }
@@ -394,31 +419,77 @@ export class UI {
     else if (e.code === 'Space') { e.preventDefault(); g.startNextWave(true); }
     else if (e.code === 'Escape') { if (this.aiming) this.aiming = null; else if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
   }
+  // Pause : toujours accessible. Partie finie sans écran de fin (anomalie) : on affiche l'écran de fin de secours.
   togglePause() {
-    const g = this.game; if (!g || g.over || this.introOpen) return;
+    const g = this.game; if (!g) return;
+    if (g.over) { if (!this.endVisible()) this.endFallback(g.result); return; }
+    if (this.introOpen) { if ($('#overlay.show .intro')) return; this.introOpen = false; }   // carte de présentation fermée par autre chose
     g.paused = !g.paused;
     if (!g.paused) { this.closeOverlay(); return; }
     this.closeMenu(); this.aiming = null;
-    const m = el('div', 'panel glass', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
+    const m = el('div', 'panel glass pause', `<h2 class="win">PAUSE</h2><p class="sub">${this.levelLabel()} · vague ${g.wave}${g.endless ? '' : '/' + g.totalWaves}</p>
       <div class="score-big"><span>Score</span><b>${fmt(g.score)}</b></div>`);
     const btns = el('div', 'btns');
     const b1 = el('button', 'btn primary big', icon('play') + 'Reprendre'); b1.onclick = () => this.togglePause();
-    const row = el('div', 'btn-row');
-    const b2 = el('button', 'btn ghost', icon('restart') + 'Rejouer'); b2.onclick = () => this.replay();
-    const b3 = el('button', 'btn ghost', icon('home') + 'Quitter'); b3.onclick = () => this.quitGame();
-    row.append(b2, b3); btns.append(b1, row);
+    const row = el('div', 'btn-row three');
+    const b2 = el('button', 'btn ghost', icon('restart') + 'Recommencer'); b2.onclick = () => this.replay();
+    const b3 = el('button', 'btn ghost', icon('map') + 'Carte'); b3.onclick = () => this.quitGame('world');
+    const b4 = el('button', 'btn ghost', icon('home') + 'Menu'); b4.onclick = () => this.quitGame('menu');
+    row.append(b2, b3, b4); btns.append(b1, row);
     m.append(btns, this.switchRow('Son', '', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); }), this.switchRow('Vibrations', '', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
     this.openOverlay(m);
+  }
+  // ------------------------------------------------------------------ filets de sécurité
+  endVisible() { return !!$('#overlay.show .endseq, #overlay.show .reveal, #overlay.show .es-fallback, #overlay.show .chest-stage'); }
+  // Écran de fin minimal, sans animation ni dépendance : utilisé si la séquence normale échoue
+  endFallback(r) {
+    const g = this.game; if (!g) { this.closeOverlay(); this.show('world'); return; }
+    r = r || g.result || {};
+    clearTimeout(this.endT); clearTimeout(this.endWatch);
+    const win = !!r.victory, nextN = g.level.n + 1, canNext = win && !g.endless && !g.heroic && !g.challenge && nextN <= LEVELS.length;
+    const m = el('div', 'panel glass es-fallback', `<h2 class="${win ? 'win' : 'lose'}">${win ? 'VICTOIRE !' : 'DÉFAITE'}</h2><p class="sub"></p>
+      <div class="score-big"><span>Score</span><b>${fmt(r.score || g.score || 0)}</b></div><p class="sub">Progression enregistrée.</p>`);
+    try { $('.sub', m).textContent = this.levelLabel(g); if (win) m.insertBefore(el('div', '', stars(r.stars || 0, 'stars big')), $('.score-big', m)); } catch (e) { /* affichage minimal */ }
+    const btns = el('div', 'btns'), add = (cls, html, fn) => { const b = el('button', 'btn ' + cls, html); b.onclick = fn; btns.append(b); };
+    if (r.worldDone != null) add('primary big', icon('chest') + 'Récompense du monde !', () => { this.clearGame(); this.worldReward(r.worldDone); });
+    else if (canNext) add('primary big', icon('play') + 'Niveau suivant', () => { this.clearGame(); this.playLevel(nextN); });
+    add(canNext || r.worldDone != null ? 'ghost' : 'primary big', icon('restart') + (win ? 'Rejouer' : 'Réessayer'), () => this.replay());
+    const row = el('div', 'btn-row');
+    const b3 = el('button', 'btn ghost', icon('map') + 'Carte'); b3.onclick = () => this.quitGame('world');
+    const b4 = el('button', 'btn ghost', icon('home') + 'Menu'); b4.onclick = () => this.quitGame('menu');
+    row.append(b3, b4); btns.append(row); m.append(btns);
+    this.openOverlay(m);
+  }
+  // « Oups, un bug ! » : la progression est sauvegardée, on propose de reprendre ou de revenir au menu
+  crash(err, where = '') {
+    try { console.error('[Brainrot TD]', where, err); } catch (e) { /* ignore */ }
+    const msg = String((err && (err.message || err.reason)) || err || 'erreur inconnue');
+    if (/ResizeObserver|AbortError|NotAllowedError|Script error|play\(\) request|The operation was aborted/i.test(msg + ' ' + ((err && err.name) || ''))) return;
+    (window.__errors = window.__errors || []).push(`${where} : ${msg}`);
+    try { this.save.persist(); } catch (e) { /* ignore */ }
+    if (this.crashOpen) return;
+    const now = Date.now(); if (now - (this.crashAt || 0) < 4000) { this.crashCount = (this.crashCount || 0) + 1; } else this.crashCount = 1;
+    this.crashAt = now; this.crashOpen = true;
+    const g = this.game, wasPaused = g ? g.paused : false; if (g && !g.over) g.paused = true;
+    const box = el('div', '', `<div class="panel glass"><h2 class="lose">Oups, un bug !</h2><p class="sub">Ta progression est sauvegardée.</p><p class="crash-msg"></p><div class="btns"></div></div>`); box.id = 'crash';
+    $('.crash-msg', box).textContent = msg.slice(0, 140);
+    const close = () => { box.remove(); this.crashOpen = false; };
+    const b1 = el('button', 'btn primary big', icon('play') + 'Reprendre');
+    b1.onclick = () => { close(); const cur = this.game; if (cur && cur === g) { if (cur.over) { if (!this.endVisible()) this.endFallback(cur.result); } else cur.paused = wasPaused && !!$('#overlay.show .pause'); } };
+    const b2 = el('button', 'btn ghost', icon('home') + 'Retour au menu'); b2.onclick = () => { close(); try { this.quitGame('menu'); } catch (e) { location.reload(); } };
+    $('.btns', box).append(...(this.crashCount >= 3 ? [b2] : [b1, b2]));   // erreurs en rafale : seul le retour au menu reste proposé
+    $('#app').append(box);
   }
 
   // ------------------------------------------------------------------ boucle
   resize() {
     // Le canvas couvre tout l'écran ; la zone jouable (600 x 940) est calée entre le HUD et la barre du bas,
     // à la largeur de l'écran dès que la hauteur le permet. Le décor remplit le reste.
-    const st = $('#stage').getBoundingClientRect();
+    const st = $('#stage').getBoundingClientRect(), fd = $('#field').getBoundingClientRect();
     if (!st.width || !st.height) return;
-    const top = $('#hud').offsetHeight, bot = $('#dock').offsetHeight, dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    const free = st.height - top - bot, s = Math.min(st.width / VIEW.W, free / VIEW.H);
+    // zone jouable = #field (l'espace flex entre le HUD et la barre du bas), mesurée et non calculée
+    const top = Math.max(0, fd.top - st.top), free = Math.max(40, fd.height), bot = Math.max(0, st.bottom - fd.bottom), dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    const s = Math.min(st.width / VIEW.W, free / VIEW.H);
     const w = Math.round(st.width * dpr), h = Math.round(st.height * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
     this.view = { s, ox: (st.width - VIEW.W * s) / 2, oy: top + (free - VIEW.H * s) / 2 };   // en px CSS
@@ -426,16 +497,22 @@ export class UI {
     if (this.game && this.game.viewKey !== key) { this.game.viewKey = key; this.game.setView(s * dpr, this.view.ox / s, this.view.oy / s, w, h); }
     this.cache.tut = null;
   }
+  // La boucle se reprogramme AVANT de travailler : une erreur dans une image ne l'arrête jamais.
   loop(ts) {
+    requestAnimationFrame((t) => this.loop(t));
+    try { this.tick(ts); } catch (e) { this.crash(e, 'boucle'); }
+  }
+  tick(ts) {
     const dt = Math.min(0.1, (ts - this.last) / 1000 || 0); this.last = ts;
     const g = this.game;
-    if (g && this.screen === 'game' && !this.simulating) { g.frame(dt); this.updateHud(); }
+    if (g && this.screen === 'game' && !this.simulating) { if (!this.crashOpen) { g.frame(dt); this.updateHud(); } }
     else if (this.screen === 'castle') this.tickCastle(ts);
-    // construction du château terminée (temps réel), vérifiée chaque seconde
-    if (this.save.data.build && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     else if (this.screen === 'menu') this.tickHome(ts);
+    // construction du château terminée (temps réel), vérifiée chaque seconde ; jamais pendant une partie
+    // (le château d'un niveau ne change pas en cours de route : le chantier se termine au retour au hub)
+    if (this.save.data.build && this.screen !== 'game' && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
-    requestAnimationFrame((t) => this.loop(t));
+    if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
   }
   set(key, value, fn) { if (this.cache[key] !== value) { this.cache[key] = value; fn(value); } }
   // compteur qui défile vers sa valeur
