@@ -2,6 +2,7 @@
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
 import { GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
 import { Meta } from './meta.js';
+import { Reveal } from './reveal.js';
 import { Hub } from './hub.js';
 import { Loot } from './loot.js';
 import { End } from './end.js';
@@ -250,10 +251,11 @@ export class UI {
     if (!t) {
       for (const type of g.buildable(slot)) {
         const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
-        items.push({ key: type, cls: g.money < cost ? 'poor' : '', art: towerImg(type, 46, skin), price: cost, free: cost === 0,
+        const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
+        items.push({ key: type, cls: (g.money < cost ? 'poor' : '') + (isNew ? ' isnew' : ''), art: towerImg(type, 46, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
           info: `<b>${cfg.name}</b><span>${cfg.desc}</span><small>${this.statLine(type, st)}</small>`,
           preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
-          confirm: () => { if (g.placeTower(type, slot)) this.openMenu(null); else this.haptics.pulse(1); } });
+          confirm: () => { if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
       }
       return items;
     }
@@ -540,4 +542,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal);

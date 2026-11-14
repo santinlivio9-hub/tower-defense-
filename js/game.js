@@ -1,7 +1,7 @@
 // Cœur du jeu : état d'une partie, boucle de mise à jour (delta time), dégâts, rendu.
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
-import { PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -599,7 +599,11 @@ export class Game {
       s.wins++; if (this.lives >= this.maxLives) s.perfectWins++; if (hero) s.heroicWins++;
       if (!hero) { newStars = Math.max(0, stars - ld.stars); ld.stars = Math.max(ld.stars, stars); ld.best = Math.max(ld.best, this.score); }
       else { ld.heroic = 1; ld.heroicBest = Math.max(ld.heroicBest, this.score); }
-      if (r.firstClear && (L.boss || hero)) { const kind = L.boss && !hero ? 'gold' : 'wood'; r.rewards.push(sv.grant({ chest: kind })); }
+      if (r.firstClear && hero) r.rewards.push(sv.grant({ chest: 'wood' }));
+      if (r.firstClear && L.boss && !hero) { // fin de monde : grosse récompense (montrée par worldReward)
+        const W = WORLD_REWARD; sv.grant({ chest: W.chest, gems: W.gems, boosts: W.boosts }); d.castleFree = (d.castleFree || 0) + W.castleFree;
+        d.pendingWorld = L.world; r.worldDone = L.world;
+      }
       { const u = sv.grantUnlocks(); r.towers = u.towers; r.skins = u.skins; r.legend = u.legend; }
     } else gems = wavesDone * CAMPAIGN.gemsPerWaveLost;
     let coins = this.endless || this.challenge ? wavesDone * COINS.endlessPerWave : !victory ? wavesDone * COINS.perWaveLost

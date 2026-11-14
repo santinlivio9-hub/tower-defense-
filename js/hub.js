@@ -25,6 +25,7 @@ export function crestSvg(kind) {
 
 export const Hub = {
   renderMeta(name) {
+    if ((name === 'menu' || name === 'world') && this.checkPendingWorld) this.checkPendingWorld();
     if (name === 'menu') this.renderHome();
     if (name === 'castle') this.renderCastle();
     if (name === 'talents' && this.renderTalents) this.renderTalents();
@@ -54,7 +55,7 @@ export const Hub = {
     const sv = this.save, d = sv.data, set = (id, v) => { const e = $(`#tabbar .tab-${id} em`); if (!e) return; e.hidden = !v; e.textContent = v; };
     set('talents', d.talentPts || 0);
     set('shop', sv.chestCount());
-    set('castle', this.castleAffordable());
+    set('castle', this.castleAffordable() + (d.castleFree || 0));
     set('collection', sv.collectionNew());
     set('menu', this.dailyBadge ? this.dailyBadge('menu') : 0);
   },
@@ -221,6 +222,13 @@ export const Hub = {
     }
     return '';
   },
+  // améliorations offertes par la fin d'un monde
+  castleFreeBtn(id, sheet = false) {
+    const d = this.save.data; if (!(d.castleFree > 0)) return null;
+    const b = el('button', 'btn sm green cta' + (sheet ? ' big' : ''), `${icon('gift')}Gratuit (${d.castleFree})`);
+    b.onclick = (e) => { e.stopPropagation(); if (!(d.castleFree > 0)) return; d.castleFree--; this.save.persist(); if (sheet) this.closeOverlay(); this.castleBuild(id); this.show('castle', true); this.tabBadges(); };
+    return b;
+  },
   castleDef(id) { return CASTLE.upgrades[id] || CASTLE.abilities[id]; },
   renderCastle() {
     const sv = this.save, cs = sv.data.castle, box = $('#castle-content'), tier = sv.castleTier(), sum = sv.castleSum();
@@ -247,7 +255,7 @@ export const Hub = {
         tile.style.setProperty('--ac', isAb ? u.color : colors[id]); tile.dataset.id = id;
         tile.innerHTML = `<span class="ut-ico">${icon(u.icon)}</span><b>${u.name}</b>
           <div class="fx-big">${done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`}</div>${pips(lvl, max)}`;
-        tile.append(done ? el('span', 'owned', icon('check') + 'Max') : this.buyButton(u.costs[lvl], 'coins', '', () => this.castleBuild(id), lvl || !isAb ? '' : 'pink'));
+        tile.append(done ? el('span', 'owned', icon('check') + 'Max') : this.castleFreeBtn(id) || this.buyButton(u.costs[lvl], 'coins', '', () => this.castleBuild(id), lvl || !isAb ? '' : 'pink'));
         tile.onclick = (e) => { if (!e.target.closest('button')) this.castleSheet(id); };
         grid.append(tile);
       }
@@ -284,7 +292,7 @@ export const Hub = {
     const cvB = done ? null : view(lvl + 1, `Niveau ${lvl + 1}`);
     m.append(ba);
     m.append(el('div', 'fx-big huge', done ? `<b>${this.castleEffect(id, lvl)}</b>` : `<span>${this.castleEffect(id, lvl)}</span><i>${icon('arrowup')}</i><b>${this.castleEffect(id, lvl + 1)}</b>`));
-    m.append(done ? el('span', 'owned wide', icon('check') + 'Niveau maximum') : this.buyButton(u.costs[lvl], 'coins', 'Améliorer', () => { this.closeOverlay(); this.castleBuild(id); }, 'big'));
+    m.append(done ? el('span', 'owned wide', icon('check') + 'Niveau maximum') : this.castleFreeBtn(id, true) || this.buyButton(u.costs[lvl], 'coins', 'Améliorer', () => { this.closeOverlay(); this.castleBuild(id); }, 'big'));
     const anim = () => { if (!m.isConnected) return; zoom(cvA, lvl); if (cvB) zoom(cvB, lvl + 1); requestAnimationFrame(anim); };
     this.openOverlay(m); requestAnimationFrame(anim);
   },
