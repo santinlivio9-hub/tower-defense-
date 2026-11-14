@@ -294,7 +294,14 @@ export class Game {
     if (opt.locked) return false;
     if (this.over || !opt || this.money < opt.cost) { this.audio.play('error'); return false; }
     this.money -= opt.cost; t.invested += opt.cost;
+    const before = { ...t.stats }, r0 = t.rangeShown;
     t.level = opt.level; t.branch = opt.branch; t.refresh(); t.lvlAnim = 1;
+    // portée qui s'agrandit en vague, et le plus gros gain en texte qui monte (« DÉGÂTS +51 % »)
+    if (t.rangeShown > r0 + 1) { this.fx.ring(t.x, t.y, r0, t.rangeShown, '#8dffae', 0.7, 6); this.fx.ring(t.x, t.y, r0 * 0.6, t.rangeShown, '#ffffff', 0.5, 3); }
+    { const s1 = t.stats, gains = [['DÉGÂTS', before.damage * (before.pellets || 1) * (before.barrels || 1), s1.damage * (s1.pellets || 1) * (s1.barrels || 1)], ['CADENCE', before.rate, s1.rate], [t.type === 'mine' ? 'ZONE' : 'PORTÉE', t.type === 'mine' ? before.splash : before.range, t.type === 'mine' ? s1.splash : s1.range], ['RALENTI', before.slow || 0, s1.slow || 0]]
+        .map(([k, a, b]) => [k, a > 0 ? Math.round((b / a - 1) * 100) : 0]).sort((a, b) => b[1] - a[1]);
+      t.lastGain = gains[0][1] > 0 ? `${gains[0][0]} +${gains[0][1]} %` : null; }
+    this.hintT = 0; this.hintsNow();
     const col = RARITY[t.level - 1].color;
     this.fx.ring(t.x, t.y, 10, 80, col, 0.5, 9); this.fx.ring(t.x, t.y, 4, 120, '#ffffff', 0.4, 4);
     this.fx.burst(t.x, t.y, col, 22, 260, 6); this.fx.burst(t.x, t.y, '#ffffff', 10, 180, 4);
@@ -307,6 +314,12 @@ export class Game {
     else this.audio.play('upgrade');
     this.onEvent('upgraded', t);
     return true;
+  }
+  // indicateurs « UP » et socles achetables (recalculés aussitôt après un achat)
+  hintsNow() {
+    for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => !u.locked && u.cost <= this.money); }
+    let min = Infinity; for (const k of TOWER_ORDER) if (k !== 'mine' && this.save.towerUnlocked(k)) min = Math.min(min, this.costOf(k));
+    this.canBuy = this.money >= min && !this.limitReached;
   }
   sellTower(t) {
     const i = this.towers.indexOf(t); if (i < 0) return;
@@ -355,12 +368,7 @@ export class Game {
     for (const t of this.towers) t.update(dt, this);
     this.updateCastle(dt);
     this.hintT -= dt;
-    if (this.hintT <= 0) { // indicateurs « UP » et socles achetables
-      this.hintT = 0.3;
-      for (const t of this.towers) { const o = t.upgradeOptions(); t.canUp = o.length > 0 && o.some((u) => !u.locked && u.cost <= this.money); }
-      let min = Infinity; for (const k of TOWER_ORDER) if (k !== 'mine' && this.save.towerUnlocked(k)) min = Math.min(min, this.costOf(k));
-      this.canBuy = this.money >= min && !this.limitReached;
-    }
+    if (this.hintT <= 0) { this.hintT = 0.3; this.hintsNow(); }
     for (const p of this.projectiles) p.update(dt, this);
     for (let i = this.drops.length - 1; i >= 0; i--) { const d = this.drops[i]; d.t += dt; d.y -= 10 * dt; if (d.t > DROPS.life) this.drops.splice(i, 1); }
     for (let i = this.bolts.length - 1; i >= 0; i--) { this.bolts[i].t -= dt; if (this.bolts[i].t <= 0) this.bolts.splice(i, 1); }

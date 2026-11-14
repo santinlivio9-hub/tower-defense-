@@ -11,6 +11,7 @@ import { Collection } from './collection.js';
 import { BoostUI } from './boosts.js';
 import { Music } from './music.js';
 import { Daily } from './daily.js';
+import { Radial } from './radial.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary } from './waves.js';
@@ -271,6 +272,11 @@ export class UI {
     }
     else if (name === 'upgraded' || name === 'placed') {
       this.cache.radial = null; this.haptics.pulse(1);
+      // gain principal en texte qui monte, au-dessus du menu radial resté ouvert
+      if (name === 'upgraded' && data.lastGain && !this.simulating) {
+        const q = this.toScreen(data.x, data.y), f = el('div', 'up-float', data.lastGain);
+        f.style.left = q.x + 'px'; f.style.top = Math.max(110, q.y - 120) + 'px'; $('#screen-game').append(f); setTimeout(() => f.remove(), 1600);
+      }
       // première tourelle de ce type posée : petite carte d'info (une seule fois)
       if (name === 'placed' && this.game && this.game.firstOfType && !this.simulating) { const d = this.save.data; d.placedTypes = [...(d.placedTypes || []), data.type]; this.save.persist(); this.towerTip(data.type, data); }
     }
@@ -323,99 +329,7 @@ export class UI {
     $('#screen-game').append(tip);
   }
   closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
-  statLine(type, s) { return this.statRows(type, s).map((r) => `${r[0]} <b>${r[1]}</b>`).join(' · '); }
   // Éléments du menu : { key, cls, art, label, price, info, preview, tap (immédiat) ou confirm (2e toucher) }
-  menuItems(slot) {
-    const g = this.game, t = slot.tower, skin = this.save.data.skin, items = [];
-    if (!t) {
-      for (const type of g.buildable(slot)) {
-        const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
-        const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
-        items.push({ key: type, cls: (g.money < cost ? 'poor' : '') + (isNew ? ' isnew' : ''), art: towerImg(type, 46, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
-          info: `<b>${cfg.name}</b><span>${cfg.desc}</span><small>${this.statLine(type, st)}</small>`,
-          preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
-          confirm: () => { if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
-      }
-      return items;
-    }
-    const cur = this.statRows(t.type, t.stats);
-    for (const o of t.upgradeOptions()) {
-      if (o.locked) { // amélioration légendaire pas encore débloquée par la campagne
-        const n = UNLOCKS.legend[t.type], at = LEVELS[Math.max(0, n - 2)].id;
-        items.push({ key: 'lock', cls: 'up branch locked', art: towerImg(t.type, 46, skin, o.level, o.branch), label: 'Légendaire', tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
-        continue;
-      }
-      const ns = computeStats(t.type, o.level, o.branch, g.mods), nxt = this.statRows(t.type, ns);
-      const diff = cur.map((r, i) => (nxt[i][1] !== r[1] ? `${r[0]} <b>${r[1]}</b> → <b class="g">${nxt[i][1]}</b>` : null)).filter(Boolean).join(' · ');
-      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (g.money < o.cost ? ' poor' : ''),
-        art: o.kind === 'level' ? icon('up') : towerImg(t.type, 46, skin, o.level, o.branch), label: o.kind === 'level' ? 'Niv. ' + o.level : o.name, price: o.cost,
-        info: `<b>${o.kind === 'level' ? 'Améliorer au niveau ' + o.level : o.name}</b>${o.kind === 'level' ? '' : `<span>${o.desc}</span>`}<small>${diff}</small>`,
-        preview: { r: t.type === 'mine' ? ns.splash : ns.range, mode: g.money < o.cost ? 'bad' : 'ok' },
-        confirm: () => { if (!g.upgradeTower(t, o)) this.haptics.pulse(1); this.armed = null; this.cache.radial = null; } });
-    }
-    if (t.cfg.targeting) {
-      const names = { first: 'Premier', last: 'Dernier', strong: 'Fort', close: 'Proche' };
-      items.push({ key: 'tgt', cls: 'tgt', art: icon('target'), label: names[t.mode], side: 'left',
-        tap: () => { const ids = TARGET_MODES.map((m) => m[0]); t.mode = ids[(ids.indexOf(t.mode) + 1) % ids.length]; t.target = null; this.cache.radial = null; } });
-    }
-    items.push({ key: 'sell', cls: 'sell', art: icon('trash'), label: 'Vendre', gain: t.sellValue, side: 'bottom',
-      info: `<b>Vendre pour ${t.sellValue} pièces ?</b><small>Touche encore pour confirmer</small>`,
-      confirm: () => { g.sellTower(t); this.openMenu(null); } });
-    return items;
-  }
-  renderRadial() {
-    const g = this.game, box = $('#radial'), slot = g && g.menuSlot;
-    if (!slot || g.over) { box.hidden = true; box.innerHTML = ''; return; }
-    const items = this.menuItems(slot), t = slot.tower;
-    box.hidden = false; box.innerHTML = '';
-    const host = box.getBoundingClientRect(), p = this.toScreen(slot.x, slot.y);
-    const n = items.length, R = !t && n >= 7 ? 88 : !t && n >= 5 ? 80 : 74;
-    const top = $('#hud').offsetHeight + 46, bot = host.height - $('#dock').offsetHeight - 30;
-    const cx = Math.max(R + 36, Math.min(host.width - R - 36, p.x - host.left)), cy = Math.max(top + R, Math.min(bot - R, p.y - host.top));
-    const ring = el('i', 'ring'); ring.style.cssText = `left:${cx}px;top:${cy}px;--r:${R}px`; box.append(ring);
-    // angles : tourelles en cercle ; pour une tourelle posée : améliorations en haut, ciblage à gauche, vente en bas
-    const ups = items.filter((i) => !i.side);
-    items.forEach((it, i) => {
-      let a;
-      if (!t) a = -90 + (360 / Math.max(n, 1)) * i + (n === 2 ? 0 : 0);
-      else if (it.side === 'left') a = 180; else if (it.side === 'bottom') a = 90;
-      else a = ups.length === 1 ? -90 : ups.indexOf(it) === 0 ? -128 : -52;
-      if (!t && n === 1) a = -90;
-      const b = el('button', 'rb ' + (it.cls || '') + (this.armed === it.key ? ' armed' : ''));
-      b.style.cssText = `left:${cx + Math.cos((a * Math.PI) / 180) * R}px;top:${cy + Math.sin((a * Math.PI) / 180) * R}px;--i:${i}`;
-      if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
-      if (it.label) b.append(el('span', 'lab', it.label));
-      if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
-      if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
-      if (this.armed === it.key) b.append(el('span', 'ok', icon('check')));
-      b.onclick = () => {
-        if (it.tap) { it.tap(); return; }
-        if (this.armed === it.key) { it.confirm(); return; }
-        this.armed = it.key; g.preview = it.preview || null; this.cache.radial = null; this.audio.play('tick');
-      };
-      box.append(b);
-    });
-    // bulle d'information
-    const armed = items.find((i) => i.key === this.armed);
-    let html;
-    if (armed && armed.info) html = armed.info + (armed.key === 'sell' ? '' : '<em>Touche encore pour confirmer</em>');
-    else if (t) { const rar = RARITY[t.level - 1]; html = `<b style="color:${rar.color}">${t.label}</b><span class="lv">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= t.level ? 'on' : ''}" style="--rar:${rar.color}"></i>`).join('')}</span><small>${this.statLine(t.type, t.stats)}</small><small>${icon('sword')}<b class="dmg">${short(t.dmg)}</b> dégâts · ${icon('skull')}<b class="kills">${t.kills}</b> kills</small>`; }
-    else html = slot.kind === 'mine' ? '<b>Zone de mine</b>' : '<b>Choisis une tourelle</b>';
-    const info = el('div', 'info', html); box.append(info);
-    const ih = info.offsetHeight, above = cy - R - 44 - ih >= top - 44;
-    info.style.left = Math.max(info.offsetWidth / 2 + 6, Math.min(host.width - info.offsetWidth / 2 - 6, cx)) + 'px';
-    info.style.top = (above ? cy - R - 44 - ih : cy + R + 48) + 'px';
-  }
-  updateRadial() {
-    const g = this.game, slot = g.menuSlot;
-    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; g.menuSlot = null; } return; }
-    const t = slot.tower;
-    const afford = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : g.money >= o.cost ? 1 : 0)).join('') : g.buildable(slot).map((k) => (g.money >= g.costOf(k) ? 1 : 0)).join('');
-    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', this.armed, afford, g.freeNext].join('/');
-    if (this.cache.radial !== key) { this.cache.radial = key; this.renderRadial(); }
-    else if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { d.textContent = short(t.dmg); k.textContent = t.kills; } }
-  }
-
   toLogical(e) {
     const r = this.canvas.getBoundingClientRect(), v = this.view;
     return { x: (e.clientX - r.left - v.ox) / v.s, y: (e.clientY - r.top - v.oy) / v.s, inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom };
@@ -636,16 +550,6 @@ export class UI {
     return `<div class="goal-list">${goals.map((q, i) => `<div class="${done[i] ? 'got' : ''}${now && !now[i] ? ' lost' : ''}">${icon('star', done[i] ? 'on' : '')}<span>${q.text}</span>${done[i] ? icon('check') : ''}</div>`).join('')}</div>`;
   }
 
-  // ------------------------------------------------------------------ stats affichées
-  statRows(type, s) {
-    const mult = (s.pellets ? '×' + s.pellets : '') + (s.barrels > 1 ? '×' + s.barrels : '');
-    const rows = [['Dégâts', num(s.damage) + mult]];
-    if (type === 'mine') return rows.concat([['Recharge', (1 / s.rate).toFixed(1) + ' s'], ['Zone', num(s.splash)], ['Étourdit', s.stun ? s.stun.toFixed(1) + ' s' : '—']]);
-    rows.push(['Cadence', s.rate.toFixed(1) + '/s'], ['Portée', num(s.range)]);
-    rows.push(type === 'cryo' ? ['Ralenti', Math.round(s.slow * 100) + ' %'] : ['DPS', num(dpsOf(s))]);
-    return rows;
-  }
-
   // ------------------------------------------------------------------ tutoriel : bulles fléchées
   updateTutorial() {
     const box = $('#tutorial'), g = this.game;
@@ -716,4 +620,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal, Radial);
