@@ -12,7 +12,7 @@ const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
-const NODE_X = [28, 64, 78, 40, 22, 50], SEC_H = 660;
+const NODE_X = [28, 64, 78, 40, 22, 50], SEC_H = 680;
 const INK = '#3d2c4e';
 // Décor propre à chaque monde (SVG inline), posé loin du chemin
 const DECO = {
@@ -37,37 +37,116 @@ const DECO = {
     (s) => `<svg viewBox="0 0 60 40" width="${s}"><path d="M8 36a22 22 0 0 1 44 0z" fill="#8fe3ff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="26" r="2.5" fill="#fff"/><circle cx="34" cy="22" r="2.5" fill="#ffd23f"/><circle cx="42" cy="30" r="2.5" fill="#ff5d8f"/></svg>`,
   ],
 };
-// positions des décors : [x %, y px, taille, variante]
-const DECO_POS = [[8, 560, 46, 0], [90, 470, 52, 0], [86, 640, 40, 1], [6, 300, 48, 0], [92, 230, 44, 1], [60, 410, 36, 1], [12, 120, 50, 0], [88, 80, 46, 0], [36, 610, 34, 1]];
-const nodeY = (i) => SEC_H - 86 - i * 96 - (i === 5 ? 14 : 0);
+// Décors supplémentaires (rochers, buissons, panneaux) communs, teintés par monde
+const EXTRA = {
+  rock: (s, c = '#b8b0c8') => `<svg viewBox="0 0 50 34" width="${s}"><path d="M4 32L10 12 24 4 40 10 47 32z" fill="${c}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M14 14l9-6" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".5"/></svg>`,
+  bush: (s, c = '#3f9a3a') => `<svg viewBox="0 0 60 36" width="${s}"><path d="M6 34a10 10 0 0 1 6-16 13 13 0 0 1 24-6 11 11 0 0 1 18 22z" fill="${c}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><circle cx="22" cy="16" r="3.5" fill="#fff" opacity=".35"/></svg>`,
+  sign: (s) => `<svg viewBox="0 0 40 46" width="${s}"><rect x="17" y="18" width="6" height="26" rx="2" fill="#8a5530" stroke="${INK}" stroke-width="3"/><path d="M4 6h26l6 7-6 7H4z" fill="#d9a566" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M9 13h16" stroke="#8a5530" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+  fence: (s) => `<svg viewBox="0 0 60 30" width="${s}"><path d="M4 12h52M4 21h52" stroke="${INK}" stroke-width="6"/><path d="M4 12h52M4 21h52" stroke="#d9a566" stroke-width="3"/>${[8, 22, 36, 50].map((x) => `<rect x="${x - 3}" y="4" width="6" height="24" rx="2" fill="#d9a566" stroke="${INK}" stroke-width="2.5"/>`).join('')}</svg>`,
+};
+const RIVER = { prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
+const ROCK = { prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
+const BUSH = { prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
+const nodeY = (i) => SEC_H - 92 - i * 94 - (i === 5 ? 14 : 0);
+const RIVER_Y = Math.round((nodeY(2) + nodeY(3)) / 2) + 4;
+// petit générateur pseudo-aléatoire stable (même décor à chaque ouverture)
+const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+// courbe de Bézier du chemin échantillonnée (pour éviter d'y poser le décor et placer le pont)
+function sampleRoad(pts) {
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], my = (y0 + y1) / 2;
+    for (let k = 0; k <= 24; k++) {
+      const t = k / 24, u = 1 - t, b0 = u * u * u, b1 = 3 * u * u * t, b2 = 3 * u * t * t, b3 = t * t * t;
+      out.push([b0 * x0 + b1 * x0 + b2 * x1 + b3 * x1, b0 * y0 + b1 * my + b2 * my + b3 * y1]);
+    }
+  }
+  return out;
+}
+const roadD = (pts) => { let d = `M${pts[0][0]} ${pts[0][1]}`; for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], my = (y0 + y1) / 2; d += ` C${x0} ${my} ${x1} ${my} ${x1} ${y1}`; } return d; };
+const crestNode = (fill, dark) => `<svg class="nc" viewBox="0 0 60 66" aria-hidden="true"><path d="M5 4h50v28c0 16-11 25-25 31C16 57 5 48 5 32z" fill="${fill}" stroke="#3d2c4e" stroke-width="4" stroke-linejoin="round"/><path d="M7.5 34c2 13 11 20 22.5 25 11.5-5 20.5-12 22.5-25v4c-1.5 12-10 19-22.5 24C17.5 57 9 50 7.5 38z" fill="${dark}"/><path d="M9.5 8.5h41v11c-13 5-28 5-41 0z" fill="#fff" opacity=".3"/></svg>`;
 
 export const Meta = {
   // ------------------------------------------------------------------ carte du monde
   renderWorld() {
-    const sv = this.save, box = $('#world-map'), prog = sv.progress();
+    const sv = this.save, box = $('#world-map'), prog = sv.progress(), W = box.clientWidth || $('#app').clientWidth || 390;
     box.innerHTML = '';
     $('#world-stars').textContent = `${sv.campaignStars()}/${LEVELS.length * 3}`;
     let current = null;
-    for (let wi = WORLDS.length - 1; wi >= 0; wi--) {
-      const w = WORLDS[wi], th = THEMES[w.theme], open = prog >= wi * 6;
+    const NW = WORLDS.length;
+    { // arrivée : le chemin se termine sur le trophée, au-dessus du dernier monde
+      const th = THEMES[WORLDS[NW - 1].theme], fin = el('section', 'wsec final' + (prog >= LEVELS.length ? '' : ' locked'));
+      fin.style.cssText = `--c1:${th.g1};--c2:${th.g1};--c3:${th.g3};height:130px`;
+      const d = `M${W / 2} 132 C${W / 2} 100 ${W / 2} 100 ${W / 2} 70`;
+      fin.innerHTML = `<svg class="road" viewBox="0 0 ${W} 130" width="${W}" height="130"><path d="${d}" class="r1"/><path d="${d}" class="r2" style="stroke:${th.edge}"/><path d="${d}" class="r3" style="stroke:${th.path}"/></svg>`;
+      fin.append(Object.assign(el('div', 'wmark end', `${icon('trophy')}<b>Victoire finale</b>`), { style: `left:${W / 2}px;top:52px` }));
+      box.append(fin);
+    }
+    for (let wi = NW - 1; wi >= 0; wi--) {
+      const w = WORLDS[wi], th = THEMES[w.theme], open = prog >= wi * 6, X = (pc) => (pc / 100) * W;
       const sec = el('section', 'wsec' + (open ? '' : ' locked'));
       sec.style.cssText = `--c1:${th.g1};--c2:${th.g2};--c3:${th.g3};--road:${th.path};--edge:${th.edge};height:${SEC_H}px`;
-      const pts = [[50, SEC_H], ...NODE_X.map((x, i) => [x, nodeY(i)]), [50, 0]];
-      let d = `M${pts[0][0]} ${pts[0][1]}`;
-      for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], my = (y0 + y1) / 2; d += ` C${x0} ${my} ${x1} ${my} ${x1} ${y1}`; }
-      sec.innerHTML = `<svg class="road" viewBox="0 0 100 ${SEC_H}" preserveAspectRatio="none"><path d="${d}" class="r1"/><path d="${d}" class="r2"/><path d="${d}" class="r3"/></svg>`;
+      // chemin continu : départ en bas du monde 1, arrivée en haut du dernier monde
+      const pts = [[W / 2, wi === 0 ? SEC_H - 34 : SEC_H + 2], ...NODE_X.map((x, i) => [X(x), nodeY(i)]), [W / 2, -2]];
+      const road = sampleRoad(pts), d = roadD(pts);
+      // rivière + pont là où le chemin la traverse
+      const [rc, rl] = RIVER[w.theme] || RIVER.prairie;
+      let rv = `M-10 ${RIVER_Y}`; for (let x = 0; x <= W + 20; x += 20) rv += ` Q${x + 10} ${RIVER_Y + (x / 20) % 2 * 16 - 8} ${x + 20} ${RIVER_Y}`;
+      const cross = road.reduce((m, p) => (Math.abs(p[1] - RIVER_Y) < Math.abs(m[1] - RIVER_Y) ? p : m), road[0]);
+      const ci = road.indexOf(cross), nb = road[Math.min(road.length - 1, ci + 1)], ang = (Math.atan2(nb[1] - cross[1], nb[0] - cross[0]) * 180) / Math.PI;
+      // bord ondulé : transition douce vers le monde du dessus
+      const up = wi < NW - 1 ? THEMES[WORLDS[wi + 1].theme] : null;
+      let wave = ''; if (up) { wave = `M0 0H${W}V12`; for (let x = W; x >= 0; x -= 26) wave += ` Q${x - 13} ${(x / 26) % 2 ? 26 : 2} ${x - 26} 12`; wave += 'Z'; }
+      sec.innerHTML = `<svg class="road" viewBox="0 0 ${W} ${SEC_H}" width="${W}" height="${SEC_H}">
+        ${up ? `<path d="${wave}" fill="${up.g2}" stroke="${INK}" stroke-width="3"/>` : ''}
+        <path d="${rv}" class="rv0" stroke="${INK}"/><path d="${rv}" class="rv1" stroke="${rc}"/><path d="${rv}" class="rv2" stroke="${rl}"/>
+        <path d="${d}" class="r1"/><path d="${d}" class="r2"/><path d="${d}" class="r3"/><path d="${d}" class="r4"/>
+        <g transform="translate(${cross[0]} ${cross[1]}) rotate(${ang})"><rect x="-26" y="-19" width="52" height="38" rx="5" fill="#a0642e" stroke="${INK}" stroke-width="3"/>
+        ${[-18, -9, 0, 9, 18].map((x) => `<rect x="${x - 3.5}" y="-17" width="7" height="34" rx="2" fill="#d9a566" stroke="#8a5530" stroke-width="1.5"/>`).join('')}
+        <path d="M-27 -20H27M-27 20H27" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M-27 -20H27M-27 20H27" stroke="#c98a4b" stroke-width="3.5" stroke-linecap="round"/></g></svg>`;
+      // panneau du monde, à l'entrée du monde
       const ws = LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + (sv.data.levels[l.n] ? sv.data.levels[l.n].stars : 0), 0);
-      const head = el('div', 'whead', `<small>Monde ${wi + 1}</small><b>${w.name}</b><span>${open ? icon('star', 'on') + ws + '/18' : icon('lock') + 'Termine le monde ' + wi}</span>`);
-      sec.append(head);
-      // décor : quelques brainrots du monde
-      const deco = levelEnemies(LEVELS[wi * 6 + 4]).slice(-3);
-      for (const [x, y, sz, v] of DECO_POS) { const dd = el('div', 'wprop', DECO[w.theme][v](sz)); dd.style.cssText = `left:${x}%;top:${y}px`; sec.append(dd); }
-      deco.forEach((t, k) => { const im = enemyImg(t, 46); im.className = 'wdeco'; im.style.cssText = `left:${[80, 8, 70][k]}%;top:${[SEC_H - 190, SEC_H - 330, 230][k]}px`; sec.append(im); });
+      const signX = 75, signY = SEC_H - 56;
+      const sign = el('div', 'wsign', `<div class="ws-board"><small>Monde ${wi + 1}</small><b>${w.name}</b><span>${open ? icon('star', 'on') + ws + '/18' : icon('lock') + 'Termine le monde ' + wi}</span></div><i></i><i></i>`);
+      sign.style.cssText = `left:${signX}%;top:${signY}px`; sec.append(sign);
+      // décor dense, généré hors du chemin, des nœuds, du panneau et de la rivière
+      const R = rng(1234 + wi * 977), keep = [];
+      const free = (x, y, r) => {
+        if (x < 18 || x > W - 18 || y < 30 || y > SEC_H - 16) return false;
+        if (Math.abs(y - RIVER_Y) < 22 + r * 0.5) return false;
+        if (road.some(([rx, ry]) => (rx - x) ** 2 + (ry - y) ** 2 < (30 + r) ** 2)) return false;
+        if (NODE_X.some((nx, i) => (X(nx) - x) ** 2 + (nodeY(i) - y) ** 2 < (58 + r) ** 2)) return false;
+        if (Math.abs(x - X(signX)) < 92 && Math.abs(y - signY) < 52) return false;
+        return !keep.some(([kx, ky, kr]) => (kx - x) ** 2 + (ky - y) ** 2 < (kr + r) ** 2 * 0.72);
+      };
+      const kinds = DECO[w.theme];
+      for (let gy = 20; gy < SEC_H; gy += 48) for (let gx = 10; gx < W; gx += 50) {
+        const x = gx + R() * 40, y = gy + R() * 36, pick = R(), sz = 26 + R() * 22;
+        if (!free(x, y, sz / 2)) continue;
+        let html;
+        if (pick < 0.5) html = kinds[pick < 0.32 ? 0 : 1](Math.round(sz + (pick < 0.32 ? 10 : 0)));
+        else if (pick < 0.7) html = EXTRA.bush(Math.round(sz), BUSH[w.theme]);
+        else if (pick < 0.86) html = EXTRA.rock(Math.round(sz * 0.8), ROCK[w.theme]);
+        else if (pick < 0.94) html = EXTRA.fence(Math.round(sz + 6));
+        else html = EXTRA.sign(Math.round(sz * 0.8));
+        keep.push([x, y, sz / 2]);
+        const dd = el('div', 'wprop', html); dd.style.cssText = `left:${x}px;top:${y}px`; sec.append(dd);
+      }
+      // quelques brainrots du monde qui sautillent
+      const foes = levelEnemies(LEVELS[wi * 6 + 4]).slice(-3); let fk = 0;
+      for (let tries = 0; tries < 60 && fk < foes.length; tries++) {
+        const x = 30 + R() * (W - 60), y = 60 + R() * (SEC_H - 120); if (!free(x, y, 24)) continue;
+        keep.push([x, y, 24]); const im = enemyImg(foes[fk++], 44); im.className = 'wdeco'; im.style.cssText = `left:${x - 22}px;top:${y - 22}px`; sec.append(im);
+      }
+      if (wi === 0) sec.append(Object.assign(el('div', 'wmark start', `${EXTRA.sign(40)}<b>Départ</b>`), { style: `left:${W / 2}px;top:${SEC_H - 24}px` }));
+      // nœuds : blasons (doré = terminé, rose = à jouer, sombre = verrouillé), gros nœud pour le boss
       LEVELS.filter((l) => l.world === wi).forEach((L) => {
         const ld = sv.data.levels[L.n], done = sv.levelDone(L.n), unlocked = sv.levelUnlocked(L.n);
-        const b = el('button', 'node' + (L.boss ? ' boss' : '') + (done ? ' done' : unlocked ? ' open' : ' locked')); b.dataset.n = L.n;
+        const b = el('button', 'node' + (L.boss ? ' boss' : ' crestn') + (done ? ' done' : unlocked ? ' open' : ' locked')); b.dataset.n = L.n;
+        b.setAttribute('aria-label', `${L.boss ? 'Boss' : 'Niveau'} ${L.id}`);
         b.style.cssText = `left:${NODE_X[L.idx]}%;top:${nodeY(L.idx)}px`;
         if (L.boss) b.append(enemyImg(w.boss, 66));
+        else b.insertAdjacentHTML('beforeend', done ? crestNode('#ffd23f', '#e09600') : unlocked ? crestNode('#ff5d8f', '#c93868') : crestNode('#4a3b6e', '#2f2450'));
         b.insertAdjacentHTML('beforeend', unlocked ? `<b>${L.boss ? 'BOSS' : L.id}</b>` : icon('lock'));
         if (done) b.insertAdjacentHTML('beforeend', stars(ld.stars));
         if (ld && ld.heroic) b.insertAdjacentHTML('beforeend', `<i class="crown">${icon('crown')}</i>`);
@@ -88,13 +167,15 @@ export const Meta = {
       if (walk) { av.classList.add('walk'); setTimeout(() => { place(target); this.audio.play('sheet'); }, 450); setTimeout(() => av.classList.remove('walk'), 1300); }
       if (sv.data.avatar !== tn) { sv.data.avatar = tn; sv.persist(); }
     }
-    const eb = $('#btn-endless'); eb.classList.toggle('off', !sv.endlessUnlocked());
-    eb.innerHTML = icon(sv.endlessUnlocked() ? 'infinity' : 'lock') + 'Mode infini';
+    // mode infini : petit blason (verrouillé avec sa condition)
+    const eb = $('#btn-endless'), eo = sv.endlessUnlocked();
+    eb.className = 'endless-crest' + (eo ? ' ready' : ' locked');
+    eb.innerHTML = `<span class="cs">${crestNode(eo ? "#b05cff" : "#4a3b6e", eo ? "#7a2fd0" : "#2f2450")}${icon(eo ? "infinity" : "lock")}</span><span class="lab"><small>Infini</small><em>${eo ? "Jouer" : `Après M${CAMPAIGN.endlessAfter / 6}`}</em></span>`;
     requestAnimationFrame(() => {
       const sc = $('#world-scroll');
       if (!current) { sc.scrollTop = prog >= LEVELS.length ? 0 : sc.scrollHeight; return; }
-      const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.55;
-      sc.scrollTop = Math.min(sc.scrollHeight, goal + sc.clientHeight * 0.5);   // part d'un peu plus bas…
+      const goal = current.offsetParent.offsetTop + current.offsetTop - sc.clientHeight * 0.5;
+      sc.scrollTop = Math.min(sc.scrollHeight, goal + sc.clientHeight * 0.4);   // part d'un peu plus bas…
       requestAnimationFrame(() => sc.scrollTo({ top: goal, behavior: 'smooth' }));   // … et remonte le chemin
     });
   },
