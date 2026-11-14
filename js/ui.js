@@ -143,12 +143,17 @@ export class UI {
   }
   renderSettings() {
     const s = this.save.data.settings, box = $('#settings-content'); box.innerHTML = '';
-    box.append(this.switchRow('Son', 'Bruitages synthétisés', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); this.music.apply(); }));
-    const vol = el('div', 'setting', `<span class="lab">${icon('sound')}<span>Volume</span></span>`);
-    const r = el('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.05; r.value = s.volume;
-    r.oninput = () => { this.audio.setVolume(+r.value); this.save.persist(); }; r.onchange = () => this.audio.play('coin');
-    vol.append(r); box.append(vol);
-    box.append(this.switchRow('Musique', 'Musique de fond (plus intense contre les boss)', 'music', 'music', () => this.music.apply()));
+    box.append(this.switchRow('Son', 'Coupe ou rétablit tout le son', 'sound', 'muted', () => { this.audio.applyVolume(); this.syncMute(); this.music.apply(); }));
+    // deux curseurs : musique et effets, mémorisés
+    const slider = (label, ico, key, onIn, onCh) => {
+      const row = el('div', 'setting vol', `<span class="lab">${icon(ico)}<span>${label}</span></span><b class="pct"></b>`);
+      const r = el('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.05; r.value = s[key]; r.setAttribute('aria-label', label);
+      const pct = $('.pct', row), show = () => { pct.textContent = Math.round(r.value * 100) + ' %'; r.style.setProperty('--v', r.value * 100 + '%'); };
+      r.oninput = () => { s[key] = +r.value; onIn(); show(); this.save.persist(); }; r.onchange = onCh; show();
+      row.insertBefore(r, pct); return row;
+    };
+    box.append(slider('Musique', 'music', 'musicVol', () => this.music.apply(), () => {}));
+    box.append(slider('Effets', 'sound', 'sfxVol', () => this.audio.applyVolume(), () => this.audio.play('coin')));
     box.append(this.switchRow('Vibrations', 'Retour haptique', 'vibrate', 'haptics', () => this.haptics.pulse(1)));
     box.append(this.switchRow('Tremblement d\'écran', 'Explosions et boss', 'quake', 'shake'));
     box.append(this.switchRow('Chiffres de dégâts', 'Nombres flottants', 'numbers', 'damageNumbers'));
@@ -215,10 +220,13 @@ export class UI {
     this.comboHide = setTimeout(() => { box.classList.add('out'); setTimeout(() => { box.hidden = true; box.classList.remove('out'); }, 300); }, 1400);
   }
   // Intensité de la musique : menus (0), partie (1), boss (2)
+  // Musique : thème du menu, du monde en cours ou du boss ; percussions en plus pendant les vagues
   syncMusic() {
     const g = this.game, inGame = this.screen === 'game' && g && !g.over;
-    const boss = inGame && (g.enemies.some((e) => e.boss && !e.mini) || (g.nextWave && g.nextWave.boss && !g.nextWave.mini && g.queue.length > 0));
-    this.music.setLevel(!inGame ? 0 : boss ? 2 : g.wave > 0 ? 1 : 0);
+    if (!inGame) { this.music.set('menu', 0); return; }
+    const boss = g.enemies.some((e) => e.boss && !e.mini) || (g.nextWave && g.nextWave.boss && !g.nextWave.mini && g.queue.length > 0);
+    const busy = g.queue.length > 0 || g.enemies.length > 0;
+    this.music.set(boss ? 'boss' : g.world.theme, busy || boss ? 1 : 0);
   }
   syncSpeed() { const g = this.game, b = $('#btn-speed'); b.querySelector('b').textContent = 'x' + (g ? g.speed : 1); b.dataset.s = g ? g.speed : 1; }
   syncMute() { $('#btn-mute').innerHTML = icon(this.save.data.settings.muted ? 'mute' : 'sound'); }
@@ -264,6 +272,7 @@ export class UI {
   }
   onGameEvent(name, data, g = this.game) {
     if (name === 'end') {
+      if (!this.simulating) this.music.jingle(!!data.victory);
       const delay = data.victory ? 1700 : 1100;
       clearTimeout(this.endT); clearTimeout(this.endWatch);
       this.endT = setTimeout(() => { if (this.game === g) this.showEnd(data); }, delay);
@@ -362,7 +371,12 @@ export class UI {
     $('#btn-speed').addEventListener('click', () => { const g = this.game; if (!g) return; g.speed = (g.speed % 3) + 1; this.save.data.settings.speed = g.speed; this.save.persist(); this.syncSpeed(); this.audio.play('tick'); this.haptics.pulse(0); });
     $('#btn-pause').addEventListener('click', () => this.togglePause());
     $('#btn-mute').addEventListener('click', () => { const s = this.save.data.settings; this.audio.setMuted(!s.muted); this.save.persist(); this.syncMute(); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.game && !this.game.over && !this.game.paused && this.screen === 'game') this.togglePause(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.game && !this.game.over && !this.game.paused && this.screen === 'game') this.togglePause();
+      // arrière-plan : musique et effets coupés ; au retour, ils reprennent (ou au prochain toucher sur iOS)
+      if (document.hidden) this.audio.pause(); else this.audio.resume();
+    });
+    window.addEventListener('pagehide', () => this.audio.pause());
   }
   onKey(e) {
     const g = this.game; if (!g || this.screen !== 'game' || e.repeat) return;
@@ -467,7 +481,7 @@ export class UI {
     // construction du château terminée (temps réel), vérifiée chaque seconde ; jamais pendant une partie
     // (le château d'un niveau ne change pas en cours de route : le chantier se termine au retour au hub)
     if (this.save.data.build && this.screen !== 'game' && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
-    if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 20 === 0)) this.syncMusic();
+    if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 10 === 0)) this.syncMusic();
     if (this.save.saveFailed && !this._sfWarn) { this._sfWarn = true; this.toast('Sauvegarde impossible', 'Le stockage du téléphone est plein ou bloqué : exporte ta progression dans les Paramètres', icon('trash')); }
     if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
   }

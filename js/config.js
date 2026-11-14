@@ -564,9 +564,43 @@ export const JUICE = {
     boss: ['#ffd23f', '#ff5d8f', '#5fd8ff', '#fff'],
   },
 };
+// Musique procédurale (js/music.js). Gammes en demi-tons ; prog = degrés de la gamme de chaque mesure (4 mesures) ;
+// bass / arp / drums = 16 pas par mesure ('x' joue, 'X' plus fort, 'o' = quinte pour la basse, '.' = silence).
+// Percussions : k grosse caisse, s caisse claire, h charleston, o charleston ouvert, m shaker, t tom, c conga,
+// p clap, b clochette, z bip électronique. Les percussions et l'arpège ne jouent que pendant les vagues.
+const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10], DOR = [0, 2, 3, 5, 7, 9, 10], LYD = [0, 2, 4, 6, 7, 9, 11];
+const PHRY = [0, 1, 4, 5, 7, 8, 10], PENTA = [0, 2, 4, 7, 9], MINP = [0, 3, 5, 7, 10];
 export const MUSIC = {
-  volume: 0.55, bpm: 104, bossBpmAdd: 16,
-  chords: [[60, 64, 67], [57, 60, 64], [65, 69, 72], [67, 71, 74]],   // do, la mineur, fa, sol (notes MIDI)
+  volume: 0.5,   // volume maximal de la musique (curseur à 100 %)
+  mix: { tonal: 2.4, drums: 0.5 },   // équilibre instruments / percussions (vérifié par tools/music-test.cjs)
+  // morceau par écran : menus, thème de chaque décor (WORLDS[].theme), boss
+  songs: {
+    menu:     { bpm: 104, root: 60, scale: MAJ, prog: [0, 5, 3, 4], seed: 11, density: 0.45, swing: 0.08, bass: 'x...x...x...x.o.', arp: 'x.x.x.x.x.x.x.x.',
+                inst: { pad: 'triangle', lead: 'triangle', bass: 'triangle', vib: true, leadGain: 0.045 }, drums: { k: 'x.......x.......', p: '....x.......x...', m: 'x.x.x.x.x.x.x.x.' } },
+    prairie:  { bpm: 112, root: 62, scale: MAJ, prog: [0, 3, 4, 0], seed: 21, density: 0.5, swing: 0.1, bass: 'x.....x.x.....o.', arp: 'x...x...x...x...',
+                inst: { pad: 'triangle', lead: 'square', leadCut: 2600, bass: 'triangle', vib: true, leadGain: 0.03, arp: 'triangle', arpGain: 0.02 }, drums: { k: 'x.......x.x.....', s: '....x.......x...', m: 'xxxxxxxxxxxxxxxx' } },
+    desert:   { bpm: 100, root: 57, scale: PHRY, prog: [0, 1, 0, 6], seed: 31, density: 0.55, bass: 'x..x..x.x..x..x.', arp: 'x.xx.x.xx.x.x.xx',
+                inst: { pad: 'sawtooth', padGain: 0.012, lead: 'sawtooth', leadCut: 1800, leadLen: 0.6, bass: 'triangle', leadGain: 0.035, arp: 'triangle' }, drums: { t: 'x..x..x.........', c: '..x..x..x.xx.x.x', m: 'x.x.x.x.x.x.x.x.' } },
+    volcano:  { bpm: 120, root: 52, scale: MIN, prog: [0, 5, 6, 4], seed: 41, density: 0.45, bass: 'x.xx.xx.x.xx.xx.', arp: 'x.x.x.x.x.x.x.x.',
+                inst: { pad: 'sawtooth', padGain: 0.014, lead: 'square', leadCut: 1500, bass: 'sawtooth', bassGain: 0.08, bassCut: 600, leadGain: 0.03 }, drums: { k: 'x..x..x.x..x..x.', t: '......x.......xx', s: '....x.......x...' } },
+    ice:      { bpm: 92, root: 64, scale: LYD, prog: [0, 1, 0, 4], seed: 51, density: 0.35, bass: 'x.......x.......', arp: 'x..x..x..x..x.x.',
+                inst: { pad: 'sine', padGain: 0.03, lead: 'sine', leadOct: 2, leadLen: 2.5, leadGain: 0.05, bass: 'sine', bassGain: 0.1, arp: 'sine', arpOct: 1, arpGain: 0.03 }, drums: { b: 'x...x...x...x...', m: '..x...x...x...x.', k: 'x.......x.......' } },
+    jungle:   { bpm: 116, root: 62, scale: PENTA, prog: [0, 2, 3, 1], seed: 61, density: 0.6, swing: 0.12, bass: 'x..x..x...x..x..', arp: 'x.x..x.x.x..x.x.',
+                inst: { pad: 'triangle', padGain: 0.015, lead: 'sine', leadLen: 0.35, leadGain: 0.06, bass: 'triangle', arp: 'sine', arpGain: 0.03 }, drums: { c: 'x.xx..x.x.x..x.x', t: 'x.....x...x.....', m: 'xxxxxxxxxxxxxxxx' } },
+    neon:     { bpm: 118, root: 57, scale: MIN, prog: [0, 5, 2, 6], seed: 71, density: 0.4, bass: 'xxxxxxxxxxxxxxxx', arp: 'xxxxxxxxxxxxxxxx',
+                inst: { pad: 'sawtooth', padGain: 0.016, lead: 'square', leadDetune: 8, leadCut: 2200, bass: 'sawtooth', bassLen: 0.9, bassGain: 0.06, bassCut: 700, leadGain: 0.03, arp: 'square', arpGain: 0.012, leadUp: true }, drums: { k: 'x...x...x...x...', p: '....x.......x...', h: '..x...x...x...x.' } },
+    station:  { bpm: 96, root: 59, scale: DOR, prog: [0, 3, 1, 4], seed: 81, density: 0.3, bass: 'x.......x...o...', arp: 'x..x..x..x..x..x',
+                inst: { pad: 'sine', padGain: 0.035, lead: 'triangle', leadAttack: 0.08, leadLen: 2, leadGain: 0.04, vib: true, bass: 'sine', bassGain: 0.11, arp: 'sine', arpOct: 1, arpGain: 0.025 }, drums: { z: 'x.....x...x.....', k: 'x.......x.......', h: '....x.......x...' } },
+    dimension:{ bpm: 128, root: 61, scale: MINP, prog: [0, 3, 1, 4], seed: 91, density: 0.65, swing: 0.06, bass: 'x.x.xx.x.x.xx.x.', arp: 'x.xx.xx.x.xx.xx.',
+                inst: { pad: 'square', padGain: 0.01, lead: 'square', leadCut: 3000, leadGain: 0.03, leadUp: true, bass: 'sawtooth', bassCut: 900, arp: 'triangle', arpOct: 1 }, drums: { k: 'x..x..x.x..x..x.', p: '....x.......x..x', z: '.x...x...x...x..', h: 'x.x.x.x.x.x.x.x.' } },
+    boss:     { bpm: 142, root: 52, scale: [0, 1, 3, 5, 7, 8, 10], prog: [0, 1, 0, 6], seed: 101, density: 0.55, bass: 'x.xxx.xxx.xxx.xx', arp: 'x.x.x.x.x.x.x.x.',
+                inst: { pad: 'sawtooth', padGain: 0.015, lead: 'sawtooth', leadCut: 2000, leadGain: 0.032, bass: 'sawtooth', bassGain: 0.08, bassCut: 500, bassLen: 1.2 }, drums: { k: 'X.x.X.x.X.x.X.xx', s: '....X.......X...', t: '............xxxx', h: 'xxxxxxxxxxxxxxxx' } },
+  },
+  // jingles : [note MIDI, départ (s), durée (s), forme d'onde]
+  jingles: {
+    victory: { dur: 2.4, wave: 'square', gain: 0.06, notes: [[72, 0, 0.14], [76, 0.13, 0.14], [79, 0.26, 0.14], [84, 0.39, 0.45], [79, 0.78, 0.12], [84, 0.9, 0.9], [60, 0, 0.5, 'triangle'], [67, 0.39, 0.5, 'triangle'], [48, 0.9, 1.2, 'triangle']], drums: [['k', 0], ['p', 0.39], ['k', 0.9], ['o', 0.9]] },
+    defeat:  { dur: 2.6, wave: 'triangle', gain: 0.07, notes: [[67, 0, 0.35], [66, 0.35, 0.35], [65, 0.7, 0.35], [64, 1.05, 1.2], [52, 0, 1.4, 'sawtooth'], [40, 1.05, 1.4, 'sawtooth']], drums: [['t', 1.05]] },
+  },
 };
 
 // ----------------------------------------------------------------------------

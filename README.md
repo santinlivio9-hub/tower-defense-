@@ -107,6 +107,8 @@ js/icons.js           icônes SVG illustrées (objets, récompenses) et pictogra
 js/audio.js           sons Web Audio
 js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
+js/music.js           musique procédurale : thèmes du menu, des mondes et du boss, couche « vague », jingles
+js/radial.js          menu radial et panneau d'aperçu des améliorations
 js/viewport.js        taille de #app (jamais plus grande que la zone visible) et mode debug d'affichage
 js/save.js            sauvegarde, migration, progression, XP, coffres
 js/ui.js              navigation, HUD, menu radial, tutoriel, boutique, paramètres, partage
@@ -251,3 +253,12 @@ niveau, à remesurer avec `node tools/simulate.cjs 1,2,...,30 good` après un ch
 
 `QUALITY` dans `js/config.js` : si le calcul d'une image reste trop long pendant 3 s, le jeu descend d'un cran
 (définition du canvas, nombre de particules, ombres floues). Le cran courant s'affiche dans le mode debug.
+
+### Musique
+
+Tout est dans `MUSIC` (`js/config.js`) : un morceau par écran (`menu`, un par thème de monde, `boss`), avec gamme,
+grille d'accords, instruments, motif de basse, arpège et percussions (16 pas par mesure). La mélodie est composée
+une fois à partir de la graine `seed`. Percussions et arpège ne jouent que pendant les vagues (fondu). Jingles de
+victoire et de défaite dans `MUSIC.jingles`. Volumes Musique et Effets séparés (Paramètres). Le son s'arrête quand
+l'appli passe en arrière-plan. `node tools/music-test.cjs [dossier]` rend chaque morceau hors ligne, vérifie
+son niveau (ni silence ni saturation) et peut écrire des fichiers WAV pour les écouter.

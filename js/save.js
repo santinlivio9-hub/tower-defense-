@@ -30,7 +30,7 @@ const defaults = () => ({
   legacyStars: 0, notice: null,
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0 },
-  settings: { muted: false, volume: 0.7, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
+  settings: { muted: false, sfxVol: 0.7, musicVol: 0.6, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
 });
 
 // Copies de secours : BAK1 = état au début de la session du jour, BAK2 = celui d'un jour précédent,
@@ -66,6 +66,7 @@ export class Save {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
     for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
+    this.normSettings(raw.settings);
     if (!raw.placedTypes && (raw.stats || {}).towersBuilt > 0) d.placedTypes = [...(raw.towers || [])];
     // valeurs numériques abîmées (NaN, null) : remises à leur valeur de départ, sans toucher au reste
     for (const k of ['gems', 'coins', 'xp', 'talentPts', 'castleFree']) if (!Number.isFinite(d[k]) || d[k] < 0) d[k] = def[k];
@@ -73,6 +74,15 @@ export class Save {
     for (const o of [d.castle, d.boosts, d.chests, d.stats]) for (const k in o) if (typeof def[o === d.castle ? 'castle' : o === d.boosts ? 'boosts' : o === d.chests ? 'chests' : 'stats'][k] === 'number' && !Number.isFinite(o[k])) o[k] = 0;
     if (!Array.isArray(d.towers)) d.towers = [...def.towers]; if (!Array.isArray(d.achievements)) d.achievements = []; if (!d.levels || typeof d.levels !== 'object') d.levels = {};
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
+  }
+  // volumes séparés (avant : un seul volume + interrupteur musique)
+  normSettings(rs = {}) {
+    const st = this.data.settings;
+    if (rs.sfxVol == null && Number.isFinite(rs.volume)) st.sfxVol = rs.volume;
+    if (rs.musicVol == null && Number.isFinite(rs.volume)) st.musicVol = rs.music === false ? 0 : Math.min(0.6, rs.volume);
+    else if (rs.musicVol == null && rs.music === false) st.musicVol = 0;
+    for (const k of ['sfxVol', 'musicVol']) if (!Number.isFinite(st[k])) st[k] = defaults().settings[k];
+    delete st.volume; delete st.music;
   }
   // Ancienne sauvegarde (3 cartes, 3 difficultés, bonus permanents) -> nouveau système
   migrate(raw) {
@@ -82,7 +92,7 @@ export class Save {
     d.skins = raw.skins || def.skins; d.skin = raw.skin || 'default';
     d.achievements = raw.achievements || [];
     d.stats = { ...def.stats, ...raw.stats, heroicWins: (raw.stats && raw.stats.hardWins) || 0 };
-    d.settings = { ...def.settings, ...raw.settings };
+    d.settings = { ...def.settings, ...raw.settings }; this.normSettings(raw.settings);
     // bonus permanents achetés : remboursés en gemmes (à réinvestir dans le château)
     const old = { damage: [15, 25, 40, 60, 90], money: [10, 20, 30, 45, 65], lives: [10, 20, 30, 45, 65] };
     let refund = 0;

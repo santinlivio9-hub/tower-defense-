@@ -590,7 +590,6 @@ export class Game {
     // l'écran de fin doit TOUJOURS être annoncé, même si l'écriture de la progression rencontre un souci
     try { this.commit(victory, stars, wavesDone); } catch (e) { console.error(e); this.commitError = e; try { this.save.persist(); } catch (e2) { /* ignore */ } }
     try {
-      this.audio.play(victory ? 'victory' : 'defeat');
       if (victory) for (let i = 0; i < 6; i++) this.fx.confetti(Math.random() * VIEW.W, Math.random() * VIEW.H * 0.6, 40, 400);
     } catch (e) { console.error(e); }
     this.onEvent('end', this.result);

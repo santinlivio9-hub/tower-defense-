@@ -15,8 +15,9 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
   ok(JSON.parse(store[KEY]).v === 2, 'conversion écrite tout de suite');
   // v2 d'avant les pièces, les coffres, le passe, les constructions
   s = fresh({ v: 2, gems: 40, towers: ['assault', 'smg'], levels: { 1: { stars: 3, best: 500 }, 2: { stars: 2, best: 300 } }, castle: { walls: 2 }, stats: { kills: 50 }, settings: { volume: 0.3 } });
-  ok(s.data.coins > 0 && s.data.castle.walls === 2 && s.data.castle.gold === 0 && s.data.pass.pts === 0 && s.data.build === null && s.data.settings.volume === 0.3 && s.data.levels[1].stars === 3, 'v2 ancienne : champs manquants complétés, existant conservé');
+  ok(s.data.coins > 0 && s.data.castle.walls === 2 && s.data.castle.gold === 0 && s.data.pass.pts === 0 && s.data.build === null && s.data.settings.sfxVol === 0.3 && s.data.settings.musicVol === 0.3 && s.data.settings.volume === undefined && s.data.levels[1].stars === 3, 'v2 ancienne : champs manquants complétés, existant conservé');
   ok(s.data.towers.includes('shotgun'), 'déblocages de la campagne rattrapés (pompe après 1-1)');
+  s = fresh({ v: 2, settings: { volume: 0.9, music: false } }); ok(s.data.settings.sfxVol === 0.9 && s.data.settings.musicVol === 0, 'musique coupée avant : volume Musique à 0, Effets repris');
   // valeurs abîmées
   s = fresh({ v: 2, gems: null, coins: 'abc', xp: NaN, level: 0, talentPts: -3, castle: { walls: null }, levels: { 1: { stars: 2 } }, towers: 'x', achievements: null });
   ok(s.data.gems === 0 && Number.isFinite(s.data.coins) && s.data.xp === 0 && s.data.level === 1 && s.data.talentPts === 0 && s.data.castle.walls === 0 && Array.isArray(s.data.towers) && s.data.levels[1].stars === 2, 'valeurs abîmées réparées, étoiles conservées');
