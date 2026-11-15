@@ -60,7 +60,7 @@ export const Rebirth = {
       [icon('map'), 'Campagne', `${sv.campaignStars()} étoiles, ${sv.progress()}/${LEVELS.length} niveaux`],
       [icon('castle'), 'Château', `${CASTLE_LOOKS[tier].name}, améliorations`],
       [icon('talent'), 'Talents', `${talents} point${talents > 1 ? 's' : ''} placés (rendus)`],
-      [coin(), 'Pièces', `${fmt(d.coins || 0)} → ${fmt(COINS.start)}`],
+      [coin(), 'Pièces', `${fmt(d.coins || 0)} → ${fmt(COINS.start)}${g.fromCoins ? ` (converties en ${g.fromCoins} éclats)` : ''}`],
     ];
     const keep = [
       [icon('book'), 'Collection, skins, succès', ''],
@@ -71,7 +71,7 @@ export const Rebirth = {
     ];
     const gain = [
       [rankBadge(nx, 'xs'), `Rang ${ROMAN(nx)}`, 'badge à côté de ton niveau'],
-      [icon('shard'), `+${fmt(g.shards)} éclats`, `${REBIRTH.shardsBase} + ${g.stars} étoiles + ${g.hero} héroïques x${REBIRTH.shardsPerHeroic}`],
+      [icon('shard'), `+${fmt(g.shards)} éclats`, `${REBIRTH.shardsBase} + ${g.stars} étoiles + ${g.hero} héroïques x${REBIRTH.shardsPerHeroic}${g.fromCoins ? ` + ${g.fromCoins} pour tes pièces` : ''}`],
       [icon('coins'), `+${pct(REBIRTH.coinsPerRank * nx)} de pièces`, `et +${pct(REBIRTH.damagePerRank * nx)} de dégâts, pour toujours`],
       [icon('trophy'), `Gains x${1 + REBIRTH.rewardPerRank * nx}`, 'en fin de niveau'],
     ];

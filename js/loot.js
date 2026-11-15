@@ -1,5 +1,5 @@
 // Niveau de joueur (XP), talents, inventaire de boosts et coffres. Méthodes ajoutées à la classe UI (voir la fin de ui.js).
-import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, CHEST_ORDER, RARITY, OFFER, SHOP } from './config.js';
+import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, CHEST_ORDER, RARITY, OFFER, SHOP, boostCost } from './config.js';
 import { untilMidnight } from './daily.js';
 import { towerImg } from './sprites.js';
 import { icon, gem, coin } from './icons.js';
@@ -89,7 +89,7 @@ export const Loot = {
     const o = pool[dayHash(day) % pool.length];
     let base, name, art, cur = 'gems';
     if (o.chest) { base = CHESTS[o.chest].cost; name = CHESTS[o.chest].name; art = chestSvg(o.chest); }
-    else if (o.boost) { const B = BOOSTS[o.boost]; base = B.cost * o.n; cur = B.cur || 'gems'; name = `${o.n} × ${B.name}`; art = boostArt(o.boost); }
+    else if (o.boost) { const B = BOOSTS[o.boost]; base = boostCost(o.boost, this.save.worldReached()) * o.n; cur = B.cur || 'gems'; name = `${o.n} × ${B.name}`; art = boostArt(o.boost); }
     else { const S = SHOP.skins.find((k) => k.id === o.skin); base = S.cost; name = `Finition ${S.name}`; art = ''; }
     return { o, base, name, art, cur, price: Math.max(1, Math.round(base * (1 - OFFER.discount))), day };
   },
@@ -113,7 +113,7 @@ export const Loot = {
       const b = BOOSTS[id], R = RARITY[b.rarity || 0];
       const c = el('div', 'ccard boost shop', `<span class="cc-art">${boostArt(id)}</span><b>${b.name}</b><small class="rar">${R.name}</small><i class="qty">×${d.boosts[id] || 0}</i>`);
       c.style.setProperty('--cc', R.color);
-      c.append(this.buyButton(b.cost, b.cur || 'gems', '', () => (d.boosts[id] = (d.boosts[id] || 0) + 1)));
+      c.append(this.buyButton(boostCost(id, this.save.worldReached()), b.cur || 'gems', '', () => (d.boosts[id] = (d.boosts[id] || 0) + 1)));
       c.querySelector('.cc-art').onclick = () => this.boostSheet && this.boostSheet(id);
       g.append(c);
     }

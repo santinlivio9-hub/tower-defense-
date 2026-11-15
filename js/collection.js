@@ -1,6 +1,6 @@
 // Collection : fiches illustrées des tourelles, des brainrots rencontrés (silhouette noire tant
 // qu'ils ne sont pas découverts), des boosts et des succès. Méthodes ajoutées à la classe UI.
-import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, CAMPAIGN, LEVELS , UNLOCKS } from './config.js';
+import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, CAMPAIGN, LEVELS, UNLOCKS, boostCost } from './config.js';
 import { computeStats } from './towers.js';
 import { towerImg, enemyImg, TOWER_COLOR } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -90,7 +90,7 @@ export const Collection = {
   boostSheet(id) {
     const b = BOOSTS[id], d = this.save.data, R = RARITY[b.rarity || 0];
     const art = el('div', 'cs-art boost', boostCardArt(id)); art.style.setProperty('--cc', R.color);
-    const buy = this.buyButton(b.cost, b.cur || 'gems', 'Acheter', () => { d.boosts[id] = (d.boosts[id] || 0) + 1; this.boostSheet(id); return false; }, 'big');
+    const buy = this.buyButton(boostCost(id, this.save.worldReached()), b.cur || 'gems', 'Acheter', () => { d.boosts[id] = (d.boosts[id] || 0) + 1; this.boostSheet(id); return false; }, 'big');
     buy.classList.remove('sm');
     this.sheet([art, el('h2', 'win', b.name), el('span', 'tagchip', `<span style="color:${R.color}">${R.name}</span> · en stock ×${d.boosts[id] || 0}`), el('p', 'sub', b.desc), buy]);
   },

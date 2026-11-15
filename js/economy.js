@@ -15,7 +15,7 @@ export function levelRewards(o) {
   if (o.endless || o.challenge) coins = (o.wavesDone || 0) * COINS.endlessPerWave;
   else if (!win) coins = (o.wavesDone || 0) * COINS.perWaveLost;
   else coins = (COINS.win + stars * COINS.perStar + (o.wavesDone || 0) * COINS.perWave) * (o.boss ? COINS.bossMult : 1) + (firstClear ? COINS.firstClear : 0);
-  if (win && o.hero) coins *= HEROIC.gemsMult;
+  if (win && o.hero) coins *= HEROIC.coinsMult ?? HEROIC.gemsMult;
   const newStars = o.hero ? 0 : Math.max(0, stars - prev);
   xp = (o.killCost || 0) * XP.perCost + (o.wavesDone || 0) * XP.perWave + (win ? XP.win + newStars * XP.perStar : 0);
   if (o.hero) xp *= HEROIC.xpMult;
