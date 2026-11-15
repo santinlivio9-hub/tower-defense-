@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch();
-  for (const [vw, vh] of [[375, 667], [390, 844]]) for (const prog of [0, 3, 10, 14, 23, 41]) {
+  for (const [vw, vh] of [[375, 667], [390, 844]]) for (const prog of [0, 3, 10, 23, 41, 50, 63, 77]) {
     const p = await (await b.newContext({ viewport: { width: vw, height: vh } })).newPage();
     await p.goto('http://localhost:8123/'); await p.waitForTimeout(500); await p.evaluate(async () => { const C = await import('./js/config.js'); window.__LV = () => C.LEVELS; });
     await p.evaluate((prog) => { localStorage.clear(); __ui.save.reset(); const d = __ui.save.data; d.settings.tutorialDone = true; for (let n = 1; n <= prog; n++) d.levels[n] = { stars: 2, best: 1, heroic: 0, heroicBest: 0 }; __ui.save.grantUnlocks(); __ui.show('world'); }, prog);

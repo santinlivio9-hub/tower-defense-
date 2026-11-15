@@ -29,12 +29,15 @@ export class Enemy {
     this.pendingText = 0; this.textT = 0;
     this.dead = false; this.reached = false; this.enraged = false;
     this.blinkT = 1 + Math.random() * 3; this.enterT = cfg.boss ? 1 : 0; this.spawnT = d < 5 && !cfg.boss ? 1 : 0;
+    // bouclier d'énergie (robot), réacteur (astro), boucliers projetés (satellite), téléportation (glitch)
+    this.shieldMax = cfg.shield ? this.maxHp * cfg.shield.pct : 0; this.shieldHp = this.shieldMax; this.shieldIdle = 0;
+    this.boostT = cfg.boost ? Math.random() * cfg.boost.every : 0; this.auraT = cfg.shieldAura ? cfg.shieldAura.every * 0.5 : 0; this.blinkT2 = cfg.blink ? cfg.blink.every * (0.5 + Math.random() * 0.5) : 0; this.blinkHide = 0;
     this.glide = 0; this.hopT = cfg.hop ? cfg.hop.every * (0.5 + Math.random() * 0.5) : 0; this.jumpT = 0; this.camoT = Math.random() * 2; this.camo = false;
     this.x = 0; this.y = 0; this.gy = 0;
     this.place();
   }
   // caché : invisible de nature, camouflé (caméléon) ou dans les hautes herbes, tant qu'il n'est pas révélé
-  get hidden() { return (!!this.cfg.stealth || this.camo || this.inGrass) && this.revealT <= 0; }
+  get hidden() { return ((!!this.cfg.stealth || this.camo || this.inGrass) && this.revealT <= 0) || this.blinkHide > 0; }
   get remaining() { return this.path.total - this.d; }
 
   place() {
@@ -62,8 +65,8 @@ export class Enemy {
     let sp = this.speed;
     // terrain : plaque de glace (glisse plus vite) ou hautes herbes (caché)
     const q = game.patches.length && !this.boss ? patchAt(game, this) : null;
-    this.inGrass = !!q && game.mech.kind === 'grass';
-    if (q && game.mech.kind === 'ice') sp *= game.mech.speed;
+    this.inGrass = !!q && q.kind === 'grass';
+    if (q && q.kind === 'ice') sp *= game.mech.speed;
     if (this.stunT > 0) sp = 0; else if (this.slowT > 0) sp *= 1 - this.slowF;
     if (this.enraged) sp *= 1.45;
     const cfg0 = this.cfg;
@@ -71,6 +74,18 @@ export class Enemy {
     if (cfg0.hop && this.stunT <= 0) {   // bond en avant
       if (this.jumpT > 0) { this.jumpT -= dt; sp += cfg0.hop.dist / cfg0.hop.dur; }
       else if ((this.hopT -= dt) <= 0) { this.hopT = cfg0.hop.every; this.jumpT = cfg0.hop.dur; game.fx.burst(this.x, this.gy, '#e8d27a', 6, 110, 4); }
+    }
+    if (cfg0.shield && this.shieldHp < this.shieldMax && (this.shieldIdle += dt) >= cfg0.shield.regen) { this.shieldHp = this.shieldMax; game.fx.ring(this.x, this.y, this.r, this.r * 1.6, '#5ff0ff', 0.35, 5); }
+    if (cfg0.boost) { this.boostT += dt; if (this.boostT % cfg0.boost.every < cfg0.boost.dur) { sp *= cfg0.boost.mult; if (Math.random() < dt * 30) game.fx.add({ k: 'dot', x: this.x, y: this.y + this.r, vx: (Math.random() - 0.5) * 40, vy: 120, life: 0.3, max: 0.3, size: 5, color: Math.random() < 0.5 ? '#ffb224' : '#fff3a0', drag: 2 }); } }
+    if (cfg0.shieldAura && (this.auraT -= dt) <= 0) {
+      this.auraT = cfg0.shieldAura.every; let any = false;
+      for (const e of game.enemies) if (e !== this && !e.dead && !e.boss && Math.hypot(e.x - this.x, e.y - this.y) < cfg0.shieldAura.radius) { e.shieldT = Math.max(e.shieldT, cfg0.shieldAura.dur); any = true; }
+      if (any) { game.fx.ring(this.x, this.y, 10, cfg0.shieldAura.radius, '#fffbe8', 0.45, 5); game.audio.play('zap'); }
+    }
+    this.blinkHide = Math.max(0, this.blinkHide - dt);
+    if (cfg0.blink && this.stunT <= 0 && (this.blinkT2 -= dt) <= 0) {   // téléportation en avant
+      this.blinkT2 = cfg0.blink.every; game.fx.burst(this.x, this.y, '#ff3fb4', 8, 140, 4); game.fx.burst(this.x, this.y, '#3ff0ff', 8, 140, 4);
+      this.d = Math.min(this.path.total - 30, this.d + cfg0.blink.dist); this.blinkHide = 0.35; this.place(); game.fx.ring(this.x, this.y, 30, 6, '#ff3fb4', 0.3, 5);
     }
     if (cfg0.camo) { this.camoT += dt; const was = this.camo; this.camo = this.camoT % cfg0.camo.every > cfg0.camo.every - cfg0.camo.dur; if (this.camo && !was) game.fx.burst(this.x, this.y, '#7fe08a', 8, 90, 4); }
     this.d += sp * dt; this.walk += sp * dt + (this.flying ? 40 * dt : 0);
@@ -163,6 +178,10 @@ export class Enemy {
     if (this.slowT > 0 || this.stunT > 0) {
       c.fillStyle = this.stunT > 0 ? 'rgba(180,240,255,0.5)' : 'rgba(120,210,255,0.28)';
       c.beginPath(); c.arc(this.x, this.y - hop, r * 1.1, 0, TAU); c.fill();
+    }
+    if (this.shieldHp > 0 && !hidden) { // bouclier d'énergie
+      c.fillStyle = 'rgba(95,240,255,.18)'; c.strokeStyle = `rgba(95,240,255,${0.55 + Math.sin(this.walk * 0.3) * 0.2})`; c.lineWidth = 3;
+      c.beginPath(); c.arc(this.x, this.y - hop, r * 1.25, 0, TAU); c.fill(); c.stroke();
     }
     if (this.shieldT > 0) {
       c.strokeStyle = '#fffbe8'; c.lineWidth = 6; c.globalAlpha = 0.6 + Math.sin(this.walk) * 0.2;

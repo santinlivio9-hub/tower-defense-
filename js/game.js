@@ -8,7 +8,7 @@ import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
 import { Fx } from './fx.js';
 import { buildWave, spawnQueue } from './waves.js';
-import { initMech, updateMech, drawPatches, drawMechOver, patchAt } from './mechanics.js';
+import { initMech, updateMech, drawPatches, drawMechOver, drawMechUnder } from './mechanics.js';
 import { drawCastle, drawCastleLights, castleGunY, castleBounds, nightLevel } from './castle.js';
 
 const TAU = Math.PI * 2;
@@ -190,6 +190,11 @@ export class Game {
   damage(e, amount, tower, o = {}) {
     if (e.dead) return;
     if (e.shieldT > 0) amount *= 0.2;
+    if (e.shieldHp > 0 && !o.dot) {   // bouclier d'énergie : absorbe d'abord, se recharge si on arrête de tirer
+      const a = Math.min(e.shieldHp, amount); e.shieldHp -= a; amount -= a; e.shieldIdle = 0;
+      if (e.shieldHp <= 0) { this.fx.ring(e.x, e.y, e.r, e.r * 2.2, '#5ff0ff', 0.35, 6); this.fx.text(e.x, e.y - e.r - 20, 'BOUCLIER BRISÉ', '#5ff0ff', 14, 0.9); this.audio.play('zap'); }
+      if (amount <= 0) { e.flash = 0.5; return; }
+    }
     if (e.armor && !o.ignoreArmor) amount = Math.max(amount - e.armor * (o.splash ? 0.5 : 1), amount * 0.25);
     if (e.vulnT > 0) amount *= 1 + e.vuln;
     const real = Math.min(amount, e.hp);
@@ -230,6 +235,10 @@ export class Game {
       this.onEvent('combo', this.comboN);
     }
     this.audio.play('death');
+    if (e.cfg.deathEmp) {   // décharge du cyborg : coupe les tourelles proches
+      const D = e.cfg.deathEmp; for (const t of this.towers) if (Math.hypot(t.x - e.x, t.y - e.y) < D.radius) t.disabledT = Math.max(t.disabledT, D.dur);
+      fx.ring(e.x, e.y, 10, D.radius, '#5fd8ff', 0.5, 8); this.audio.play('zap');
+    }
     this.maybeDrop(e);
     if (e.cfg.split) {
       for (let i = 0; i < e.cfg.split.count; i++) {
@@ -362,7 +371,7 @@ export class Game {
     for (const t of this.towers) {
       if (t.disabledT > 0 || t.type === 'mine') continue;
       const r = t.stats.detect ? t.stats.range : GAME.stealthRevealRange;
-      const see = this.mech && this.mech.kind === 'grass' ? Math.max(r, this.mech.see) : r;
+      const see = this.mech && this.mech.see ? Math.max(r, this.mech.see) : r;
       for (const e of this.enemies) if ((e.cfg.stealth || e.inGrass || e.camo) && Math.hypot(e.x - t.x, e.y - t.y) <= (e.cfg.stealth || e.camo ? r : see) + e.r) e.revealT = Math.max(e.revealT, 0.4);
     }
     for (const e of this.enemies) {
@@ -697,6 +706,7 @@ export class Game {
     const mineOk = this.save.towerUnlocked('mine') && !this.banned.includes('mine') && this.money >= TOWERS.mine.cost;
     for (const sl of this.slots) if (sl.kind === 'mine' && !sl.tower && (mineOk || sl === this.menuSlot)) drawMineSpot(c, sl, sl === this.menuSlot ? 1 : 0.55 + Math.sin(this.time * 3) * 0.15);
     for (const t of this.towers) if (t.type === 'mine') t.draw(c, skin);
+    drawMechUnder(c, this);
     const ground = this.enemies.filter((e) => !e.flying).sort((a, b) => a.gy - b.gy);
     for (const e of ground) e.draw(c);
     for (const t of this.towers) if (t.type !== 'mine') t.draw(c, skin);

@@ -1,7 +1,7 @@
 // Tourelles : stats, améliorations, ciblage, tir, dessin.
 import { TOWERS, TOWER_VISUAL, GAME, RARITY, BOOSTS } from './config.js';
 import { towerSprite, skinFinish } from './sprites.js';
-import { Rocket } from './projectiles.js';
+import { Rocket, Plasma } from './projectiles.js';
 
 const TAU = Math.PI * 2;
 
@@ -32,7 +32,10 @@ export function computeStats(type, level, branch, m = {}) {
 }
 
 // Dégâts par seconde théoriques (affichage)
-export function dpsOf(s) { return s.damage * (s.pellets || 1) * (s.barrels || 1) * s.rate + (s.burn || 0); }
+export function dpsOf(s) {
+  const extra = (s.drones || 1) * (s.beams || 1) * (s.chain ? 1 + (s.chain - 1) * (s.falloff || 0.8) * 0.5 : 1) * (s.ramp ? 1 + (s.ramp - 1) * 0.5 : 1);
+  return s.damage * (s.pellets || 1) * (s.barrels || 1) * s.rate * extra + (s.burn || 0);
+}
 
 export const TARGET_MODES = [['first', 'Premier'], ['last', 'Dernier'], ['strong', 'Plus fort'], ['close', 'Plus proche']];
 
@@ -46,11 +49,15 @@ export class Tower {
     this.target = null; this.retargetT = 0; this.spin = 0; this.spinAng = 0;
     this.dmg = 0; this.kills = 0; this.disabledT = 0; this.lvlAnim = 0; this.spawnAnim = 1;
     this.armed = true; this.t = Math.random() * 10;
+    this.heat = 0; this.beams = []; this.arcs = []; this.drones = [];
     this.refresh();
   }
-  refresh() { this.stats = computeStats(this.type, this.level, this.branch, this.game.mods); }
+  refresh() {
+    this.stats = computeStats(this.type, this.level, this.branch, this.game.mods);
+    if (this.type === 'drone') while (this.drones.length < this.stats.drones) { const a = this.drones.length * 2.1; this.drones.push({ x: this.x + Math.cos(a) * 30, y: this.y + Math.sin(a) * 30, a, cd: 0, tilt: 0, fire: 0 }); }
+  }
   get sellValue() { return Math.floor(this.invested * GAME.sellRatio); }
-  get rangeShown() { return this.type === 'mine' ? this.stats.splash : this.stats.range; }
+  get rangeShown() { return this.type === 'mine' ? this.stats.splash : this.type === 'drone' ? this.stats.patrol + this.stats.range * 0.5 : this.stats.range; }
   get label() {
     if (this.level >= 5) return this.cfg.branches[this.branch].master.name;
     if (this.level >= 4) return this.cfg.branches[this.branch].name;
@@ -100,6 +107,12 @@ export class Tower {
       return;
     }
 
+    if (kind === 'chain') {   // Tesla : ne pivote pas, l'éclair part de la boule
+      if (this.cooldown <= 0) { const tgt = game.findTarget(this); if (tgt) { this.zap(game, tgt); this.cooldown = 1 / s.rate; } else this.cooldown = 0; }
+      return;
+    }
+    if (kind === 'drone') { this.flyDrones(dt, game); return; }
+
     // --- armes à visée ---
     this.retargetT -= dt;
     let tgt = this.target;
@@ -121,7 +134,11 @@ export class Tower {
       if (kind === 'bullet') this.fireBullet(game, tgt);
       else if (kind === 'shotgun') this.fireShotgun(game);
       else if (kind === 'rocket') this.fireRocket(game, tgt);
+      else if (kind === 'plasma') this.firePlasma(game);
+      else if (kind === 'beam') this.fireBeam(game, tgt);
     }
+    if (kind === 'beam' && tgt !== this.heatTgt) { this.heatTgt = tgt; this.heat = 0; }   // nouvelle cible : le rayon refroidit
+    if (kind === 'beam' && tgt) this.heat += dt;
   }
 
   muzzle(side = 0) {
@@ -197,6 +214,62 @@ export class Tower {
     game.audio.play('shot_rocket');
   }
 
+  // Laser : rayon(s) continus ; les dégâts montent tant que le rayon reste sur la même cible
+  fireBeam(game, tgt) {
+    const s = this.stats, k = 1 + (s.ramp - 1) * Math.min(1, this.heat / s.rampTime);
+    const targets = [tgt];
+    if (s.beams > 1) for (const e of game.enemies) { if (targets.length >= s.beams) break; if (e !== tgt && game.canTarget(this, e)) targets.push(e); }
+    this.beams = targets.map((e) => ({ e, t: 0.13 })); this.beamK = k;
+    for (const e of targets) {
+      const { dmg, crit } = this.roll(e);
+      if (s.burn && Math.random() < 0.2) e.ignite(s.burn, s.burnDur, this);
+      game.damage(e, dmg * k, this, { crit, ignoreArmor: s.ignoreArmor, group: true });
+    }
+    if ((this.snd = (this.snd || 0) + 1) % 3 === 0) game.audio.play('laser');
+  }
+  // Tesla : l'éclair saute de cible en cible
+  zap(game, first) {
+    const s = this.stats, hit = [first]; let cur = first, dmg = s.damage;
+    while (hit.length < s.chain) {
+      let best = null, bd = s.chainRange;
+      for (const e of game.enemies) { if (e.dead || e.hidden || hit.includes(e)) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; best = e; } }
+      if (!best) break; hit.push(best); cur = best;
+    }
+    const pts = [{ x: this.x, y: this.y - 8 }];
+    hit.forEach((e, i) => {
+      const r = this.roll(e); if (s.stun) e.stun(s.stun);
+      game.damage(e, r.dmg * Math.pow(s.falloff, i) * (dmg / s.damage), this, { crit: r.crit, group: true });
+      pts.push({ x: e.x, y: e.y });
+    });
+    this.arcs.push({ pts, t: 0.18, seed: Math.random() * 99 });
+    this.recoil = 1; game.audio.play('tesla'); if (hit.length >= 4) game.shake(1.5);
+  }
+  firePlasma(game) {
+    const s = this.stats, n = s.barrels || 1;
+    for (let i = 0; i < n; i++) { const m = this.muzzle((i - (n - 1) / 2) * 26); game.projectiles.push(new Plasma(this, m.x, m.y, this.angle + (i - (n - 1) / 2) * 0.06, s)); }
+    this.recoil = 10; this.flashT = 0.06; game.shake(1.5); game.audio.play('plasma');
+  }
+  // Drones : vont vers l'ennemi le plus proche dans leur zone de patrouille, sinon tournent autour de la base
+  flyDrones(dt, game) {
+    const s = this.stats, P = s.patrol;
+    this.drones.forEach((d, i) => {
+      let tx, ty, best = null, bd = Infinity;
+      for (const e of game.enemies) { if (e.dead || e.hidden || Math.hypot(e.x - this.x, e.y - this.y) > P + s.range * 0.6) continue; const dd = Math.hypot(e.x - d.x, e.y - d.y) + i * 40 * (e === this.drones[0].tgt ? 1 : 0); if (dd < bd) { bd = dd; best = e; } }
+      d.tgt = best;
+      if (best) { const a = Math.atan2(d.y - best.y, d.x - best.x) + i * 1.3; tx = best.x + Math.cos(a) * s.range * 0.55; ty = best.y + Math.sin(a) * s.range * 0.55; }
+      else { d.a += dt * 1.1; tx = this.x + Math.cos(d.a + i * 2.1) * P * 0.4; ty = this.y + Math.sin(d.a + i * 2.1) * P * 0.4; }
+      const k = Math.hypot(tx - this.x, ty - this.y); if (k > P) { tx = this.x + ((tx - this.x) / k) * P; ty = this.y + ((ty - this.y) / k) * P; }
+      const dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy), step = Math.min(dist, s.droneSpeed * dt);
+      if (dist > 0.1) { d.x += (dx / dist) * step; d.y += (dy / dist) * step; }
+      d.tilt += ((dist > 4 ? Math.max(-0.35, Math.min(0.35, dx / 120)) : 0) - d.tilt) * Math.min(1, dt * 6);
+      d.cd -= dt * (game.overT > 0 ? BOOSTS.over.rate : 1) * (this.chill > 0 ? GAME.chillRate : 1); d.fire = Math.max(0, d.fire - dt);
+      if (best && d.cd <= 0 && Math.hypot(best.x - d.x, best.y - d.y) <= s.range + best.r * 0.5) {
+        d.cd = 1 / s.rate; d.fire = 0.06;
+        if (s.splash) { game.explode(best.x, best.gy, s.splash, s.damage, this, { mini: true }); if (s.burn) best.ignite(s.burn, s.burnDur, this); game.fx.tracer(d.x, d.y, best.x, best.gy, '#ffb347', 3, 0.12); }
+        else { const r = this.roll(best); this.onHit(game, best, 0); game.damage(best, r.dmg, this, { crit: r.crit }); game.fx.tracer(d.x, d.y, best.x, best.y, '#9ff6ff', 2, 0.07); game.audio.play('shot_smg'); }
+      }
+    });
+  }
   pulse(game) {
     const s = this.stats;
     for (const e of game.enemies) {
@@ -229,7 +302,8 @@ export class Tower {
       }
       c.save();
       const idle = gold ? 1 + Math.sin(this.t * 3) * 0.035 : 1;
-      if (!this.vis.turn) {
+      if (this.type === 'drone') { /* tête = drone, dessiné là où il vole */ }
+      else if (!this.vis.turn) {
         const k = (this.type === 'cryo' ? 1 + this.recoil * 0.12 : 1) * idle;
         if (this.type === 'cryo') c.rotate(this.t * (gold ? 0.9 : 0.35));
         c.scale(k, k);
@@ -267,6 +341,35 @@ export class Tower {
       c.strokeText('zZz', 0, -34 - Math.sin(game.time * 4) * 3); c.fillText('zZz', 0, -34 - Math.sin(game.time * 4) * 3);
     }
     c.restore();
+    // effets propres aux tourelles futuristes, dessinés dans le repère du terrain
+    const dtv = 1 / 60;
+    if (this.beams.length) {
+      const k = this.beamK || 1, w = 3 + (k - 1) * 3, gold = this.level >= 5, m = this.muzzle();
+      for (const b of this.beams) {
+        b.t -= dtv; if (b.t <= 0 || b.e.dead) continue;
+        c.lineCap = 'round'; c.strokeStyle = gold ? 'rgba(255,214,90,.55)' : 'rgba(255,63,180,.5)'; c.lineWidth = w + 7; c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(b.e.x, b.e.y); c.stroke();
+        c.strokeStyle = '#fff'; c.lineWidth = w; c.stroke();
+        c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(b.e.x, b.e.y, 4 + Math.random() * 4, 0, TAU); c.fill();
+      }
+      this.beams = this.beams.filter((b) => b.t > 0 && !b.e.dead);
+    }
+    for (const a of this.arcs) {
+      a.t -= dtv; const al = Math.max(0, a.t / 0.18);
+      c.strokeStyle = `rgba(160,190,255,${al})`; c.lineWidth = 7; c.lineJoin = 'round'; c.beginPath();
+      a.pts.forEach((q, i) => { if (!i) { c.moveTo(q.x, q.y); return; } const p0 = a.pts[i - 1]; for (let k = 1; k <= 4; k++) { const u = k / 4, j = k < 4 ? Math.sin(a.seed + i * 3 + k * 1.7 + game.time * 40) * 10 : 0; c.lineTo(p0.x + (q.x - p0.x) * u + j, p0.y + (q.y - p0.y) * u - j); } });
+      c.stroke(); c.strokeStyle = `rgba(255,255,255,${al})`; c.lineWidth = 2.5; c.stroke();
+    }
+    this.arcs = this.arcs.filter((a) => a.t > 0);
+    if (this.type === 'drone' && sp.ready) {
+      const hh = h * 0.78;
+      for (const d of this.drones) {
+        c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(d.x, d.y + 26, 18, 6, 0, 0, TAU); c.fill();
+        c.save(); c.translate(d.x, d.y - 4 + Math.sin(this.t * 6 + d.a) * 2); c.rotate(d.tilt);
+        c.drawImage(sp.head.cv, -hh, -hh, hh * 2, hh * 2);
+        if (d.fire > 0) { c.fillStyle = '#fff6c8'; c.beginPath(); c.arc(18, 0, 6, 0, TAU); c.fill(); }
+        c.restore();
+      }
+    }
     if (this.lvlAnim > 0) { // rayons de « level up »
       const k = 1 - this.lvlAnim;
       c.save(); c.translate(this.x, this.y); c.globalAlpha = this.lvlAnim; c.strokeStyle = acc; c.lineWidth = 5; c.lineCap = 'round';

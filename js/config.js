@@ -159,14 +159,67 @@ export const TOWERS = {
   },
 };
 
-export const BOSS_ORDER = ['boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
-export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'mine'];
+// --- tourelles futuristes (mondes 6 à 8) ---------------------------------------
+//  beam   : rayon continu ; damage = dégâts par tic, rate = tics/s ; ramp = bonus max après rampTime s sur la même cible
+//  chain  : éclair qui saute de cible en cible (chain sauts, chainRange px, falloff = part des dégâts à chaque saut)
+//  plasma : boule lente qui traverse tout (size = rayon, splash à la fin si > 0)
+//  drone  : drone(s) qui patrouillent dans un rayon « patrol » autour de la base et tirent à « range » d'eux
+Object.assign(TOWERS, {
+  laser: {
+    name: 'Laser', desc: 'Rayon continu qui chauffe : plus il reste sur une cible, plus il fait mal.', cost: 300, kind: 'beam', targeting: 'first',
+    base: { damage: 5.5, rate: 10, range: 190, ramp: 1.6, rampTime: 2.2, beams: 1 },
+    upgrades: [UP(200, 1.45), UP(330, 1.45)],
+    branches: [
+      { name: 'Prisme', desc: 'Le rayon se divise : 3 cibles à la fois.', cost: 560, mods: { beams: 3, damageMul: 0.85 },
+        master: { name: 'Arc-en-ciel', desc: '5 rayons, dégâts +50 %.', cost: 880, mods: { beams: 5, damageMul: 1.5 } } },
+      { name: 'Surchauffe', desc: 'Chauffe 2x plus vite et bien plus fort, enflamme.', cost: 540, mods: { rampTimeMul: 0.5, ramp: 3.2, burn: 12, burnDur: 2 },
+        master: { name: 'Rayon solaire', desc: 'Dégâts +80 %, ignore le blindage.', cost: 860, mods: { damageMul: 1.8, ignoreArmor: true } } },
+    ],
+  },
+  tesla: {
+    name: 'Tesla', desc: "Éclair qui saute d'ennemi en ennemi.", cost: 280, kind: 'chain', targeting: 'first',
+    base: { damage: 42, rate: 1, range: 165, chain: 4, chainRange: 95, falloff: 0.8 },
+    upgrades: [UP(190), UP(310)],
+    branches: [
+      { name: 'Orage', desc: "L'éclair saute sur 7 ennemis, cadence +30 %.", cost: 520, mods: { chain: 7, rateMul: 1.3, chainRangeMul: 1.15 },
+        master: { name: 'Tempête électrique', desc: '10 sauts, dégâts +50 %.', cost: 820, mods: { chain: 10, damageMul: 1.5 } } },
+      { name: 'Surtension', desc: 'Étourdit chaque ennemi touché, dégâts +40 %.', cost: 540, mods: { stun: 0.45, damageMul: 1.4 },
+        master: { name: 'Paralysie', desc: 'Étourdit 1 s, dégâts +60 %.', cost: 840, mods: { stun: 1, damageMul: 1.6 } } },
+    ],
+  },
+  plasma: {
+    name: 'Plasma', desc: 'Grosse boule lente qui traverse tous les ennemis sur sa route.', cost: 360, kind: 'plasma', targeting: 'strong',
+    base: { damage: 105, rate: 0.45, range: 270, projSpeed: 240, size: 16, splash: 0 },
+    upgrades: [UP(240), UP(390)],
+    branches: [
+      { name: 'Fusion', desc: 'Boule plus grosse qui explose en fin de course.', cost: 640, mods: { sizeMul: 1.5, damageMul: 1.4, splash: 80 },
+        master: { name: 'Supernova', desc: 'Dégâts +60 %, explosion géante.', cost: 980, mods: { damageMul: 1.6, splash: 125 } } },
+      { name: 'Double cœur', desc: 'Tire 2 boules à la fois.', cost: 620, mods: { barrels: 2, rateMul: 1.15 },
+        master: { name: 'Réacteur', desc: '3 boules à la fois, dégâts +30 %.', cost: 960, mods: { barrels: 3, damageMul: 1.3 } } },
+    ],
+  },
+  drone: {
+    name: 'Drone', desc: 'Patrouille autour de sa base et mitraille tout ce qui passe.', cost: 320, kind: 'drone', targeting: 'close',
+    base: { damage: 14, rate: 3.2, range: 105, patrol: 150, drones: 1, droneSpeed: 160 },
+    upgrades: [UP(210, 1.45, 1.12, 1.05), UP(350, 1.45, 1.12, 1.05)],
+    branches: [
+      { name: 'Escadrille', desc: '2 drones en patrouille.', cost: 560, mods: { drones: 2, patrolMul: 1.15 },
+        master: { name: 'Essaim', desc: '3 drones, dégâts +40 %.', cost: 880, mods: { drones: 3, damageMul: 1.4 } } },
+      { name: 'Bombardier', desc: 'Lâche des bombes : zone, gros dégâts, plus lent.', cost: 580, mods: { splash: 55, damageMul: 3.2, rateMul: 0.42 },
+        master: { name: 'Tapis de feu', desc: 'Zone +30 %, enflamme le sol.', cost: 900, mods: { splashMul: 1.3, burn: 20, burnDur: 2.5, damageMul: 1.3 } } },
+    ],
+  },
+});
+
+export const BOSS_ORDER = ['boss1', 'boss2', 'boss3', 'boss4', 'boss5', 'boss6', 'boss7', 'boss8'];
+export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'laser', 'tesla', 'plasma', 'drone', 'mine'];
 
 // Vitesse de rotation (rad/s) et distance de la bouche du canon (px) par tourelle
 export const TOWER_VISUAL = {
   assault: { turn: 10, muzzle: 42 }, smg: { turn: 13, muzzle: 32 }, shotgun: { turn: 9, muzzle: 30 },
   sniper: { turn: 6, muzzle: 56 }, rocket: { turn: 5.5, muzzle: 30 }, minigun: { turn: 7, muzzle: 48 },
   cryo: { turn: 0, muzzle: 0 }, mine: { turn: 0, muzzle: 0 },
+  laser: { turn: 7, muzzle: 44 }, tesla: { turn: 0, muzzle: 0 }, plasma: { turn: 4.5, muzzle: 40 }, drone: { turn: 0, muzzle: 0 },
 };
 
 // ----------------------------------------------------------------------------
@@ -189,6 +242,12 @@ export const ENEMIES = {
   yeti:     { name: 'Yeti Spumone', hint: "Son aura glacée ralentit le tir des tourelles proches : élimine-le de loin (sniper, roquettes).", tag: 'Glacial', hp: 260, speed: 32, reward: 22, leak: 3, r: 33, cost: 26, unlock: 35, from: 5, interval: 1.8, armor: 2, chill: { radius: 125 } },
   monkey:   { name: 'Scimmia Bananina', hint: "Bondit en avant le long du chemin : répartis tes tourelles sur tout le parcours.", tag: 'Sauteur', hp: 60, speed: 64, reward: 10, leak: 1, r: 23, cost: 12, unlock: 42, from: 3, interval: 0.9, hop: { every: 3.2, dist: 95, dur: 0.45 } },
   chameleon:{ name: 'Camaleonte Pesto', hint: "Se camoufle par moments : la détection (balles traçantes, givre) ou une tourelle très proche le révèle.", tag: 'Caméléon', hp: 110, speed: 52, reward: 14, leak: 2, r: 26, cost: 17, unlock: 45, from: 5, interval: 1.1, camo: { every: 5, dur: 2.2 } },
+  // Ville Néon (monde 6), Station Orbitale (monde 7), Dimension Brainrot (monde 8) : robots, cyborgs, glitchs
+  robo:     { name: 'Robo Gnocchetto', hint: "Bouclier d'énergie qui se recharge : il faut le casser d'un coup (sniper, plasma, laser).", tag: 'Robot', hp: 90, speed: 50, reward: 14, leak: 2, r: 26, cost: 18, unlock: 52, from: 3, interval: 1.1, shield: { pct: 0.6, regen: 3 } },
+  cyber:    { name: 'Cyborg Cannolo', hint: "À sa mort, une décharge coupe les tourelles proches : élimine-le loin d'elles.", tag: 'Cyborg', hp: 120, speed: 56, reward: 16, leak: 2, r: 27, cost: 20, unlock: 55, from: 5, interval: 1.2, deathEmp: { radius: 95, dur: 1.6 } },
+  astro:    { name: 'Astro Polpetta', hint: 'Volant à réacteur : il fonce par à-coups. Mitraillette, tesla et drones sont parfaits.', tag: 'Fusée', hp: 70, speed: 70, reward: 12, leak: 1, r: 23, cost: 14, unlock: 62, from: 3, interval: 0.8, flying: true, boost: { every: 3, dur: 0.8, mult: 2.4 } },
+  satellite:{ name: 'Satellite Spaghetto', hint: 'Projette des boucliers sur les brainrots voisins : à abattre en premier.', tag: 'Satellite', hp: 95, speed: 46, reward: 18, leak: 2, r: 26, cost: 22, unlock: 65, from: 5, interval: 1.6, flying: true, shieldAura: { radius: 110, every: 3.5, dur: 1.2 } },
+  glitch:   { name: 'Glitch Mozzarella', hint: 'Se téléporte en avant en clignotant : la zone et le ralenti le gênent.', tag: 'Glitch', hp: 130, speed: 54, reward: 18, leak: 2, r: 26, cost: 22, unlock: 72, from: 3, interval: 1.1, blink: { every: 3.6, dist: 120 } },
   mini:     { name: 'Semino',                tag: 'Mini',     hp: 22,  speed: 92,  reward: 2,  leak: 1, r: 14, cost: 3,  unlock: 999, interval: 0.3 },
   // Boss de monde. Leurs PV sont multipliés par le niveau (CAMPAIGN.hpWorld), pas par la vague.
   boss1: { name: 'Tricheco Fisarmonica', tag: 'BOSS', hp: 9000,  speed: 24, reward: 300, leak: 99, r: 46, boss: true, unlock: 999,
@@ -200,7 +259,13 @@ export const ENEMIES = {
   boss4: { name: 'Pinguino Frigorifero', tag: 'BOSS', hp: 10000, speed: 21, reward: 600, leak: 99, r: 52, boss: true, armor: 6, unlock: 999,
            ability: { kind: 'combo', every: 7, list: [{ kind: 'emp', radius: 220, dur: 3 }, { kind: 'summon', type: 'armored', count: 3 }] }, title: 'Il gèle tes tourelles et appelle ses crabes !' },
   boss5: { name: 'Leone Lasagna',        tag: 'BOSS', hp: 11500, speed: 20, reward: 900, leak: 99, r: 58, boss: true, armor: 3, unlock: 999,
-           ability: { kind: 'combo', every: 6, rage: true, list: [{ kind: 'summon', type: 'tank', count: 2 }, { kind: 'rage', dur: 3, heal: 0.025 }, { kind: 'emp', radius: 200, dur: 2.5 }] }, title: 'Le roi des brainrots : sbires, bouclier et rugissement !' },
+           ability: { kind: 'combo', every: 6, rage: true, list: [{ kind: 'summon', type: 'tank', count: 2 }, { kind: 'rage', dur: 3, heal: 0.025 }, { kind: 'emp', radius: 200, dur: 2.5 }] }, title: 'Le roi de la jungle : sbires, bouclier et rugissement !' },
+  boss6: { name: 'Robo Raviolo 3000',    tag: 'BOSS', hp: 12500, speed: 21, reward: 1000, leak: 99, r: 56, boss: true, armor: 5, unlock: 999,
+           ability: { kind: 'combo', every: 6.5, list: [{ kind: 'emp', radius: 240, dur: 3 }, { kind: 'summon', type: 'robo', count: 3 }] }, title: 'Il coupe le courant et lance ses robots !' },
+  boss7: { name: 'Astronauta Arancino',  tag: 'BOSS', hp: 13500, speed: 22, reward: 1100, leak: 99, r: 56, boss: true, armor: 3, unlock: 999,
+           ability: { kind: 'combo', every: 6, list: [{ kind: 'summon', type: 'astro', count: 4 }, { kind: 'rage', dur: 3.5, heal: 0.025 }] }, title: 'Il appelle sa flotte et se blinde !' },
+  boss8: { name: 'Re Spaghettone',       tag: 'BOSS', hp: 15000, speed: 21, reward: 1500, leak: 99, r: 62, boss: true, armor: 4, unlock: 999,
+           ability: { kind: 'combo', every: 5.5, rage: true, list: [{ kind: 'summon', type: 'glitch', count: 3 }, { kind: 'emp', radius: 230, dur: 2.5 }, { kind: 'rage', dur: 3, heal: 0.03 }, { kind: 'summon', type: 'satellite', count: 2 }] }, title: 'Le roi des brainrots, maître de toutes les dimensions !' },
 };
 
 // ----------------------------------------------------------------------------
@@ -242,10 +307,18 @@ export const WORLDS = [
     mech: { kind: 'ice', name: 'Plaques de glace', desc: 'Les brainrots glissent plus vite sur la glace', patches: 3, len: 150, speed: 1.45 } },
   { id: 'jungle',  name: 'Jungle Basilico',   theme: 'jungle',  boss: 'boss5', color: '#2f9a45', era: 0,
     mech: { kind: 'grass', name: 'Hautes herbes', desc: 'Les brainrots s\'y cachent : tourelles proches ou détection', patches: 2, len: 150, see: 95 } },
+  // --- ère futuriste ---
+  { id: 'neon',      name: 'Ville Néon',         theme: 'neon',      boss: 'boss6', color: '#ff3fb4', era: 1,
+    mech: { kind: 'blackout', name: 'Coupures de courant', desc: 'Des tourelles s\'éteignent quelques secondes', first: 28, every: 36, part: 0.34, dur: 3.2, warn: 1.6 } },
+  { id: 'station',   name: 'Station Orbitale',   theme: 'station',   boss: 'boss7', color: '#5fd8ff', era: 1,
+    mech: { kind: 'portal', name: 'Portails', desc: 'Portail bleu : bond en avant. Portail orange : retour en arrière', jump: 230, back: 170 } },
+  { id: 'dimension', name: 'Dimension Brainrot', theme: 'dimension', boss: 'boss8', color: '#b05cff', era: 1,
+    mech: { kind: 'chaos', name: 'Chaos', desc: 'Chaque vague déclenche une mécanique des autres mondes', first: 18, every: 30, patches: 1, len: 130, speed: 1.4, see: 95,
+            storm: { dur: 8, range: 0.75 }, rocks: 3, warn: 1.4, radius: 58, damage: 70, stun: 2.2, part: 0.3, out: 3 } },
 ];
 export const CAMPAIGN = {
   waves:     [9, 10, 10, 11, 11, 12, 12, 13, 14], // niveaux 1 à 9 d'un monde (~4 à 6 min)
-  bossWaves: [20, 22, 24, 25, 26],        // niveau 10 (boss) du monde 1 à 5 (15 à 20 min)
+  bossWaves: [20, 22, 24, 25, 26, 26, 27, 28],   // niveau 10 (boss) de chaque monde (15 à 20 min)
   bossPaceTo: 20,                         // un niveau de boss finit à la difficulté d'une « vague 20 »
   pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
   money:     [260, 260, 255, 255, 250, 250, 245, 245, 240, 320],   // pièces de départ par niveau du monde
@@ -258,12 +331,15 @@ export const CAMPAIGN = {
     ['boucle!', 'tour', 'fourche', 'serpent!', 'detour', 'escalier', 'zigzag', 'ygrec!', 'lacets', 'croix!'],
     ['escalier', 'ygrec!', 'lacets', 'boucle', 'croix', 'tour!', 'detour!', 'zigzag!', 'fourche!', 'serpent'],
     ['zigzag', 'fourche', 'serpent!', 'ygrec', 'detour!', 'boucle', 'croix!', 'lacets!', 'escalier', 'tour'],
+    ['croix', 'lacets', 'detour!', 'fourche!', 'escalier!', 'zigzag', 'ygrec', 'boucle!', 'tour!', 'serpent!'],
+    ['ygrec!', 'boucle', 'zigzag!', 'escalier', 'tour', 'croix!', 'fourche', 'detour', 'serpent', 'lacets'],
+    ['fourche!', 'tour!', 'croix', 'serpent', 'ygrec', 'lacets!', 'boucle!', 'escalier!', 'zigzag', 'detour!'],
   ],
-  hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1], // PV des ennemis par monde...
-  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1, 2.2, 2.32, 2.45], // PV des ennemis par monde...
+  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2, 1.0, 1.0, 1.05],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.012,                      // ...puis +1,2 % par niveau dans le monde
-  density:    [1, 1.08, 1.16, 1.24, 1.32],// budget des vagues par monde
-  speedWorld: [1, 1.03, 1.06, 1.09, 1.12],
+  density:    [1, 1.08, 1.16, 1.24, 1.32, 1.34, 1.37, 1.4],// budget des vagues par monde
+  speedWorld: [1, 1.03, 1.06, 1.09, 1.12, 1.14, 1.16, 1.18],
   miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
   miniBossHp: [0.12, 0.3, 0.5, 0.7],      // PV des mini-boss successifs (part des PV du boss)
   endlessAfter: 20,                       // le mode infini se débloque après ce niveau (fin du monde 2)
@@ -320,9 +396,11 @@ export const CASTLE = {
   },
   build: { upgrades: [1, 3, 8, 15, 30], abilities: [5, 15, 30] },   // minutes de construction par rang (une à la fois)
   speedGemsPerMin: 1 / 3,     // accélérer : 1 gemme par tranche de 3 minutes restantes
-  rankCap: { upgrades: [2, 4, 5, 5, 5], abilities: [1, 2, 3, 3, 3] },   // rang max selon le monde atteint (1 à 5)
+  rankCap: { upgrades: [2, 3, 3, 4, 4, 5, 5, 5], abilities: [1, 1, 2, 2, 3, 3, 3, 3] },   // rang max selon le monde atteint (1 à 8)
   // palier d'apparence k (k >= 1) : il faut aussi avoir battu le boss du monde k
-  tiers: [0, 7, 13, 20, 26],  // total de niveaux d'amélioration (29 au max) pour : fortin en bois, château de pierre, forteresse, citadelle, palais doré
+  // total de niveaux d'amélioration (29 au max) pour chaque apparence : fortin en bois, château de pierre, forteresse,
+  // citadelle, palais doré, forteresse high-tech, citadelle orbitale, palais brainrot
+  tiers: [0, 4, 8, 12, 16, 20, 24, 27],
 };
 
 // ----------------------------------------------------------------------------
@@ -395,11 +473,13 @@ export const CHEST_ORDER = ['wood', 'gold', 'legend'];
 //  on l'obtient en battant le niveau précédent (1 = dès le départ ; 31 = en battant le dernier boss).
 // ----------------------------------------------------------------------------
 export const UNLOCKS = {
-  towers: { assault: 1, smg: 1, shotgun: lvl(1, 2), mine: lvl(1, 4), cryo: lvl(1, 6), sniper: lvl(2, 1), rocket: lvl(2, 4), minigun: lvl(3, 1) },
-  // améliorations légendaires (5e niveau), en début de monde 3, 4 et 5
-  legend: { assault: lvl(3, 1), smg: lvl(3, 1), shotgun: lvl(3, 1), sniper: lvl(4, 1), rocket: lvl(4, 1), mine: lvl(4, 1), minigun: lvl(5, 1), cryo: lvl(5, 1) },
+  towers: { assault: 1, smg: 1, shotgun: lvl(1, 2), mine: lvl(1, 4), cryo: lvl(1, 6), sniper: lvl(2, 1), rocket: lvl(2, 4), minigun: lvl(3, 1),
+            laser: lvl(6, 1), tesla: lvl(6, 5), plasma: lvl(7, 1), drone: lvl(7, 5) },   // ère futuriste
+  // améliorations légendaires (5e niveau), en début de monde 3, 4, 5, 7 et 8
+  legend: { assault: lvl(3, 1), smg: lvl(3, 1), shotgun: lvl(3, 1), sniper: lvl(4, 1), rocket: lvl(4, 1), mine: lvl(4, 1), minigun: lvl(5, 1), cryo: lvl(5, 1),
+            laser: lvl(7, 1), tesla: lvl(7, 1), plasma: lvl(8, 1), drone: lvl(8, 1) },
   // skin exclusif du boss de chaque monde (obtenu en le battant)
-  skins: { emerald: lvl(2, 1), royal: lvl(3, 1), obsidian: lvl(4, 1), frost: lvl(5, 1), galaxy: lvl(6, 1) },
+  skins: { emerald: lvl(2, 1), royal: lvl(3, 1), obsidian: lvl(4, 1), frost: lvl(5, 1), galaxy: lvl(6, 1), chrome: lvl(7, 1), nebula: lvl(8, 1), glitchy: lvl(8, 10) + 1 },
 };
 // Ce que rapporte la PREMIÈRE victoire au niveau n (en plus des pièces et gemmes)
 export function unlocksOf(n) {
@@ -437,6 +517,9 @@ export const SHOP = {
     { id: 'obsidian', name: 'Obsidienne', cost: 0, finish: 'obsidian', exclusive: true },
     { id: 'frost',    name: 'Givre',      cost: 0, finish: 'frost', exclusive: true },
     { id: 'galaxy',   name: 'Galaxie',    cost: 0, finish: 'galaxy', exclusive: true },
+    { id: 'chrome',   name: 'Chrome',     cost: 0, finish: 'chrome', exclusive: true },
+    { id: 'nebula',   name: 'Nébuleuse',  cost: 0, finish: 'nebula', exclusive: true },
+    { id: 'glitchy',  name: 'Glitch',     cost: 0, finish: 'glitchy', exclusive: true },
   ],
 };
 
@@ -510,7 +593,7 @@ export const ACHIEVEMENTS = [
   { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 20 },
   { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 25 },
   { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 20 },
-  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 50, gems: 100 },
+  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 80, gems: 100 },
   { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 30 },
   { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 60 },
   { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 30 },
