@@ -79,7 +79,7 @@ export const Collection = {
     [1, 2, 3, 5].forEach((L) => { const b = el('button', L === 3 ? 'sel' : '', ''); b.append(towerImg(t, 46, d.skin, L)); b.onclick = () => { big.src = towerImg(t, 150, d.skin, L).src; $$('button', lv).forEach((k) => k.classList.toggle('sel', k === b)); this.audio.play('tick'); }; lv.append(b); });
     const br = el('div', 'cs-branches', T.branches.map((b, i) => `<div><span class="bimg" data-i="${i}"></span><b>${b.name}</b><small>${b.desc || ''}</small></div>`).join(''));
     T.branches.forEach((b, i) => $(`[data-i="${i}"]`, br).append(towerImg(t, 52, d.skin, 4, i)));
-    const st = el('div', 'cs-stats', [['Dégâts', `${Math.round(s.damage)} → ${Math.round(s5.damage)}`], ['Cadence', `${s.rate.toFixed(1)} → ${s5.rate.toFixed(1)}/s`], ['Portée', `${Math.round(s.range)} → ${Math.round(s5.range)}`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join(''));
+    const st = el('div', 'cs-stats', [['Dégâts', `${Math.round(s.damage)} → ${Math.round(s5.damage)}`], ['Cadence', `${String(Math.round(s.rate * 10) / 10).replace('.', ',')} → ${String(Math.round(s5.rate * 10) / 10).replace('.', ',')}/s`], ['Portée', `${Math.round(s.range)} → ${Math.round(s5.range)}`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join(''));
     this.sheet([art, el('h2', 'win', T.name), el('p', 'sub', T.desc), lv, st, el('small', 'kicker', 'SPÉCIALISATIONS (NIVEAU 4)'), br]);
   },
   enemySheet(t) {

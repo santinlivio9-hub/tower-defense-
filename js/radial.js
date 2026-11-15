@@ -9,7 +9,9 @@ import { icon, coin } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
-const num = (n) => (n >= 100 || Number.isInteger(+n.toFixed(1)) ? String(Math.round(n)) : n.toFixed(1));
+// nombres affichés : entiers au-delà de 20, sinon une décimale à la française (virgule) si elle compte
+const fr = (n) => String(Math.round(n * 10) / 10).replace('.', ',');
+const num = (n) => (n >= 20 || Number.isInteger(+n.toFixed(1)) ? String(Math.round(n)) : fr(n));
 const short = (n) => (n >= 1e4 ? (n / 1000).toFixed(n >= 1e5 ? 0 : 1) + 'k' : String(Math.round(n)));
 const pct = (a, b) => (a > 0 ? Math.round((b / a - 1) * 100) : 0);
 
@@ -20,9 +22,9 @@ const effDps = (s) => dpsOf(s) * (1 + (s.crit || 0) * ((s.critMult || 1) - 1));
 export function barStats(type, s) {
   const dmg = s.damage * (s.pellets || 1) * (s.barrels || 1);
   const d = { k: 'Dégâts', v: dmg, t: num(dmg) };
-  if (type === 'mine') return [d, { k: 'Recharge', v: s.rate, t: (1 / s.rate).toFixed(1) + ' s' }, { k: 'Zone', v: s.splash, t: num(s.splash) }];
+  if (type === 'mine') return [d, { k: 'Recharge', v: s.rate, t: fr(1 / s.rate) + ' s' }, { k: 'Zone', v: s.splash, t: num(s.splash) }];
   if (type === 'cryo') return [d, { k: 'Ralenti', v: s.slow, t: Math.round(s.slow * 100) + ' %' }, { k: 'Portée', v: s.range, t: num(s.range) }];
-  return [d, { k: 'Cadence', v: s.rate, t: s.rate.toFixed(1) + '/s' }, { k: 'Portée', v: s.range, t: num(s.range) }];
+  return [d, { k: 'Cadence', v: s.rate, t: fr(s.rate) + '/s' }, { k: 'Portée', v: s.range, t: num(s.range) }];
 }
 // Valeur maximale atteignable de chaque barre pour ce type (niveau 5, meilleure branche) : échelle des barres
 const refCache = new Map();
@@ -46,8 +48,8 @@ export const Radial = {
   statRows(type, s) {
     const mult = (s.pellets ? '×' + s.pellets : '') + (s.barrels > 1 ? '×' + s.barrels : '');
     const rows = [['Dégâts', num(s.damage) + mult]];
-    if (type === 'mine') return rows.concat([['Recharge', (1 / s.rate).toFixed(1) + ' s'], ['Zone', num(s.splash)], ['Étourdit', s.stun ? s.stun.toFixed(1) + ' s' : '—']]);
-    rows.push(['Cadence', s.rate.toFixed(1) + '/s'], ['Portée', num(s.range)]);
+    if (type === 'mine') return rows.concat([['Recharge', fr(1 / s.rate) + ' s'], ['Zone', num(s.splash)], ['Étourdit', s.stun ? fr(s.stun) + ' s' : '—']]);
+    rows.push(['Cadence', fr(s.rate) + '/s'], ['Portée', num(s.range)]);
     rows.push(type === 'cryo' ? ['Ralenti', Math.round(s.slow * 100) + ' %'] : ['DPS', num(dpsOf(s))]);
     return rows;
   },
@@ -156,7 +158,8 @@ export const Radial = {
     // rayon serré : juste ce qu'il faut pour que les boutons ne se touchent pas
     const ups0 = items.filter((i) => !i.side).length;
     const R = t ? (ups0 > 2 ? RADIAL.rTower2 + 8 : ups0 > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
-    const top = $('#hud').getBoundingClientRect().bottom - host.top + 34, bot = $('#dock').getBoundingClientRect().top - host.top - 30;
+    // jamais sous le HUD ni sous les pastilles d'objectifs
+    const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 32, bot = $('#dock').getBoundingClientRect().top - host.top - 30;
     const cx = Math.max(R + 34, Math.min(host.width - R - 34, p.x - host.left)), cy = Math.max(top + R, Math.min(bot - R, p.y - host.top));
     box.classList.toggle('build', !t);
     const ups = items.filter((i) => !i.side);

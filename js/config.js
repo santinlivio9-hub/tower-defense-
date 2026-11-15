@@ -709,6 +709,7 @@ export const TABS = [
 //  JUICE : combos, micro-pauses, couleurs des éclaboussures, musique
 // ----------------------------------------------------------------------------
 export const JUICE = {
+  crowdKills: 6, crowdDecay: 1, crowdFx: 0.35,   // plus de 6 morts par seconde : particules par mort x0,35, sans confettis
   chainWindow: 1.3,          // s entre deux kills pour garder le combo
   chainTiers: [              // paliers du compteur de combo : [kills, texte, points bonus]
     [5, 'COMBO !', 60], [10, 'SUPER !', 160], [25, 'CARNAGE !', 500], [50, 'APOCALYPSE !', 1500], [100, 'LÉGENDAIRE !', 4000],

@@ -43,7 +43,10 @@ export const BoostUI = {
     const n = this.save.boostSlots(g.level), canEdit = g.wave === 0 && !g.endlessLocked;
     bo.innerHTML = '';
     const slots = [...g.boosts], btns = [];
-    if (canEdit) while (slots.length < n) slots.push(null);
+    if (this.tutStep >= 0 && g.level.n === 1) { bo.innerHTML = ''; return; }   // tutoriel du 1-1 : pas de boosts
+    // emplacement vide seulement si on possède un boost à y mettre
+    const spare = BOOST_ORDER.some((id) => (this.save.data.boosts[id] || 0) > 0 && !g.boosts.some((b) => b && b.id === id && !b.free));
+    if (canEdit && spare) while (slots.length < n) slots.push(null);
     slots.forEach((b, i) => {
       if (!b) { const e = el('button', 'bo empty', icon('plus')); e.onclick = () => this.openBoostPicker(i); e.dataset.slot = i; btns.push(e); return; }
       const C = BOOSTS[b.id], btn = el('button', 'bo' + (b.free ? ' free' : ''), `<span class="shine"></span>${icon(C.icon)}<span class="n"></span>${canEdit && !b.free ? '<i class="edit">' + icon('restart') + '</i>' : ''}`);
