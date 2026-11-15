@@ -1,6 +1,6 @@
 // Interface : écrans (menu, cartes, boutique, paramètres), HUD, barre de tourelles,
 // feuille d'amélioration, tutoriel, pause, fin de partie, partage, entrées tactile / souris / clavier.
-import { QUALITY, GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
+import { QUALITY, HUD_FX, GAME, VIEW, TOWERS, ENEMIES, RARITY, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, TABS, BOOSTS, UNLOCKS } from './config.js';
 import { Meta, MECH_ICON } from './meta.js';
 import { Reveal } from './reveal.js';
 import { Hub } from './hub.js';
@@ -19,6 +19,7 @@ import { waveSummary, levelEnemies } from './waves.js';
 import { enemyImg, towerImg, preloadSprites, enemyFrames, towerSprite, skinFinish } from './sprites.js';
 import { icon, hydrateIcons, coin, gem } from './icons.js';
 import { Haptics } from './haptics.js';
+import { fit, ROT_QUERY } from './viewport.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -57,6 +58,8 @@ export class UI {
     // la zone jouable suit sa vraie taille (barre du bas qui change de hauteur, rotation, barres du navigateur)
     if (window.ResizeObserver) { const ro = new ResizeObserver(() => this.resize()); ro.observe($('#field')); ro.observe($('#stage')); }
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
+    // téléphone à l'horizontale : pause automatique (son coupé), reprise au retour en portrait
+    if (window.matchMedia) { const mq = matchMedia(ROT_QUERY), on = () => this.onRotate(mq.matches); if (mq.addEventListener) mq.addEventListener('change', on); else if (mq.addListener) mq.addListener(on); on(); }
     window.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     this.bindGameInput();
@@ -104,11 +107,17 @@ export class UI {
     if (name !== 'game') { this.closeOverlay(); $('#tutorial').hidden = true; }
   }
   refreshGems() { this.refreshWallet(); }
+  // Notifications. En partie : zone dédiée juste sous le HUD et les objectifs (jamais par-dessus), format compact.
   toast(title, sub = '', art = icon('medal')) {
-    const box = $('#toasts'); while (box.children.length >= 2) box.firstChild.remove();
-    const t = el('div', 'toast', `<div><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>`);
+    const box = $('#toasts'), inGame = this.screen === 'game', max = inGame ? HUD_FX.toastMax : 2;
+    box.classList.toggle('ingame', inGame);
+    for (const o of box.children) if (o.dataset.k === title) o.remove();   // même message : on remplace
+    while (box.children.length >= max) box.firstChild.remove();
+    const t = el('div', 'toast' + (inGame ? ' mini' : ''), `<div><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>`);
+    t.dataset.k = title;
     if (typeof art === 'string') t.insertAdjacentHTML('afterbegin', art); else t.prepend(art);
-    box.append(t); setTimeout(() => t.remove(), 3900);
+    const ms = inGame ? HUD_FX.toastMs : 3900; t.style.animationDuration = ms + 'ms';
+    box.append(t); setTimeout(() => t.remove(), ms + 100);
   }
   announce(list) { for (const a of list || []) this.toast('Succès : ' + a.name, `${a.desc} · +${a.gems} gemmes`); this.refreshGems(); }
   openOverlay(node, cls = '') { const ov = $('#overlay'); ov.innerHTML = ''; ov.append(node); ov.className = 'overlay show ' + cls; }
@@ -264,7 +273,7 @@ export class UI {
     clearTimeout(this.endT); clearTimeout(this.endWatch); clearTimeout(this.comboHide); this.endT = this.endWatch = null;
     if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
     this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
-    $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly, .up-float, #toasts > *').forEach((e) => e.remove());
+    $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly, .drop-fly, .up-float, #toasts > *').forEach((e) => e.remove());
     for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
     $('#radial').innerHTML = '';
     if (window.__game) window.__game = null;
@@ -302,28 +311,44 @@ export class UI {
     else if (name === 'combo') { this.audio.play('combo'); const s = $('#hud-score'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); }
     else if (name === 'intro' && !this.simulating) this.showIntro(data.map((id) => ({ kind: 'enemy', id })));
     else if ((name === 'ability' || name === 'boost') && this.buildDock) { this.cache.dock = null; if (name === 'boost') this.boostPop(data); }
-    else if (name === 'drop') { this.cache.dock = null; if (!this.simulating) this.toast('Boost gratuit !', 'Il t\'attend en bas de l\'écran', icon(BOOSTS[data.id].icon)); }
+    else if (name === 'drop') { this.cache.dock = null; if (!this.simulating && !data.auto) this.flyDrop(data); }
   }
 
-  // pièces qui s'envolent de l'ennemi vers le compteur
+  // pièces qui s'envolent de l'ennemi vers le compteur : dessinées dans le jeu (passent sous le compteur, dont le
+  // chiffre reste lisible), aimantées en moins d'une seconde, regroupées au-delà de HUD_FX.coinCap
   flyCoins({ x, y, n }) {
-    if (this.simulating || document.hidden || this.screen !== 'game') return;
-    const dst = $('#hud-money .coin-ico').getBoundingClientRect();
-    const { x: sx, y: sy } = this.toScreen(x, y);
-    const dx = dst.left + dst.width / 2 - sx, dy = dst.top + dst.height / 2 - sy;
-    for (let i = 0; i < n && this.flying < 18; i++) {
-      const c = el('i', 'coin-ico coin-fly'); c.style.left = sx + 'px'; c.style.top = sy + 'px';
-      document.body.append(c); this.flying++;
-      const bx = (Math.random() - 0.5) * 60, by = (Math.random() - 0.5) * 50 - 14;
-      const done = () => { c.remove(); this.flying--; this.audio.play('coin'); this.pop('#hud-money'); };
-      if (!c.animate) { done(); continue; }
-      c.animate([
-        { transform: 'translate(0,0) scale(.4)', opacity: 0 },
-        { transform: `translate(${bx}px,${by}px) scale(1.15)`, opacity: 1, offset: 0.25 },
-        { transform: `translate(${bx}px,${by - 6}px) scale(1)`, opacity: 1, offset: 0.42 },
-        { transform: `translate(${dx}px,${dy}px) scale(.7)`, opacity: 0.9 },
-      ], { duration: 620 + i * 55 + Math.random() * 80, easing: 'cubic-bezier(.5,0,.4,1)' }).onfinish = done;
+    const g = this.game; if (this.simulating || !g || this.screen !== 'game') return;
+    if (!this._coinTgt) {
+      const q = $('#hud-money .coin-ico').getBoundingClientRect(), r = this.canvas.getBoundingClientRect(), v = this.view;
+      this._coinTgt = { x: (q.left + q.width / 2 - r.left - v.ox) / v.s, y: (q.top + q.height / 2 - r.top - v.oy) / v.s };
     }
+    g.fx.coinTarget = this._coinTgt;
+    if (!g.fx.onCoinArrive) g.fx.onCoinArrive = () => {
+      const now = performance.now(); if (now - (this._coinSnd || 0) < HUD_FX.coinSound) return;
+      this._coinSnd = now; this.audio.play('coin'); this.pop('#hud-money');
+    };
+    g.fx.coinBurst(x, y, n);
+  }
+  // bulle de boost ramassée : elle vole jusqu'à son emplacement de la rangée du bas (ou jusqu'à la pile)
+  flyDrop(d) {
+    const C = BOOSTS[d.id], from = this.toScreen(d.x, d.y);
+    requestAnimationFrame(() => {
+      if (!this.game || this.screen !== 'game') return;
+      this.updateBoosts();
+      let tg = $(`#boosts .bo[data-i="${d.i}"]`); if (!tg) return;
+      if (tg.closest('.fan')) tg = tg.closest('.pile-wrap').querySelector('.pile');
+      const q = tg.getBoundingClientRect(), b = el('div', 'drop-fly', icon(C.icon));
+      b.style.setProperty('--bc', C.color); b.style.left = from.x + 'px'; b.style.top = from.y + 'px';
+      document.body.append(b); tg.classList.add('incoming');
+      const dx = q.left + q.width / 2 - from.x, dy = q.top + q.height / 2 - from.y;
+      const land = () => { b.remove(); tg.classList.remove('incoming'); tg.classList.remove('land'); void tg.offsetWidth; tg.classList.add('land'); this.audio.play('card'); this.haptics.pulse(1); };
+      if (!b.animate) { land(); return; }
+      b.animate([
+        { transform: 'translate(-50%,-50%) scale(1)' },
+        { transform: `translate(calc(-50% + ${dx * 0.35}px), calc(-50% + ${dy * 0.1 - 60}px)) scale(1.25)`, offset: 0.35 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.8)` },
+      ], { duration: 620, easing: 'cubic-bezier(.45,0,.35,1)' }).onfinish = land;
+    });
   }
   pop(sel) { const e = $(sel); e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); }
 
@@ -383,6 +408,21 @@ export class UI {
       if (document.hidden) this.audio.pause(); else this.audio.resume();
     });
     window.addEventListener('pagehide', () => this.audio.pause());
+  }
+  onRotate(rot) {
+    if (rot === this.rotated) return;
+    this.rotated = rot; this.audio.hold = rot;
+    const g = this.game, live = g && !g.over && this.screen === 'game';
+    if (rot) {
+      if (live && !g.paused) { g.paused = true; this.rotPaused = true; this.closeMenu(); this.aiming = null; }
+      this.audio.pause();
+    } else {
+      // la partie reprend seule si c'est la rotation qui l'avait mise en pause (et pas le menu Pause entre-temps)
+      if (this.rotPaused && live && !$('#overlay.show')) g.paused = false;
+      this.rotPaused = false;
+      if (!document.hidden) this.audio.resume();
+      fit(); this.resize();
+    }
   }
   onKey(e) {
     const g = this.game; if (!g || this.screen !== 'game' || e.repeat) return;
@@ -457,6 +497,7 @@ export class UI {
 
   // ------------------------------------------------------------------ boucle
   resize() {
+    if (this.rotated) return;   // en paysage, la mise en page de portrait reste telle quelle derrière l'écran de rotation
     // Le canvas couvre tout l'écran ; la zone jouable (600 x 940) est calée entre le HUD et la barre du bas,
     // à la largeur de l'écran dès que la hauteur le permet. Le décor remplit le reste.
     const st = $('#stage').getBoundingClientRect(), fd = $('#field').getBoundingClientRect();
@@ -469,7 +510,7 @@ export class UI {
     this.view = { s, ox: (st.width - VIEW.W * s) / 2, oy: top + (free - VIEW.H * s) / 2 };   // en px CSS
     const key = [w, h, s, top, bot].join();
     if (this.game && this.game.viewKey !== key) { this.game.viewKey = key; this.game.setView(s * dpr, this.view.ox / s, this.view.oy / s, w, h); }
-    this.cache.tut = null;
+    this.cache.tut = null; this._coinTgt = null;
   }
   // La boucle se reprogramme AVANT de travailler : une erreur dans une image ne l'arrête jamais.
   loop(ts) {

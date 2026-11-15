@@ -42,6 +42,7 @@ export class Game {
     this.wave = 0; this.cleared = 0; this.queue = []; this.spawnClock = 0; this.countdown = null;
     this.enemies = []; this.towers = []; this.projectiles = []; this.delayed = [];
     this.fx = new Fx();
+    this.fx.avoid = this.paths.map((p) => { const q = p.pointAt(0); return { x: q.x, y: q.y, r: 80 }; });
     this.time = 0; this.speed = 1; this.paused = false; this.over = false; this.result = null;
     this.stats = { kills: 0, bossKills: 0, earned: 0, built: 0, damage: 0, dmgByType: {}, leaks: 0, leakBy: {}, early: 0, legendaries: 0, cost: 0 };
     this.slots = [...this.field.slots, ...this.field.mines].map((s) => ({ ...s, tower: null }));
@@ -229,13 +230,12 @@ export class Game {
     this.onEvent('coins', { x: e.x, y: e.y, n: e.boss ? 8 : Math.max(1, Math.round(reward / 5)), amount: reward });
     // score : points du kill + bonus de multi-kill
     const pts = this.addScore(e.boss ? SCORE.boss * (BOSS_ORDER.indexOf(e.type) + 1) * (e.mini ? 0.3 : 1) : e.cfg.cost * SCORE.perCost * (e.elite ? 3 : 1));
-    fx.text(e.x, e.y - e.r - 24, '+' + pts, '#8fe9ff', e.boss ? 28 : 14, 0.9);
+    if (e.boss || e.elite) fx.text(e.x, e.y - e.r - 24, '+' + pts, '#8fe9ff', e.boss ? 28 : 16, 0.9);
     this.comboN = this.time - this.comboT <= SCORE.multiWindow ? this.comboN + 1 : 1; this.comboT = this.time;
     if (this.comboN >= 2) {
       const [label, bonus] = SCORE.multi[Math.min(5, this.comboN)], b = this.addScore(bonus);
       if (this.comboText) this.comboText.life = 0;
-      fx.text(e.x, e.y - e.r - 50, `${label} +${b}`, ['#fff', '#fff', '#ffd23f', '#ff9f1a', '#ff5d8f', '#ff3b6b'][Math.min(5, this.comboN)], 16 + Math.min(5, this.comboN) * 3, 1.1);
-      this.comboText = fx.texts[fx.texts.length - 1];
+      this.comboText = fx.text(e.x, e.y - e.r - 50, `${label} +${b}`, ['#fff', '#fff', '#ffd23f', '#ff9f1a', '#ff5d8f', '#ff3b6b'][Math.min(5, this.comboN)], 16 + Math.min(5, this.comboN) * 3, 1.1);
       this.onEvent('combo', this.comboN);
     }
     this.audio.play('death');
@@ -361,6 +361,7 @@ export class Game {
     this.time += dt;
     this.shakeMag *= Math.exp(-dt * 9); this.baseFlash = Math.max(0, this.baseFlash - dt * 3);
     if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
+    this.fx.band = this.banner ? (this.banner.big ? { y: VIEW.H * 0.42, h: 120 } : { y: 125, h: 48 }) : null;
     if (this.over) {
       this.fx.update(dt);
       if (this.result && this.result.victory && Math.random() < dt * 14) this.fx.confetti(Math.random() * VIEW.W, -10, 5, 120);
@@ -602,12 +603,20 @@ export class Game {
   collectDrop(d) {
     this.drops.splice(this.drops.indexOf(d), 1);
     this.fx.burst(d.x, d.y, BOOSTS[d.id].color, 18, 220, 6); this.fx.ring(d.x, d.y, 10, 70, '#fff', 0.4, 6);
-    this.fx.text(d.x, d.y - 40, '+ ' + BOOSTS[d.id].name.toUpperCase(), '#fff', 20, 1.3);
+    { const nm = BOOSTS[d.id].name.toUpperCase(); this.fx.text(d.x, d.y - 40, nm.startsWith('+') ? nm : '+ ' + nm, '#fff', 20, 1.3); }
     this.audio.play('chest'); this.onEvent('haptic', 1);
-    if (this.boosts.length >= DROPS.maxSlots) { const b = { id: d.id, used: false, free: true }; this.boosts.push(b); this.useBoost(this.boosts.length - 1); }
-    else this.boosts.push({ id: d.id, used: false, free: true });
+    // la bulle prend la place d'un boost déjà utilisé (de préférence un dont l'effet est fini), sinon un emplacement
+    // libre ; si tous les emplacements tiennent un boost encore disponible, elle s'active tout de suite
+    const nb = { id: d.id, used: false, free: true }, cap = Math.max(3, this.save.boostSlots ? this.save.boostSlots(this.level) : 3);
+    const running = (b) => (b.id === 'coins2' && this.coins2) || (b.id === 'shield' && this.shielded) || (b.id === 'over' && this.overT > 0) || (b.id === 'free' && this.freeNext);
+    let i = this.boosts.findIndex((b) => b.used && !running(b));
+    if (i < 0) i = this.boosts.findIndex((b) => b.used);
+    let auto = false;
+    if (i >= 0) this.boosts[i] = nb;
+    else if (this.boosts.length < cap) { this.boosts.push(nb); i = this.boosts.length - 1; }
+    else { this.boosts.push(nb); i = this.boosts.length - 1; auto = true; this.useBoost(i); this.boosts.splice(i, 1); }
     this.stats.drops = (this.stats.drops || 0) + 1;
-    this.onEvent('drop', d);
+    this.onEvent('drop', { ...d, i, auto });
   }
 
   // --- fin de partie ---------------------------------------------------------
@@ -813,6 +822,7 @@ export class Game {
     }
     if (this.blizzT > 0) { c.fillStyle = `rgba(200,235,255,${Math.min(0.22, this.blizzT * 0.2)})`; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
     this.fx.drawTexts(c);
+    this.fx.drawCoins(c);
     if (this.flash) { c.fillStyle = `rgba(${this.flash.color},${(this.flash.t / this.flash.max) * 0.55})`; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
 
     c.setTransform(S, 0, 0, S, ox * S, oy * S);

@@ -24,6 +24,20 @@ const out = process.argv[2];
     await p.evaluate(() => __ui.startGame(7, false, false, __ui.loadoutFor(window.__lv || { boss: false })));
     await p.waitForTimeout(700);
     await check('jeu', ['#dock', '#btn-wave', '#btn-speed', '#hud', '#abilities']);
+    // rangée pleine : 5 capacités (château + Renaissance) et 5 boosts (Sacoche + emplacement de Renaissance) :
+    // 3 boutons au plus de chaque côté, la pile garde le reste, rien ne sort de l'écran ni ne se chevauche
+    {
+      const o = await p.evaluate(() => { const sv = __ui.save, d = sv.data; const keep = JSON.stringify({ castle: d.castle, rebirth: d.rebirth, talents: d.talents, boosts: d.boosts });
+        Object.assign(d.castle, { air: 3, blizzard: 3, gold: 3 }); d.rebirth = { rank: 1, shards: 0, owned: ['ab_meteor', 'ab_rewind', 'slot'], history: [] }; d.talents.slot = 1; Object.assign(d.boosts, { coins2: 3, heal: 3, free: 3, over: 3, shield: 3, revive: 3 });
+        __ui.startGame(7, false, false, __ui.loadoutFor({ boss: false })); const g = __ui.game; g.collectDrop({ x: 300, y: 400, id: 'heal' });
+        Object.assign(d, JSON.parse(keep)); __ui.updateDock();
+        const row = [...document.querySelectorAll('.dock-row > div > button, .dock-row .pile')].map((e) => e.getBoundingClientRect()), bad = [];
+        row.forEach((a, i) => { if (a.left < -0.5 || a.right > innerWidth + 0.5) bad.push('dépasse'); row.forEach((b, j) => { if (j > i && a.left < b.right - 1 && b.left < a.right - 1) bad.push('chevauche'); }); });
+        return { n: row.length, piles: document.querySelectorAll('.dock-row .pile').length, bad }; });
+      const good = !o.bad.length && o.n <= 6 && o.piles === 2; if (!good) bad++;
+      console.log(`${good ? 'ok ' : 'KO '} ${tag} rangée pleine : ${o.n} boutons visibles, ${o.piles} piles ${o.bad.join(', ')}`);
+      if (out) await p.screenshot({ path: `${out}/${tag}-rangee-pleine.png`, clip: { x: 0, y: H - 150, width: W, height: 150 } });
+    }
     // rangée du bas : aucun chevauchement, rien ne dépasse, sur une vague chargée et une vague de boss
     for (const lv of [38, 40]) {
       await p.evaluate((lv) => { const sv = __ui.save, d = sv.data; for (let n = 1; n < lv; n++) d.levels[n] = { stars: 2, best: 1, heroic: 0, heroicBest: 0 }; sv.grantUnlocks(); __ui.startGame(lv, false, false, __ui.loadoutFor({ boss: lv % 10 === 0 })); const g = __ui.game; for (let k = 0; k < 40 && !(g.nextWave && (lv % 10 === 0 ? g.nextWave.groups.some((q) => q.type.startsWith('boss')) : new Set(g.nextWave.groups.map((q) => q.type)).size > 3)); k++) { g.wave++; g._nextCache = null; } }, lv);

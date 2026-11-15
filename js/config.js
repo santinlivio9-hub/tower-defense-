@@ -596,6 +596,17 @@ export const ROMAN = (n) => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII
 export const abilityDef = (id) => CASTLE.abilities[id] || REBIRTH.abilities[id];
 // Qualité graphique automatique : si les images mettent trop de temps à se calculer, on descend d'un cran
 // (définition du canvas et nombre de particules). On ne remonte pas en cours de session, pour éviter les à-coups.
+// Écran de jeu : rangée du bas, pièces qui volent, textes flottants, notifications
+export const HUD_FX = {
+  dockMax: 3,            // boutons visibles de chaque côté (capacités à gauche, boosts à droite) ; au-delà, une pile
+  coinCap: 24,           // pièces à l'écran au plus ; au-delà, elles se regroupent en grosses pièces
+  coinPerEvent: 4,       // pièces par brainrot éliminé (au plus)
+  coinDelay: 0.14, coinStagger: 0.03,   // envol : attente avant l'aimantation, puis décalage entre pièces
+  coinSound: 70,         // ms entre deux sons de pièce
+  textMax: 14,           // textes flottants à l'écran au plus
+  textMerge: 40,         // distance (unités du terrain) sous laquelle deux nombres de même couleur s'additionnent
+  toastMs: 2600, toastMax: 2,          // notifications en partie : durée, nombre affiché en même temps
+};
 export const QUALITY = {
   dpr: [2.5, 2, 1.5],               // définition maximale du canvas (pixels par point) par cran
   particles: [1400, 800, 400],      // particules simultanées

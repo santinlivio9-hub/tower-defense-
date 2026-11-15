@@ -13,6 +13,10 @@ const MODES = [
   ['screen', 'screen.height', 'hauteur = écran physique (ancien réglage du mode installé)'],
 ];
 const app = () => document.getElementById('app');
+// téléphone tenu à l'horizontale (hauteur < 600 px, écran tactile) : le jeu se met en pause derrière un écran de rotation
+export const ROT_QUERY = '(orientation: landscape) and (max-height: 599px) and (pointer: coarse)';
+export const isRotated = () => !!(window.matchMedia && matchMedia(ROT_QUERY).matches);
+let portrait = null;   // dernière taille de #app en portrait
 const read = () => { try { return localStorage.getItem(KEY) || 'auto'; } catch (e) { return 'auto'; } };
 let mode = read(), probe = null, panel = null, onFit = null;
 
@@ -28,7 +32,13 @@ function safe() {
 export function fit() {
   const a = app(); if (!a) return;
   const vv = window.visualViewport, st = a.style;
-  st.height = ''; st.top = ''; st.bottom = '';
+  if (isRotated()) {
+    const w = portrait ? portrait.w : Math.min(innerWidth, innerHeight), h = portrait ? portrait.h : Math.max(innerWidth, innerHeight);
+    Object.assign(st, { top: '0px', left: '0px', right: 'auto', bottom: 'auto', width: w + 'px', height: h + 'px' });
+    if (panel) renderDebug();
+    return;
+  }
+  st.height = ''; st.top = ''; st.bottom = ''; st.width = ''; st.left = ''; st.right = '';
   const set = (h, top = 0) => { st.top = top + 'px'; st.bottom = 'auto'; st.height = Math.round(h) + 'px'; };
   if (mode === 'inner') set(innerHeight);
   else if (mode === 'vv' && vv) set(vv.height, vv.offsetTop);
@@ -39,6 +49,7 @@ export function fit() {
     // la boîte dépasse de la zone visible (barres du navigateur, clavier, bug de hauteur) : on la ramène dedans
     if (box.bottom > vv.offsetTop + vv.height + 1 || box.top < vv.offsetTop - 1) set(vv.height, vv.offsetTop);
   }
+  { const q = a.getBoundingClientRect(); if (q.width && q.height) portrait = { w: Math.round(q.width), h: Math.round(q.height) }; }
   if (panel) renderDebug();
   if (onFit) onFit();
 }

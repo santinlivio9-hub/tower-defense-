@@ -1,4 +1,5 @@
 // Effets visuels : particules, traînées, anneaux, textes flottants, pièces volantes.
+import { HUD_FX, VIEW } from './config.js';
 const TAU = Math.PI * 2;
 const MAX_PARTICLES = 1400;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -9,6 +10,7 @@ export class Fx {
     this.p = []; this.tracers = []; this.rings = []; this.texts = []; this.coins = [];
     this.coinTarget = { x: 120, y: -10 };
     this.onCoinArrive = null;
+    this.avoid = [];   // zones où les gros textes ne s'affichent pas (portails) : { x, y, r }
   }
   clear() { this.p.length = this.tracers.length = this.rings.length = this.texts.length = this.coins.length = 0; }
 
@@ -49,9 +51,34 @@ export class Fx {
   }
   ring(x, y, r0, r1, color, life = 0.4, lw = 4) { this.rings.push({ x, y, r0, r1, color, life, max: life, lw }); }
   tracer(x1, y1, x2, y2, color = '#fff3b0', width = 2.5, life = 0.09) { this.tracers.push({ x1, y1, x2, y2, color, width, life, max: life }); }
+  // Textes flottants : jamais plus de HUD_FX.textMax à l'écran ; les nombres proches de même couleur s'additionnent,
+  // un même message déjà affiché est relancé au lieu d'être doublé, et les gros textes évitent les portails et
+  // ne se chevauchent pas.
   text(x, y, text, color = '#fff', size = 14, life = 0.7, o = {}) {
-    if (this.texts.length > 120) this.texts.shift();
-    this.texts.push({ x: Math.max(60, Math.min(540, x + rand(-6, 6))), y, y0: y, vy: o.bounce ? -260 - rand(0, 80) : -55, vx: o.bounce ? rand(-50, 50) : 0, bounce: !!o.bounce, shake: !!o.shake, text, color, size, life, max: life });
+    const T = this.texts, num = /^\+?(\d+)(!?)$/.exec(text);
+    for (const t of T) {
+      if (t.color !== color || t.max - t.life > 0.35) continue;
+      const d = Math.abs(t.x - x) + Math.abs(t.y0 - y);
+      if (num && t.num != null && d < HUD_FX.textMerge) {
+        t.num += +num[1]; t.text = (text[0] === '+' ? '+' : '') + t.num + (num[2] || t.text.endsWith('!') ? '!' : '');
+        t.life = t.max; t.size = Math.min(size * 1.6, Math.max(t.size, size) + 1); return t;
+      }
+      if (!num && t.text === text && d < 160) { t.life = t.max; return t; }
+    }
+    if (T.length >= HUD_FX.textMax) { let k = T.findIndex((t) => t.size < 18); if (k < 0) k = 0; T.splice(k, 1); }
+    // jamais coupé par le bord de l'écran ni caché sous le HUD
+    const hw = Math.max(24, text.length * size * 0.31) + 6;
+    x = Math.max(hw, Math.min(VIEW.W - hw, x + (num ? rand(-6, 6) : 0))); y = Math.max(size + 12, y);
+    if (!num && size >= 16) {
+      for (const a of this.avoid) if (Math.hypot(x - a.x, y - a.y) < a.r) y = a.y + a.r + size * 0.6;
+      const B = this.band; if (B && Math.abs(y - B.y) < B.h + size * 0.5) y = B.y + B.h + size;   // bandeau « Vague N » affiché
+      for (let k = 0; k < 3; k++) {
+        const w = text.length * size * 0.32, hit = T.find((t) => t.num == null && t.size >= 16 && Math.abs(t.x - x) < w + t.text.length * t.size * 0.32 && Math.abs(t.y - y) < (t.size + size) * 0.55);
+        if (!hit) break; y = hit.y + (hit.size + size) * 0.6;
+      }
+    }
+    const t = { x, y, y0: y, vy: o.bounce ? -260 - rand(0, 80) : -55, vx: o.bounce ? rand(-50, 50) : 0, bounce: !!o.bounce, shake: !!o.shake, text, color, size, life, max: life, num: num ? +num[1] : null };
+    T.push(t); return t;
   }
   // éclaboussure de slime aux couleurs du brainrot
   slime(x, y, cols, n = 14, speed = 260) {
@@ -62,11 +89,27 @@ export class Fx {
     this.ring(x, y, 4, 34, cols[0], 0.3, 6);
   }
   beam(x, y, color = '#fff6c8') { this.add({ k: 'beam', x, y, vx: 0, vy: 0, life: 0.7, max: 0.7, size: 46, color }); }
+  // Pièces qui s'envolent vers le compteur : HUD_FX.coinCap au plus ; au-delà, la pièce en attente la plus
+  // proche grossit (regroupement quand beaucoup de brainrots tombent en même temps).
   coinBurst(x, y, n) {
-    n = Math.min(n, 8);
+    n = Math.max(1, Math.min(n, HUD_FX.coinPerEvent));
     for (let i = 0; i < n; i++) {
-      const a = rand(0, TAU), v = rand(60, 170);
-      this.coins.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, t: 0, delay: 0.25 + i * 0.04 });
+      if (this.coins.length >= HUD_FX.coinCap) {
+        let best = null, bd = Infinity;
+        for (const c of this.coins) { if (c.t > c.delay) continue; const d = (c.x - x) ** 2 + (c.y - y) ** 2; if (d < bd) { bd = d; best = c; } }
+        if (best) best.big = Math.min(2, best.big + 0.2);
+        continue;
+      }
+      const a = rand(0, TAU), v = rand(70, 170);
+      this.coins.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 90, t: 0, delay: HUD_FX.coinDelay + i * HUD_FX.coinStagger, big: 1 });
+    }
+  }
+  drawCoins(c) {
+    for (const o of this.coins) {
+      const r = 7 * o.big, w = r * Math.max(0.18, Math.abs(Math.cos(o.t * 12)));
+      c.fillStyle = '#e09600'; c.beginPath(); c.ellipse(o.x, o.y + 1.5, w, r, 0, 0, TAU); c.fill();
+      c.fillStyle = '#ffd23f'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.2; c.beginPath(); c.ellipse(o.x, o.y, w, r, 0, 0, TAU); c.fill(); c.stroke();
+      if (w > r * 0.5) { c.fillStyle = '#fff6c8'; c.beginPath(); c.ellipse(o.x - w * 0.3, o.y - r * 0.35, w * 0.25, r * 0.22, 0, 0, TAU); c.fill(); }
     }
   }
 
@@ -91,9 +134,9 @@ export class Fx {
       if (c.t < c.delay) { c.vx *= 1 - 4 * dt; c.vy *= 1 - 4 * dt; c.vy += 200 * dt; }
       else {
         const dx = this.coinTarget.x - c.x, dy = this.coinTarget.y - c.y, d = Math.hypot(dx, dy) || 1;
-        const sp = 500 + (c.t - c.delay) * 2400;
+        const sp = 650 + (c.t - c.delay) * 3200;
         c.vx = (dx / d) * sp; c.vy = (dy / d) * sp;
-        if (d < sp * dt + 8) { this.coins.splice(i, 1); if (this.onCoinArrive) this.onCoinArrive(); continue; }
+        if (d < sp * dt + 8) { this.coins.splice(i, 1); if (this.onCoinArrive) this.onCoinArrive(c.big); continue; }
       }
       c.x += c.vx * dt; c.y += c.vy * dt;
     }
@@ -134,10 +177,6 @@ export class Fx {
       c.beginPath(); c.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * e, 0, TAU); c.stroke();
     }
     c.globalAlpha = 1;
-    for (const o of this.coins) {
-      c.fillStyle = '#ffcf40'; c.strokeStyle = '#8a5a00'; c.lineWidth = 2;
-      c.beginPath(); c.ellipse(o.x, o.y, 6 * Math.abs(Math.cos(o.t * 14)) + 1.5, 6, 0, 0, TAU); c.fill(); c.stroke();
-    }
   }
   drawTexts(c) {
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
