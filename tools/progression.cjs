@@ -23,15 +23,21 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
   // coût total des ennemis d'un niveau (base de l'XP) : calculé depuis les vraies vagues
   const killCost = L.map((lv) => { let c = 0; for (let w = 1; w <= lv.waves; w++) for (const g of buildWave(w, lv, 1).groups) c += C.ENEMIES[g.type].boss ? 60 : C.ENEMIES[g.type].cost * g.count; return c; });
   const talentSpent = () => Object.values(d.talents).reduce((a, b) => a + b, 0);
-  // puissance du joueur et difficulté d'un niveau (calées sur le robot : un joueur moyen avance d'environ
-  // 1 à 2 niveaux de campagne par jour, et bloque un peu sur les boss)
-  const power = () => 1 + 0.02 * sv.castleSum() + 0.012 * talentSpent() + 0.008 * d.level;
-  const diff = (n, hero) => 1 + 0.032 * (n - 1) + (L[n - 1].boss ? 0.08 : 0) + (hero ? 0.1 + 0.004 * n : 0);
-  const winP = (n, hero) => Math.max(0.08, Math.min(0.95, 0.7 + (power() - diff(n, hero)) * 2.4));
+  // Chances de victoire calées sur le robot (tools/simulate.cjs) : il gagne chaque niveau du monde w avec un
+  // investissement moyen (rang du château et des talents, de 0 à 5) égal à w - 1, et il lui faut le maximum (5)
+  // dans les mondes futuristes. Le joueur simulé joue un peu moins bien que le robot (SKILL) : il gagne à coup sûr
+  // avec l'investissement requis, de moins en moins souvent en dessous, et un peu plus souvent avec le niveau.
+  const MAXC0 = Object.keys({ ...C.CASTLE.upgrades, ...C.CASTLE.abilities }).reduce((a, id) => a + (C.CASTLE.upgrades[id] || C.CASTLE.abilities[id]).costs.length, 0);
+  const MAXT0 = Object.values(C.TALENTS).reduce((a, b) => a + b.nodes.reduce((x, n) => x + n.max, 0), 0);
+  const inv = () => 5 * (0.6 * sv.castleSum() / MAXC0 + 0.4 * talentSpent() / MAXT0) + d.level * 0.02;
+  const req = (n, hero) => { const lv = L[n - 1]; return Math.min(5, lv.world) * (0.75 + 0.25 * (lv.idx / (C.PER_WORLD - 1))) + (lv.boss ? 0.4 : 0) + (hero ? 0.8 : 0); };
+  const SKILL = 0.92;
+  const winP = (n, hero) => Math.max(0.06, Math.min(0.96, SKILL - 0.06 * (L[n - 1].world >= 5 ? 1 : 0) + 0.32 * (inv() - req(n, hero))));
   const play = (n, hero) => {
     const lv = L[n - 1], ld = sv.levelData(n), p = winP(n, hero), win = rnd() < p;
-    const stars = win ? (p > 0.8 ? 3 : p > 0.55 ? 2 : 1) : 0, waves = win ? lv.waves : Math.floor(lv.waves * (0.4 + rnd() * 0.5));
-    const E = levelRewards({ victory: win, stars, prevStars: ld.stars, wavesDone: waves, boss: lv.boss, hero, heroDone: !!ld.heroic, killCost: killCost[n - 1] * (win ? 1 : waves / lv.waves), gemMult: sv.mods().gemMult });
+    // étoiles par objectifs : gagner, aucun PV perdu (plus probable avec de la marge), 3e objectif (une fois sur trois)
+    const stars = win ? 1 + (rnd() < p - 0.15 ? 1 : 0) + (rnd() < 0.35 ? 1 : 0) : 0, waves = win ? lv.waves : Math.floor(lv.waves * (0.4 + rnd() * 0.5));
+    const E = levelRewards({ rebirthMult: sv.rewardMult(), victory: win, stars: Math.max(stars, ld.stars), prevStars: ld.stars, wavesDone: waves, boss: lv.boss, hero, heroDone: !!ld.heroic, killCost: killCost[n - 1] * (win ? 1 : waves / lv.waves), gemMult: sv.mods().gemMult });
     d.coins += E.coins; d.gems += E.gems; sv.addXp(E.xp); sv.addPass(E.pass);
     if (win) {
       if (hero) { if (E.firstClear) sv.grant({ chest: 'wood', talent: E.talent }); ld.heroic = 1; }
@@ -55,6 +61,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     // constructions : la moins chère disponible (dans la limite du monde atteint)
     const can = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))).sort((a, b) => sv.castleDef(a).costs[d.castle[a]] - sv.castleDef(b).costs[d.castle[b]]);
     while (d.castleFree > 0 && can.length) { const id = can.shift(); d.castleFree--; sv.startBuild(id, true); }
+    can.splice(0, can.length, ...caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))).sort((a, b) => sv.castleDef(a).costs[d.castle[a]] - sv.castleDef(b).costs[d.castle[b]]));
     if (!d.build && can.length) { const id = can[0], c = sv.castleDef(id).costs[d.castle[id]]; if (d.coins >= c) { d.coins -= c; sv.startBuild(id); } }
     // talents : premier nœud disponible, branche par branche
     for (let k = 0; k < 10 && d.talentPts > 0; k++) {
@@ -82,12 +89,13 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
       session();
     }
     const camp = sv.progress(), tal = talentSpent(), cs = sv.castleSum(), tier = sv.castleTier();
-    if (!marks.w1 && camp >= 6) marks.w1 = day; if (!marks.t2 && tier >= 1) marks.t2 = day; if (!marks.camp && camp >= N) marks.camp = day;
+    if (!marks.w1 && camp >= C.PER_WORLD) marks.w1 = day; if (!marks.w5 && camp >= 5 * C.PER_WORLD) marks.w5 = day; if (!marks.t2 && tier >= 1) marks.t2 = day; if (!marks.camp && camp >= N) marks.camp = day;
     if (!marks.all && tal >= MAXT && cs >= MAXC) marks.all = day;
     rows.push({ day, lvl: d.level, gems: d.gems, coins: d.coins, tal: `${tal}/${MAXT}`, pts: d.talentPts, castle: `${cs}/${MAXC}`, tier: C.CASTLE.tiers.length ? tier + 1 : 0, camp: `${camp}/${N}`, stars: sv.campaignStars(), hero: Object.values(d.levels).filter((l) => l.heroic).length, pass: sv.passTier() });
   }
   const pad = (v, n) => String(v).padStart(n);
+  const show = rows.filter((r) => r.day <= 7 || r.day % 3 === 0 || r.day === DAYS);
   console.log('jour | niv | gemmes | pièces | talents | pts | château | palier | campagne | étoiles | héroïque | passe');
-  for (const r of rows) console.log(`${pad(r.day, 4)} | ${pad(r.lvl, 3)} | ${pad(r.gems, 6)} | ${pad(r.coins, 6)} | ${pad(r.tal, 7)} | ${pad(r.pts, 3)} | ${pad(r.castle, 7)} | ${pad(r.tier, 6)} | ${pad(r.camp, 8)} | ${pad(r.stars, 7)} | ${pad(r.hero + '/30', 8)} | ${pad(r.pass + '/30', 5)}`);
-  console.log(`\nRepères : monde 1 fini jour ${marks.w1 || '-'} · palier 2 du château jour ${marks.t2 || '-'} · campagne finie jour ${marks.camp || '-'} · tout maxé jour ${marks.all || '-'} · coffres en bois achetés ${stats.bought}`);
+  for (const r of show) console.log(`${pad(r.day, 4)} | ${pad(r.lvl, 3)} | ${pad(r.gems, 6)} | ${pad(r.coins, 6)} | ${pad(r.tal, 7)} | ${pad(r.pts, 3)} | ${pad(r.castle, 7)} | ${pad(r.tier, 6)} | ${pad(r.camp, 8)} | ${pad(r.stars, 7)} | ${pad(r.hero + '/' + N, 8)} | ${pad(r.pass + '/' + C.PASS.tiers, 5)}`);
+  console.log(`\nRepères : monde 1 fini jour ${marks.w1 || '-'} · palier 2 du château jour ${marks.t2 || '-'} · 5 mondes jour ${marks.w5 || '-'} · campagne finie jour ${marks.camp || '-'} · tout maxé jour ${marks.all || '-'} · coffres en bois achetés ${stats.bought}`);
 })();

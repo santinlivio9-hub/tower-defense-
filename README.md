@@ -197,11 +197,13 @@ __ui.startGame(12);          // lancer directement le niveau 12
 
 Pour repartir de zéro : Paramètres → Réinitialiser.
 
-`tools/progression.cjs` simule un joueur régulier (3 niveaux, quêtes, roue et passe chaque jour) avec la vraie logique
-de sauvegarde et la même formule de gains que le jeu (`js/economy.js`), et affiche jour par jour niveau, gemmes,
-talents, château et campagne : `node tools/progression.cjs [jours] [parties par jour] [graine]`.
-Repères visés : monde 1 fini vers le jour 2-3, palier 2 du château vers le jour 4-5, campagne vers le jour 20-25,
-tout maxé (talents et château) après 5-6 semaines.
+`tools/progression.cjs` simule un joueur régulier (3 parties par jour, quêtes, roue, passe, coffres) avec la vraie
+logique de sauvegarde et la même formule de gains que le jeu (`js/economy.js`), et affiche jour par jour niveau,
+gemmes, pièces, talents, château et campagne : `node tools/progression.cjs [jours] [parties par jour] [graine]`.
+Les chances de victoire sont calées sur le robot de `tools/simulate.cjs` : il gagne le monde w avec un
+investissement moyen (château et talents, de 0 à 5) égal à w - 1, et il lui faut le maximum dans les mondes
+futuristes. Repères visés : campagne complète (80 niveaux) en 4 à 6 semaines ; le château plafonne vers la fin de
+la campagne, les talents se complètent ensuite.
 
 `tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
 et, en 390 px, la lisibilité : texte ≥ 14 px (13 px en gras pour les labels), zones tactiles ≥ 44 px, contraste
