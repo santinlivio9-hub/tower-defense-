@@ -27,15 +27,24 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const nf = new Intl.NumberFormat('fr-FR');
 const fmt = (n) => nf.format(Math.round(n));
 const short = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1000).toFixed(n >= 1e5 ? 0 : 1) + 'k' : fmt(n));
-const num = (n) => (n >= 100 || Number.isInteger(+n.toFixed(1)) ? String(Math.round(n)) : n.toFixed(1));
+const num = (n) => (n >= 20 || Number.isInteger(+n.toFixed(1)) ? String(Math.round(n)) : String(Math.round(n * 10) / 10).replace('.', ','));
 const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) => icon('star', i < n ? 'on' : '')).join('')}</span>`;
 
 const TUTORIAL = [
-  { text: 'Touche un <b>socle</b>', target: (ui) => { const sl = ui.game.slots.find((s) => s.kind === 'tower'); return ui.fieldPoint(sl.x, sl.y); }, done: (g) => !!g.menuSlot || g.towers.length > 0 },
+  { text: 'Touche un <b>socle</b>', target: (ui) => { const sl = tutSlot(ui.game); return ui.fieldPoint(sl.x, sl.y); }, done: (g) => !!g.menuSlot || g.towers.length > 0 },
   { text: 'Choisis une tourelle, puis <b>touche-la encore</b>', target: () => $('#radial .rb'), done: (g) => g.towers.length > 0, keep: true },
   { text: '<b>Lance la vague !</b>', target: () => $('#btn-wave'), done: (g) => g.wave >= 1 },
   { text: 'Touche ta tourelle pour l\'<b>améliorer</b>', target: (ui) => { const t = ui.game.towers[0]; return t ? ui.fieldPoint(t.x, t.y) : null; }, wait: (g) => g.cleared < 1 || !g.towers.some((t) => t.canUp), done: (g) => (!!g.menuSlot && !!g.menuSlot.tower) || g.wave >= 4 },
 ];
+
+// socle montré par le tutoriel : le plus proche du chemin vers 40 % de son parcours (milieu de l'écran, loin du
+// portail et du HUD, et la première tourelle voit passer tous les brainrots)
+function tutSlot(g) {
+  if (g._tutSlot) return g._tutSlot;
+  const p = g.paths[0], q = p.pointAt(p.total * 0.4), list = g.slots.filter((s) => s.kind === 'tower');
+  g._tutSlot = list.sort((a, b) => Math.hypot(a.x - q.x, a.y - q.y) - Math.hypot(b.x - q.x, b.y - q.y))[0];
+  return g._tutSlot;
+}
 
 export class UI {
   constructor(save, audio) {
@@ -245,6 +254,9 @@ export class UI {
   // ------------------------------------------------------------------ partie
   startGame(n, heroic = false, endless = false, boosts = [], challenge = null) {
     this.clearGame();
+    // tout premier niveau, tutoriel en cours : rien d'autre à l'écran que l'essentiel (boosts et objectifs dès le 1-2)
+    if (n === 1 && !heroic && !endless && !challenge && !this.save.data.settings.tutorialDone) boosts = [];
+    this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0;
     // sprites de ce niveau seulement (tourelles possédées, brainrots qu'il peut envoyer, son boss)
     { const L = LEVELS[n - 1]; preloadSprites(this.save.data.skin, this.save.data.towers, [...levelEnemies(L), WORLDS[L.world].boss, 'mini']); }
     const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts, challenge }));
@@ -361,11 +373,13 @@ export class UI {
   }
   // Carte d'info affichée la première fois qu'on pose une tourelle de ce type
   towerTip(type, t) {
-    const cfg = TOWERS[type], st = computeStats(type, 1, null, this.game.mods);
-    const tip = el('div', 'tower-tip' + (this.toScreen(t.x, t.y).y < innerHeight * 0.45 ? ' low' : ''), `<span class="tt-art"></span><span class="tt-txt"><small>Nouvelle arme posée</small><b>${cfg.name}</b><span class="tt-d">${cfg.desc}</span><em>${this.statLine(type, st)}</em><i>Touche-la pour l'améliorer</i></span>`);
-    $('.tt-art', tip).append(towerImg(type, 52, this.save.data.skin, 1));
+    if (this.tutStep >= 0) return;   // le tutoriel guide déjà : pas de carte en plus
+    const cfg = TOWERS[type];
+    $$('.tower-tip').forEach((e) => e.remove());
+    const tip = el('div', 'tower-tip' + (this.toScreen(t.x, t.y).y < innerHeight * 0.45 ? ' low' : ''), `<span class="tt-art"></span><span class="tt-txt"><small>Nouvelle arme</small><b>${cfg.name}</b><span class="tt-d">${cfg.desc}</span></span>`);
+    $('.tt-art', tip).append(towerImg(type, 44, this.save.data.skin, 1));
     const close = () => { tip.classList.add('out'); setTimeout(() => tip.remove(), 250); };
-    tip.onclick = close; setTimeout(close, 5200);
+    tip.onclick = close; setTimeout(close, 3600);
     $('#screen-game').append(tip);
   }
   closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
@@ -594,14 +608,16 @@ export class UI {
   // Objectifs d'étoiles en partie : 3 pastilles sous le HUD (tenu / raté), avec le compteur du 3e objectif
   updateGoals() {
     const g = this.game, box = $('#goals');
-    if (!g.goals) { if (!box.hidden) box.hidden = true; return; }
+    if (!g.goals || (this.tutStep >= 0 && g.level.n === 1)) { if (!box.hidden) box.hidden = true; return; }
     const st = g.goalState(), g3 = g.goals[2];
     const left = g3.id === 'time' ? Math.max(0, Math.ceil(g3.n - g.time)) : 0;
     const txt = g3.id === 'towers' ? `${g.towers.filter((t) => t.type !== 'mine').length}/${g3.n}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     const key = st.join() + txt + g.over;
     this.set('goals', key, () => {
       box.hidden = g.over;
-      box.innerHTML = `<span class="gl ${st[1] ? 'on' : 'off'}">${icon('star')}${icon('heart')}</span><span class="gl ${st[2] ? 'on' : 'off'}${g3.id === 'time' && st[2] && left <= 20 ? ' hurry' : ''}">${icon('star')}${icon(g3.id === 'towers' ? 'cannon' : 'hourglass')}<b>${txt}</b></span>`;
+      // un toucher sur une pastille rappelle l'objectif en clair
+      if (!box._tap) { box._tap = true; box.addEventListener('click', (e) => { const q = e.target.closest('.gl'), gg = this.game; if (!q || !gg || !gg.goals) return; const i = +q.dataset.i, ok = gg.goalState()[i]; this.toast(gg.goals[i].text, ok ? 'En bonne voie' : 'Étoile manquée pour cette partie', icon('star')); this.audio.play('tick'); }); }
+      box.innerHTML = `<span class="gl ${st[1] ? 'on' : 'off'}" data-i="1">${icon('star')}${icon('heart')}</span><span class="gl ${st[2] ? 'on' : 'off'}${g3.id === 'time' && st[2] && left <= 20 ? ' hurry' : ''}" data-i="2">${icon('star')}${icon(g3.id === 'towers' ? 'cannon' : 'hourglass')}<b>${txt}</b></span>`;
     });
     // objectif perdu : petit message, une seule fois
     for (const i of [1, 2]) if (!st[i] && !g['_goalLost' + i] && !g.over) { g['_goalLost' + i] = true; this.toast('Étoile manquée', g.goals[i].text, icon('star')); }
@@ -626,12 +642,26 @@ export class UI {
     box.hidden = false; box.innerHTML = `<span>${step.text}</span>`;
     const skip = el('button', '', 'Passer'); skip.onclick = () => this.endTutorial(); box.append(skip);
     const ring = el('i', 'tut-ring'); box.append(ring);
-    // le bandeau se place en bas quand la cible est dans le haut de l'écran : il ne recouvre jamais ce qu'il montre
-    const sg = $('#screen-game').getBoundingClientRect();
-    box.classList.toggle('low', r.top - sg.top < sg.height * 0.42);
+    // bulle collée à sa cible (au-dessus, sinon au-dessous), jamais sur le HUD, les objectifs, un panneau ouvert
+    // ou la carte d'une nouvelle arme ; une petite flèche la relie à la cible
+    const sg = $('#screen-game').getBoundingClientRect(), hudB = $('#hud').getBoundingClientRect().bottom, inDock = !!target.closest && !!target.closest('#dock');
+    box.style.left = '0px'; box.style.top = '0px'; box.className = 'placed';
+    const bw = box.offsetWidth, bh = box.offsetHeight, cx = r.left + r.width / 2, rr = Math.max(r.width, r.height) / 2 + 14;
+    const avoid = $$('#radial .upp, #radial .info, .tower-tip, #goals:not([hidden])').map((e) => e.getBoundingClientRect()).filter((q) => q.width);
+    const x = Math.max(sg.left + 10, Math.min(sg.right - bw - 10, cx - bw / 2)), low = inDock ? sg.bottom : $('#dock').getBoundingClientRect().top;
+    const cands = [['up', r.top + r.height / 2 - rr - 12 - bh], ['down', r.top + r.height / 2 + rr + 12]].map(([side, y]) => {
+      let score = y < hudB + 4 || y + bh > low - 4 ? 1000 : 0;
+      for (const q of avoid) if (x < q.right && x + bw > q.left && y < q.bottom && y + bh > q.top) score += 500;
+      return { side, y, score: score + (side === 'up' ? 0 : 1) };
+    }).sort((a, b) => a.score - b.score);
+    const c = cands[0];
+    box.classList.add(c.side === 'up' ? 'above' : 'below');
+    box.style.left = x - sg.left + 'px'; box.style.top = c.y - sg.top + 'px';
+    box.style.setProperty('--ax', Math.max(22, Math.min(bw - 22, cx - x)) + 'px');
     const host = box.getBoundingClientRect();
     ring.style.left = r.left + r.width / 2 - host.left + 'px'; ring.style.top = r.top + r.height / 2 - host.top + 'px';
-    ring.style.setProperty('--d', Math.max(58, Math.min(110, Math.max(r.width, r.height) + 16)) + 'px');
+    const round = Math.abs(r.width - r.height) < 12, rw = round ? Math.max(58, Math.min(110, Math.max(r.width, r.height) + 16)) : r.width + 14, rh = round ? rw : r.height + 14;
+    Object.assign(ring.style, { width: rw + 'px', height: rh + 'px', margin: `${-rh / 2}px 0 0 ${-rw / 2}px`, borderRadius: round ? '50%' : Math.min(rh / 2, 22) + 'px' });
   }
   endTutorial() { this.tutStep = -1; $('#tutorial').hidden = true; this.save.data.settings.tutorialDone = true; this.save.persist(); }
 

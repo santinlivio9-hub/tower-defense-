@@ -1887,3 +1887,14 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 @media (orientation: landscape) and (max-height: 599px) and (pointer: coarse) {
   #rotate { display: grid; }
 }
+
+/* ============================================================= tutoriel : bulle collée à sa cible, avec une flèche */
+#tutorial.placed { left: 0; top: 0; bottom: auto; transform: none; max-width: min(340px, calc(100% - 20px)); animation: tut-in .25s cubic-bezier(.3, 1.6, .5, 1); }
+#tutorial.placed::after { content: ""; position: absolute; left: var(--ax, 50%); width: 14px; height: 14px; margin-left: -7px; background: #fff; transform: rotate(45deg); }
+#tutorial.above::after { bottom: -6px; } #tutorial.below::after { top: -6px; }
+#tutorial button { color: var(--ink); background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); }
+@keyframes tut-in { from { opacity: 0; transform: scale(.85); } }
+.tower-tip .tt-d { display: block; }
+.es-newgun { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; font-size: 15px; font-weight: 700; color: var(--gold); text-shadow: 0 2px 0 var(--ink); animation: pulse 1.2s ease-in-out infinite; }
+.es-newgun .ico { width: 18px; height: 18px; }
+#goals .gl { pointer-events: auto; cursor: pointer; position: relative; } #goals .gl::after { content: ""; position: absolute; inset: -9px -3px; }

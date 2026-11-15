@@ -39,10 +39,12 @@ const N = +(process.argv[2] || 3), OUT = process.argv[3], URL = 'http://localhos
     }
     if (OUT) await p.screenshot({ path: `${OUT}/chain-${k}.png` });
     console.log('niveau', k, ok ? 'ÉCRAN DE FIN OK' : 'BLOQUÉ');
-    if (!ok) break;
+    if (!ok) { errs.push('niveau ' + k + ' bloqué'); break; }
     const nx = await p.$('.es-main .btn');
     console.log('  bouton :', await nx.innerText());
     await nx.click({ force: true }); await p.waitForTimeout(700);
+    // nouvelle arme : présentée en quittant l'écran de victoire
+    for (let i = 0; i < 4 && await p.$('#overlay.show .reveal .cta'); i++) { await p.waitForTimeout(1500); await p.click('#overlay.show .reveal .cta', { force: true }); await p.waitForTimeout(500); }
   }
   const logged = await p.evaluate(() => window.__errors || []); for (const e of logged) { errs.push(e); console.log('OUPS', e); }
   console.log(errs.length ? `${errs.length} erreur(s)` : `OK : ${N} niveaux enchaînés, écran de victoire à chaque fois, aucune erreur`);

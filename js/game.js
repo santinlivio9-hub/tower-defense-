@@ -221,9 +221,12 @@ export class Game {
     this.addMoney(reward);
     this.stats.kills++; this.stats.cost += e.boss ? 60 : e.cfg.cost; if (tower) tower.kills++;
     const fx = this.fx;
-    fx.burst(e.x, e.y, '#ffffff', 6, 160, 5);
-    fx.slime(e.x, e.y, JUICE.slime[e.boss ? 'boss' : e.type] || JUICE.slime.basic, e.boss ? 40 : 10 + Math.min(10, Math.round(e.r * 0.35)), e.boss ? 520 : 240);
-    fx.confetti(e.x, e.y, e.boss ? 90 : 6, e.boss ? 480 : 200);
+    // beaucoup de morts en même temps : moins de particules par mort (lisibilité et fluidité)
+    this.killHeat = (this.killHeat || 0) * Math.exp(-(this.time - (this.killHeatT || 0)) * JUICE.crowdDecay) + 1; this.killHeatT = this.time;
+    const lite = !e.boss && this.killHeat > JUICE.crowdKills, k = lite ? JUICE.crowdFx : 1;
+    fx.burst(e.x, e.y, '#ffffff', Math.round(6 * k), 160, 5);
+    fx.slime(e.x, e.y, JUICE.slime[e.boss ? 'boss' : e.type] || JUICE.slime.basic, e.boss ? 40 : Math.round((10 + Math.min(10, Math.round(e.r * 0.35))) * k), e.boss ? 520 : 240);
+    if (!lite) fx.confetti(e.x, e.y, e.boss ? 90 : 6, e.boss ? 480 : 200);
     this.chainKill(e);
     if (e.elite || e.boss) this.hitStop(e.boss && !e.mini ? 0.09 : JUICE.hitStop);
     fx.ring(e.x, e.y, e.r * 0.5, e.r * 2.2, '#fff', 0.25, 4);

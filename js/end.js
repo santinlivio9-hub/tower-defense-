@@ -51,7 +51,7 @@ export const End = {
   },
   showEndSeq(r, g) {
     this.closeMenu(); this.aiming = null;
-    if (r.towers && r.towers.length && !r._introDone) { r._introDone = true; this.weaponReveal(r.towers, () => this.showEnd(r)); return; }
+    // la victoire d'abord (étoiles, récompenses) ; les nouvelles armes sont présentées quand on quitte l'écran de fin
     { // résultat toujours complet, même si l'écriture de la progression a été interrompue
       const d0 = this.save.data;
       r.gems = r.gems || 0; r.coins = r.coins || 0; r.xp = r.xp || 0; r.score = r.score || 0; r.stars = r.stars || 0;
@@ -301,6 +301,11 @@ export const End = {
     rb('chart', 'Statistiques', () => this.esStats(root, r, g, badges), 'blue');
     rb('map', 'Carte', leave('world'));
     rb('home', 'Menu', leave('menu'));
+    if (r.towers && r.towers.length && !r._introDone) {
+      const nav = [...main.querySelectorAll('button'), ...[...round.querySelectorAll('.rbtn')].filter((b) => !b.classList.contains('pink') && !b.classList.contains('blue'))];
+      for (const b of nav) { const fn = b.onclick; b.onclick = (e) => { if (r._introDone) { fn(e); return; } r._introDone = true; this.weaponReveal(r.towers, () => fn(e)); }; }
+      main.prepend(el('div', 'es-newgun', `${icon('star')}Nouvelle arme débloquée !`));
+    }
     stage.replaceChildren(f);
   },
   // Détail complet (optionnel) : toutes les stats, dégâts par tourelle, déblocages
