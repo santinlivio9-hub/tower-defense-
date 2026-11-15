@@ -1,6 +1,6 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
-import { GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, abilityDef } from './config.js';
+import { HUD_FX, GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, abilityDef } from './config.js';
 import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -416,9 +416,35 @@ export const Hub = {
   },
 
   // ------------------------------------------------------------------ en partie : capacités (et boosts) en bas de l'écran
+  // Rangée du bas : HUD_FX.dockMax boutons au plus de chaque côté. Au-delà, le dernier devient une pile : un toucher
+  // ouvre un éventail avec les autres (ils restent de vrais boutons, mis à jour comme les autres).
+  dockFit(box, btns, kind) {
+    const max = HUD_FX.dockMax;
+    if (btns.length <= max) { box.append(...btns); return; }
+    box.append(...btns.slice(0, max - 1));
+    const rest = btns.slice(max - 1), wrap = el('div', 'pile-wrap k-' + kind), fan = el('div', 'fan');
+    const face = rest[0].querySelector('.ico');
+    const pile = el('button', 'pile', `<span class="pl-card"></span><span class="pl-card"></span><span class="pl-face">${face ? face.outerHTML : ''}</span><b class="pl-n">+${rest.length}</b>`);
+    pile.setAttribute('aria-label', (kind === 'ab' ? 'Autres capacités' : 'Autres boosts') + ` (${rest.length})`);
+    pile.onclick = () => { const on = !wrap.classList.contains('open'); $$('.pile-wrap.open').forEach((w) => w.classList.toggle('open', false)); wrap.classList.toggle('open', on); this.audio.play('tick'); this.haptics.pulse(0); };
+    for (const b of rest) { const f = b.onclick; b.onclick = (e) => { wrap.classList.toggle('open', false); if (f) f.call(b, e); }; fan.append(b); }
+    wrap.append(fan, pile); box.append(wrap);
+    if (!this._fanClose) {
+      this._fanClose = true;
+      document.addEventListener('pointerdown', (e) => { if (!e.target.closest || !e.target.closest('.pile-wrap')) $$('.pile-wrap.open').forEach((w) => w.classList.toggle('open', false)); }, true);
+    }
+  },
+  // la pile s'allume quand un bouton caché est prêt (capacité rechargée, boost au bon moment, boost ramassé)
+  updatePiles() {
+    for (const w of $$('#dock .pile-wrap')) {
+      const hot = !!w.querySelector('.fan .ab.ready, .fan .bo.good, .fan .bo.free:not(.used)');
+      if (w._hot !== hot) { w._hot = hot; w.classList.toggle('hot', hot); }
+    }
+  },
   buildDock() {
     const g = this.game, ab = $('#abilities'), bo = $('#boosts');
     ab.innerHTML = ''; bo.innerHTML = '';
+    const abs = [];
     g.abilities.forEach((a) => {
       const C = abilityDef(a.id);
       const b = el('button', 'ab', `<i class="gauge"></i>${icon(C.icon)}<span class="cd"></span>`);
@@ -429,8 +455,9 @@ export const Hub = {
         if (a.id === 'air') { this.aiming = this.aiming === 'air' ? null : 'air'; this.closeMenu(); this.audio.play('tick'); }
         else if (g.useAbility(a.id)) this.haptics.pulse(2);
       };
-      ab.append(b);
+      abs.push(b);
     });
+    this.dockFit(ab, abs, 'ab');
     if (this.buildBoosts) this.buildBoosts(bo);
     this.cache.dock = null; this.resize();
   },
@@ -445,5 +472,6 @@ export const Hub = {
     const hint = $('#aim-hint'); const on = !!this.aiming && !g.over;
     if (hint.hidden === on) hint.hidden = !on;
     if (this.updateBoosts) this.updateBoosts();
+    this.updatePiles();
   },
 };

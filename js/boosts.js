@@ -42,10 +42,10 @@ export const BoostUI = {
     const g = this.game; this._boostSig = g.boosts.map((b) => b.id + (b.free ? '*' : '')).join() + '|' + (g.wave > 0);
     const n = this.save.boostSlots(g.level), canEdit = g.wave === 0 && !g.endlessLocked;
     bo.innerHTML = '';
-    const slots = [...g.boosts];
+    const slots = [...g.boosts], btns = [];
     if (canEdit) while (slots.length < n) slots.push(null);
     slots.forEach((b, i) => {
-      if (!b) { const e = el('button', 'bo empty', icon('plus')); e.onclick = () => this.openBoostPicker(i); bo.append(e); return; }
+      if (!b) { const e = el('button', 'bo empty', icon('plus')); e.onclick = () => this.openBoostPicker(i); e.dataset.slot = i; btns.push(e); return; }
       const C = BOOSTS[b.id], btn = el('button', 'bo' + (b.free ? ' free' : ''), `<span class="shine"></span>${icon(C.icon)}<span class="n"></span>${canEdit && !b.free ? '<i class="edit">' + icon('restart') + '</i>' : ''}`);
       btn.style.setProperty('--bc', C.color); btn.dataset.i = i; btn.setAttribute('aria-label', C.name);
       btn.onclick = () => {
@@ -55,9 +55,11 @@ export const BoostUI = {
         if (b.used) { this.audio.play('error'); return; }
         this.fireBoost(i, btn);
       };
-      bo.append(btn);
+      btns.push(btn);
     });
-    $('#dock').classList.toggle('tight', bo.children.length >= 5);
+    // un boost ramassé et pas encore utilisé reste toujours visible (jamais caché dans la pile)
+    const fresh = (e) => (e.classList.contains('free') ? 0 : 1);
+    this.dockFit(bo, btns.map((e, k) => [e, k]).sort((a, b) => fresh(a[0]) - fresh(b[0]) || a[1] - b[1]).map((q) => q[0]), 'bo');
   },
   fireBoost(i, btn) {
     const g = this.game; if (!g.useBoost(i)) return;
