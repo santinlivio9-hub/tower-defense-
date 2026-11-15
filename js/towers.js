@@ -1,5 +1,6 @@
 // Tourelles : stats, améliorations, ciblage, tir, dessin.
-import { TOWERS, TOWER_VISUAL, GAME, RARITY, BOOSTS } from './config.js';
+import { TOWERS, TOWER_VISUAL, GAME, RARITY, BOOSTS, REBIRTH, SHOP } from './config.js';
+const AURA = Object.fromEntries(SHOP.skins.filter((k) => k.aura).map((k) => [k.id, k.aura]));
 import { towerSprite, skinFinish } from './sprites.js';
 import { Rocket, Plasma } from './projectiles.js';
 
@@ -15,14 +16,17 @@ function applyMods(s, mods) {
   }
 }
 
+// Branche d'amélioration : 0 et 1 = branches normales, 2 = Mk II (boutique de Renaissance)
+export const branchDef = (type, i) => (i === 2 ? REBIRTH.mk2[type] : TOWERS[type].branches[i]);
 // Stats finales d'une tourelle pour un niveau / une branche donnés. m = effets des talents (save.mods()).
 export function computeStats(type, level, branch, m = {}) {
   const cfg = TOWERS[type];
   const s = { crit: GAME.critChance, critMult: GAME.critMult, barrels: 1, ...cfg.base };
   for (let l = 2; l <= Math.min(level, 3); l++) applyMods(s, cfg.upgrades[l - 2]);
   if (level >= 4 && branch != null) {
-    applyMods(s, cfg.branches[branch].mods);
-    if (level >= 5) applyMods(s, cfg.branches[branch].master.mods);
+    const br = branchDef(type, branch);
+    applyMods(s, br.mods);
+    if (level >= 5) applyMods(s, br.master.mods);
   }
   s.damage *= m.damage || 1; if (s.burn) s.burn *= m.damage || 1;
   s.rate *= m.rate || 1; if (s.minRate) s.minRate *= m.rate || 1;
@@ -59,16 +63,16 @@ export class Tower {
   get sellValue() { return Math.floor(this.invested * GAME.sellRatio); }
   get rangeShown() { return this.type === 'mine' ? this.stats.splash : this.type === 'drone' ? this.stats.patrol + this.stats.range * 0.5 : this.stats.range; }
   get label() {
-    if (this.level >= 5) return this.cfg.branches[this.branch].master.name;
-    if (this.level >= 4) return this.cfg.branches[this.branch].name;
+    if (this.level >= 5) return branchDef(this.type, this.branch).master.name;
+    if (this.level >= 4) return branchDef(this.type, this.branch).name;
     return this.cfg.name;
   }
 
   upgradeOptions() {
     const c = this.cfg;
     if (this.level < 3) return [{ kind: 'level', name: 'Niveau ' + (this.level + 1), desc: 'Dégâts, cadence et portée améliorés.', cost: c.upgrades[this.level - 1].cost, level: this.level + 1, branch: null }];
-    if (this.level === 3) return c.branches.map((b, i) => ({ kind: 'branch', name: b.name, desc: b.desc, cost: b.cost, level: 4, branch: i }));
-    if (this.level === 4) { const m = c.branches[this.branch].master; return [{ kind: 'master', name: m.name, desc: m.desc, cost: m.cost, level: 5, branch: this.branch, locked: this.legendLocked }]; }
+    if (this.level === 3) { const bs = [...c.branches]; if (REBIRTH.mk2[this.type] && this.game.save.owns('mk2_' + this.type)) bs.push(REBIRTH.mk2[this.type]); return bs.map((b, i) => ({ kind: 'branch', name: b.name, desc: b.desc, cost: b.cost, level: 4, branch: i, mk2: i === 2 })); }
+    if (this.level === 4) { const m = branchDef(this.type, this.branch).master; return [{ kind: 'master', name: m.name, desc: m.desc, cost: m.cost, level: 5, branch: this.branch, locked: this.legendLocked }]; }
     return [];
   }
 
@@ -174,7 +178,17 @@ export class Tower {
         if (e.dead) continue;
         const { dmg, crit } = this.roll(e);
         this.onHit(game, e, this.angle);
+        const ex0 = e.x, ey0 = e.y;
         game.damage(e, dmg, this, { crit, ignoreArmor: s.ignoreArmor });
+        if (s.blast) game.explode(ex0, ey0, s.blast, dmg * 0.5, this, { mini: true });   // Mk II : munitions explosives
+        if (s.ricochet) { // Mk II : la balle rebondit sur les ennemis proches
+          let from = { x: ex0, y: ey0 }; const done = new Set([e]);
+          for (let k = 0; k < s.ricochet; k++) {
+            let nx = null, nd = 95; for (const o of game.enemies) { if (o.dead || o.hidden || done.has(o)) continue; const dd = Math.hypot(o.x - from.x, o.y - from.y); if (dd < nd) { nd = dd; nx = o; } }
+            if (!nx) break; done.add(nx); game.fx.tracer(from.x, from.y, nx.x, nx.y, '#d6b3ff', 2, 0.1); from = { x: nx.x, y: nx.y };
+            game.damage(nx, dmg * s.ricochetPct, this, { ignoreArmor: s.ignoreArmor });
+          }
+        }
       }
       game.fx.tracer(m.x, m.y, ex, ey, big ? '#ffffff' : s.burn ? '#ffb347' : '#fff3b0', big ? 4 : 2.5, big ? 0.16 : 0.08);
       game.fx.shell(this.x, this.y, this.angle);
@@ -190,7 +204,8 @@ export class Tower {
     const knocked = new Set();
     for (let i = 0; i < s.pellets; i++) {
       const a = this.angle + (Math.random() - 0.5) * s.spread;
-      const e = game.lineHits(m.x, m.y, a, s.range + 15, 1)[0];
+      const hits = game.lineHits(m.x, m.y, a, s.range + 15, 1 + (s.pierce || 0)), e = hits[0];   // Mk II : fléchettes qui traversent
+      for (const o of hits.slice(1)) { const r = this.roll(o); game.damage(o, r.dmg * 0.8, this, { ignoreArmor: s.ignoreArmor, group: true }); }
       let len = s.range + 15;
       if (e) {
         len = Math.hypot(e.x - m.x, e.y - m.y);
@@ -237,7 +252,7 @@ export class Tower {
     }
     const pts = [{ x: this.x, y: this.y - 8 }];
     hit.forEach((e, i) => {
-      const r = this.roll(e); if (s.stun) e.stun(s.stun);
+      const r = this.roll(e); if (s.stun) e.stun(s.stun); if (s.slowZap) e.applySlow(s.slowZap, 1.5);
       game.damage(e, r.dmg * Math.pow(s.falloff, i) * (dmg / s.damage), this, { crit: r.crit, group: true });
       pts.push({ x: e.x, y: e.y });
     });
@@ -289,6 +304,12 @@ export class Tower {
     const sp = towerSprite(this.type, this.level, this.branch, skinFinish(skin));
     const pop = 1 + Math.sin(this.lvlAnim * Math.PI) * 0.55 + this.spawnAnim * 0.35, jump = Math.sin(this.lvlAnim * Math.PI) * 18;
     const h = sp.half, gold = this.level >= 5;
+    if (AURA[skin] && this.type !== 'mine') { // skin de Renaissance : aura qui tourne autour du socle
+      const col = AURA[skin], k = (this.t * 0.7) % 1;
+      c.save(); c.translate(this.x, this.y); c.globalAlpha = 0.45 * (1 - k); c.strokeStyle = col; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, 30 + k * 26, 0, TAU); c.stroke();
+      c.globalAlpha = 0.85; c.fillStyle = col; for (let i = 0; i < 3; i++) { const a = this.t * 2 + (i * TAU) / 3; c.beginPath(); c.arc(Math.cos(a) * 36, Math.sin(a) * 30, 3.5, 0, TAU); c.fill(); }
+      c.restore(); c.globalAlpha = 1;
+    }
     c.save(); c.translate(this.x, this.y - jump);
     if (gold) { // halo légendaire
       const g = c.createRadialGradient(0, 0, 14, 0, 0, 52 + Math.sin(this.t * 3) * 4); g.addColorStop(0, 'rgba(255,210,63,.6)'); g.addColorStop(1, 'rgba(255,210,63,0)');

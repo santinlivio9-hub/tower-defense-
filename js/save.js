@@ -1,6 +1,6 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { PER_WORLD, TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { REBIRTH, PER_WORLD, TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 import { setTierCap } from './castle.js';
 
@@ -24,12 +24,13 @@ const defaults = () => ({
   viewed: { enemies: 0, towers: 0 },   // fiches de collection déjà consultées (badge « nouveau »)
   avatar: 1,             // niveau où se trouve l'avatar sur la carte du monde
   build: null,
+  rebirth: { rank: 0, shards: 0, owned: [], history: [] },   // Renaissance : rang, éclats, achats de la boutique d'éclats
   starChests: {}, hintTowers: [], placedTypes: [], castleFree: 0, pendingWorld: null, skinShown: [],
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
   legacyStars: 0, notice: null,
   achievements: [],
-  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0 },
+  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0, rebirths: 0 },
   settings: { muted: false, sfxVol: 0.7, musicVol: 0.6, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
 });
 
@@ -65,7 +66,8 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth']) d[k] = { ...def[k], ...raw[k] };
+    if (!Array.isArray(d.rebirth.owned)) d.rebirth.owned = []; if (!Array.isArray(d.rebirth.history)) d.rebirth.history = []; for (const k of ['rank', 'shards']) if (!Number.isFinite(d.rebirth[k]) || d.rebirth[k] < 0) d.rebirth[k] = 0;
     this.normSettings(raw.settings);
     if ((raw.lpw || 6) !== PER_WORLD) this.relayout(raw.lpw || 6);
     if (!raw.placedTypes && (raw.stats || {}).towersBuilt > 0) d.placedTypes = [...(raw.towers || [])];
@@ -159,7 +161,7 @@ export class Save {
   totalStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0) + (this.data.legacyStars || 0); }
   campaignStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0); }
   bestScore() { return this.data.stats.bestScore || 0; }
-  endlessUnlocked() { return this.progress() >= CAMPAIGN.endlessAfter; }
+  endlessUnlocked() { return this.progress() >= CAMPAIGN.endlessAfter || this.rank() > 0; }
   addEndless(entry) { const e = this.data.endless; e.push(entry); e.sort((a, b) => b.score - a.score); e.length = Math.min(e.length, 10); return e.indexOf(entry); }
   towerUnlocked(t) { return this.data.towers.includes(t); }
   // Tourelles offertes par la progression ; renvoie celles qui viennent d'être débloquées
@@ -173,7 +175,7 @@ export class Save {
   }
   grantTowers() { return this.grantUnlocks().towers; }
   // amélioration légendaire (5e niveau) disponible pour cette tourelle ?
-  legendOk(t) { return this.progress() >= (UNLOCKS.legend[t] || 1) - 1; }
+  legendOk(t) { return this.progress() >= (UNLOCKS.legend[t] || 1) - 1 || this.rank() > 0; }
   // coffres d'étoiles d'un monde : étoiles, paliers prêts / déjà pris
   worldStars(wi) { return LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + ((this.data.levels[l.n] || {}).stars || 0), 0); }
   starChests(wi) { const got = this.data.starChests[wi] || [], st = this.worldStars(wi); return STAR_CHESTS.map(([need, chest], k) => ({ k, need, chest, got: got.includes(k), ready: st >= need && !got.includes(k) })); }
@@ -220,12 +222,46 @@ export class Save {
   mods() {
     const v = (b, id) => { const n = TALENTS[b].nodes.find((x) => x.id === id); return this.talent(id) * n.per; };
     return {
-      damage: 1 + v('attack', 'dmg'), rate: 1 + v('attack', 'rate'), range: 1 + v('attack', 'range'), crit: v('attack', 'crit'),
-      startMoney: v('economy', 'start'), coinMult: 1 + v('economy', 'kill'), waveBonus: 1 + v('economy', 'wave'), gemMult: 1 + v('economy', 'gems'),
+      damage: (1 + v('attack', 'dmg')) * (1 + REBIRTH.damagePerRank * this.rank()), rate: 1 + v('attack', 'rate'), range: 1 + v('attack', 'range'), crit: v('attack', 'crit'),
+      startMoney: v('economy', 'start'), coinMult: (1 + v('economy', 'kill')) * (1 + REBIRTH.coinsPerRank * this.rank()), waveBonus: 1 + v('economy', 'wave'), gemMult: 1 + v('economy', 'gems'),
       lives: v('castle', 'lives'), cdMult: 1 - v('castle', 'cd'), durMult: 1 + v('castle', 'dur'), slots: v('castle', 'slot'),
     };
   }
-  boostSlots(level) { return (level.boss ? BOOST_SLOTS.boss : BOOST_SLOTS.normal) + this.mods().slots; }
+  boostSlots(level) { return (level.boss ? BOOST_SLOTS.boss : BOOST_SLOTS.normal) + this.mods().slots + (this.owns('slot') ? 1 : 0); }
+
+  // ------------------------------------------------------------- Renaissance
+  rank() { return (this.data.rebirth && this.data.rebirth.rank) || 0; }
+  owns(id) { return !!this.data.rebirth && this.data.rebirth.owned.includes(id); }
+  rebirthReady() { return this.progress() >= LEVELS.length; }
+  // gains d'une Renaissance faite maintenant : éclats selon les étoiles et les défis héroïques réussis
+  rebirthGain() {
+    const lv = Object.values(this.data.levels), stars = lv.reduce((s, l) => s + (l.stars || 0), 0), hero = lv.filter((l) => l.heroic).length;
+    return { stars, hero, shards: REBIRTH.shardsBase + stars * REBIRTH.shardsPerStar + hero * REBIRTH.shardsPerHeroic, rank: this.rank() + 1 };
+  }
+  // multiplicateur des gains de fin de niveau (brainrots mutés)
+  rewardMult() { return 1 + REBIRTH.rewardPerRank * this.rank(); }
+  // remise à zéro : campagne, château, talents (points rendus), pièces ; tout le reste est gardé
+  doRebirth() {
+    if (!this.rebirthReady()) return null;
+    const d = this.data, def = defaults(), g = this.rebirthGain(), R = d.rebirth;
+    const spent = Object.values(d.talents || {}).reduce((a, b) => a + (b || 0), 0);
+    R.history.push({ rank: g.rank, stars: g.stars, hero: g.hero, shards: g.shards, t: Date.now() });
+    R.rank = g.rank; R.shards += g.shards;
+    d.levels = {}; d.starChests = {}; d.avatar = 1; d.pendingWorld = null;
+    d.castle = { ...def.castle }; d.build = null; d.castleFree = 0;
+    d.talents = {}; d.talentPts = (d.talentPts || 0) + spent;
+    d.coins = COINS.start; d.hintTowers = [];
+    d.stats.rebirths = (d.stats.rebirths || 0) + 1;
+    this.syncTierCap(); this.persist();
+    return { ...g, talentsBack: spent };
+  }
+  buyRebirth(id) {
+    const it = REBIRTH.shop.find((x) => x.id === id), R = this.data.rebirth;
+    if (!it || R.owned.includes(id) || R.shards < it.cost) return false;
+    R.shards -= it.cost; R.owned.push(id);
+    if (it.kind === 'skin' && !this.data.skins.includes(it.skin)) this.data.skins.push(it.skin);
+    this.persist(); return true;
+  }
 
   // ------------------------------------------------------------- XP et récompenses
   // Ajoute de l'XP ; renvoie la liste des niveaux gagnés [{ level, reward, text }] (récompenses déjà appliquées)

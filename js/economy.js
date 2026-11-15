@@ -21,5 +21,6 @@ export function levelRewards(o) {
   if (o.hero) xp *= HEROIC.xpMult;
   else if (prev >= 3 && !o.endless && !o.challenge) xp *= XP.replay3;   // replay d'un niveau déjà en 3 étoiles
   const pass = Math.round(xp * PASS.xpShare) + (win && !o.challenge && !o.endless ? newStars * PASS.perStar : 0);
-  return { gems: Math.round(gems * (o.gemMult || 1)), coins: Math.round(coins), xp: Math.round(xp), pass, firstClear, firstThree, newStars, talent: win && o.hero && firstClear ? 1 : 0 };
+  const rb = o.rebirthMult || 1;   // Renaissance : brainrots mutés, gains multipliés
+  return { gems: Math.round(gems * (o.gemMult || 1) * rb), coins: Math.round(coins * rb), xp: Math.round(xp * rb), pass, firstClear, firstThree, newStars, talent: win && o.hero && firstClear ? 1 : 0 };
 }

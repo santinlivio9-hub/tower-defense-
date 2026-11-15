@@ -12,6 +12,7 @@ import { BoostUI } from './boosts.js';
 import { Music } from './music.js';
 import { Daily } from './daily.js';
 import { Radial } from './radial.js';
+import { Rebirth } from './rebirth.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { waveSummary, levelEnemies } from './waves.js';
@@ -126,6 +127,7 @@ export class UI {
       const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"><i class="pad"></i></span><b>${s.name}</b>`);
       $('.cc-art', card).append(towerImg('assault', 84, s.id, 4, 0));   // aperçu sur une vraie tourelle, posée sur son socle
       if (on) card.append(owned('Équipé'));
+      else if (s.rebirth && !has) { card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('shard')}Renaissance`)); }
       else if (s.exclusive && !has) { const n = UNLOCKS.skins[s.id]; card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('lock')}Boss ${LEVELS[n - 2].id}`)); }
       else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id, d.towers); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
       else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id, d.towers); }));
@@ -182,7 +184,7 @@ export class UI {
   // Boîte de confirmation dans le style du jeu (remplace confirm() du navigateur)
   ask(title, text, okLabel, onOk, cls = 'primary') {
     const m = el('div', 'panel glass ask', `<h2 class="lose"></h2><p class="sub"></p>`);
-    $('h2', m).textContent = title; $('.sub', m).textContent = text;
+    $('h2', m).textContent = title.replace(/ ([?!:])/g, '\u00a0$1'); $('.sub', m).textContent = text;
     const row = el('div', 'btn-row');
     const no = el('button', 'btn ghost', 'Annuler'); no.onclick = () => this.closeOverlay();
     const ok = el('button', 'btn ' + cls, okLabel); ok.onclick = () => { this.closeOverlay(); onOk(); };
@@ -248,6 +250,7 @@ export class UI {
     this.show('game');
     this.tutStep = this.save.data.settings.tutorialDone ? -1 : 0; this.cache.tut = null;
     if (g.mech) this.toast(g.mech.name, g.mech.desc, icon(MECH_ICON[g.mech.kind] || 'bolt'));
+    if (g.mutant) this.toast(`Brainrots mutés (rang ${['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][g.mutant] || g.mutant})`, `Plus résistants, mais gains x${this.save.rewardMult()}`, icon('rebirth'));
     if (g.heroic) this.toast('Défi héroïque : ' + g.heroic.name, g.heroic.desc, icon('crown'));
     if (g.challenge) this.toast('Défi du jour : ' + g.challenge.name, g.challenge.desc, icon('target'));
     window.__game = g; // pratique pour le débogage / l'équilibrage en console
@@ -637,4 +640,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal, Radial);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal, Radial, Rebirth);
