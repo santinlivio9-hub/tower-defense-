@@ -364,6 +364,7 @@ WORLDS.forEach((w, wi) => {
 // Défi « Héroïque » : débloqué en terminant un niveau. Une contrainte par niveau (à tour de rôle) + ennemis plus résistants.
 export const HEROIC = {
   hp: 1.25, gemsMult: 2, xpMult: 2, scoreMult: 1.5,
+  coinsMult: 1,   // pièces d'un défi héroïque : comme un niveau normal (le château est déjà au maximum à ce stade)
   mods: [
     { id: 'limit', name: 'Effectif réduit',    desc: '6 tourelles maximum (hors mines)', towerLimit: 6 },
     { id: 'fast',  name: 'Ruée',               desc: 'Ennemis 25 % plus rapides', speed: 1.25 },
@@ -415,6 +416,10 @@ export const BOOSTS = {
   revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40, cur: 'gems', rarity: 4 },
 };
 export const BOOST_ORDER = ['coins2', 'heal', 'free', 'over', 'shield', 'revive'];
+// Prix en pièces des boosts selon le monde atteint (les gains en pièces grandissent avec les mondes) :
+// prix de base x (1 + perWorld x (monde - 1)), arrondi à 10. Les boosts en gemmes ne changent pas.
+export const BOOST_PRICE = { perWorld: 0.5 };
+export const boostCost = (id, world = 1) => { const b = BOOSTS[id]; return (b.cur || 'gems') === 'coins' ? Math.round((b.cost * (1 + BOOST_PRICE.perWorld * (Math.max(1, world) - 1))) / 10) * 10 : b.cost; };
 export const BOOST_SLOTS = { normal: 3, boss: 3 };   // emplacements rapides en partie (+ talent « Sacoche »)
 // Bulles de boost lâchées par les brainrots (à toucher) et mise en scène des activations
 export const DROPS = {
@@ -558,6 +563,7 @@ export const RADIAL = {
 // ----------------------------------------------------------------------------
 export const REBIRTH = {
   shardsBase: 20, shardsPerStar: 1, shardsPerHeroic: 3,   // éclats gagnés : base + étoiles + défis héroïques réussis
+  coinsPerShard: 250,                                      // + les pièces restantes, converties : 1 éclat par 250 pièces
   coinsPerRank: 0.10, damagePerRank: 0.05,                 // bonus permanents par rang
   hpPerRank: 0.30, speedPerRank: 0.03, regenPerRank: 0.004, // mutation : PV, vitesse, régénération (part des PV max / s)
   rewardPerRank: 0.5,                                      // gains de fin de niveau (pièces, gemmes, XP) x (1 + 0.5 x rang)

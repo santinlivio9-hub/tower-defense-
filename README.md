@@ -204,6 +204,13 @@ Les chances de victoire sont calées sur le robot de `tools/simulate.cjs` : il g
 investissement moyen (château et talents, de 0 à 5) égal à w - 1, et il lui faut le maximum dans les mondes
 futuristes. Repères visés : campagne complète (80 niveaux) en 4 à 6 semaines ; le château plafonne vers la fin de
 la campagne, les talents se complètent ensuite.
+Le joueur simulé utilise un boost sur les niveaux difficiles (deux sur un boss ou un défi héroïque) et rachète en
+pièces ceux qui lui manquent. Variante `node tools/progression.cjs 50 3 1 renaissance` : il renaît 2 jours après
+avoir battu le dernier boss.
+
+Pièces en fin de campagne : une fois le château au maximum, elles servent à la Renaissance, qui les convertit en
+éclats (`REBIRTH.coinsPerShard`, 1 éclat pour 250 pièces). Le prix des boosts en pièces suit le monde atteint
+(`BOOST_PRICE`), et les défis héroïques rapportent les mêmes pièces qu'un niveau normal (`HEROIC.coinsMult`).
 
 `tools/audit.cjs` vérifie tous les écrans en 375, 390 et 430 px (aucun débordement horizontal, aucun texte coupé)
 et, en 390 px, la lisibilité : texte ≥ 14 px (13 px en gras pour les labels), zones tactiles ≥ 44 px, contraste
@@ -221,6 +228,8 @@ WCAG AA sur fond uni, contour foncé sur les textes posés sur un décor. Il enr
   dans l'écran, et le terrain tient dans la zone jouable.
 - `node tools/chain.cjs [n]` : enchaîne n niveaux avec « Niveau suivant » dans l'interface réelle et vérifie que
   l'écran de victoire apparaît à chaque fois, sans erreur de console.
+- `node tools/rotate.cjs` : téléphone tourné en paysage pendant une partie : écran « Tourne ton téléphone », partie
+  en pause et son coupé, mise en page de portrait gardée ; au retour en portrait, la partie reprend, tout est intact.
 
 ### Mode debug d'affichage
 

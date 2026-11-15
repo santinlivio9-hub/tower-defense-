@@ -236,7 +236,8 @@ export class Save {
   // gains d'une Renaissance faite maintenant : éclats selon les étoiles et les défis héroïques réussis
   rebirthGain() {
     const lv = Object.values(this.data.levels), stars = lv.reduce((s, l) => s + (l.stars || 0), 0), hero = lv.filter((l) => l.heroic).length;
-    return { stars, hero, shards: REBIRTH.shardsBase + stars * REBIRTH.shardsPerStar + hero * REBIRTH.shardsPerHeroic, rank: this.rank() + 1 };
+    const fromCoins = Math.floor((this.data.coins || 0) / REBIRTH.coinsPerShard);
+    return { stars, hero, fromCoins, shards: REBIRTH.shardsBase + stars * REBIRTH.shardsPerStar + hero * REBIRTH.shardsPerHeroic + fromCoins, rank: this.rank() + 1 };
   }
   // multiplicateur des gains de fin de niveau (brainrots mutés)
   rewardMult() { return 1 + REBIRTH.rewardPerRank * this.rank(); }
