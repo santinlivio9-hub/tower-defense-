@@ -476,7 +476,7 @@ export class UI {
   }
   // « Oups, un bug ! » : la progression est sauvegardée, on propose de reprendre ou de revenir au menu
   crash(err, where = '') {
-    try { console.error('[Brainrot Bastion]', where, err); } catch (e) { /* ignore */ }
+    try { console.error('[Brainrot TD]', where, err); } catch (e) { /* ignore */ }
     const msg = String((err && (err.message || err.reason)) || err || 'erreur inconnue');
     if (/ResizeObserver|AbortError|NotAllowedError|Script error|play\(\) request|The operation was aborted/i.test(msg + ' ' + ((err && err.name) || ''))) return;
     (window.__errors = window.__errors || []).push(`${where} : ${msg}`);
@@ -671,10 +671,10 @@ export class UI {
   }
   async shareScore(r) {
     const g = this.game, url = location.origin + location.pathname;
-    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot Bastion (${this.levelLabel(g)}) ! Tu fais mieux ?`;
+    const text = `J'ai marqué ${fmt(r.score)} points sur Brainrot TD (${this.levelLabel(g)}) ! Tu fais mieux ?`;
     try {
-      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot Bastion', text: text + ' ' + url }); return; }
-      if (navigator.share) { await navigator.share({ title: 'Brainrot Bastion', text, url }); return; }
+      if (this.shareFile && navigator.canShare && navigator.canShare({ files: [this.shareFile] })) { await navigator.share({ files: [this.shareFile], title: 'Brainrot TD', text: text + ' ' + url }); return; }
+      if (navigator.share) { await navigator.share({ title: 'Brainrot TD', text, url }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     if (this.shareFile) { const a = document.createElement('a'); a.href = URL.createObjectURL(this.shareFile); a.download = this.shareFile.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
     try { await navigator.clipboard.writeText(text + ' ' + url); this.toast('Image enregistrée', 'Texte et lien copiés dans le presse-papier', icon('share')); }
