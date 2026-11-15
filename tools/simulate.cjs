@@ -23,13 +23,14 @@ const levels = (process.argv[2] || '1').split(',').map(Number), skill = process.
       sv.grantTowers();
       const w = Math.floor((n - 1) / 10), inv = prog != null ? +prog : w;      // inv = niveau moyen d'investissement (0..5)
       Object.assign(d.castle, { walls: Math.min(5, inv), repair: Math.min(5, inv), treasury: Math.min(5, inv), cannon: Math.min(5, inv), air: Math.min(3, inv), blizzard: Math.min(3, Math.max(0, inv - 1)), gold: Math.min(3, Math.max(0, inv - 1)) });
-      const tl = ['dmg', 'rate', 'start', 'kill', 'lives', 'cd']; for (let i = 0; i < inv * 4; i++) d.talents[tl[i % tl.length]] = Math.min(5, (d.talents[tl[i % tl.length]] || 0) + 1);
+      d.seen.enemies = Object.keys(window.__ENEMIES || {});
+      const tl = ['dmg', 'rate', 'start', 'kill', 'lives', 'cd']; for (let i = 0; i < Math.min(5, inv) * 4; i++) d.talents[tl[i % tl.length]] = Math.min(5, (d.talents[tl[i % tl.length]] || 0) + 1);
       Object.assign(d.boosts, { coins2: 3, heal: 3, free: 3, over: 3, shield: 3, revive: 3 });
       const L = ui.save.boostSlots({ boss: n % 10 === 0 });
       const carry = skill === 'boost' ? ['shield', 'over', 'revive', 'heal', 'coins2'].slice(0, L) : [];
       ui.startGame(n, false, false, carry);
       const g = __game; d.seen.enemies = Object.keys({ basic: 1, fast: 1, tank: 1, flying: 1, armored: 1, splitter: 1, healer: 1, stealth: 1, boss1: 1, boss2: 1, boss3: 1, boss4: 1, boss5: 1 });
-      const order = ['assault', 'shotgun', 'assault', 'sniper', 'cryo', 'rocket', 'assault', 'minigun', 'sniper', 'rocket', 'shotgun', 'minigun', 'cryo', 'sniper', 'rocket', 'minigun'].filter((t) => sv.towerUnlocked(t));
+      const order = (n > 50 ? ['laser', 'tesla', 'assault', 'sniper', 'cryo', 'plasma', 'drone', 'minigun', 'tesla', 'rocket', 'laser', 'plasma', 'drone', 'sniper', 'minigun', 'tesla'] : ['assault', 'shotgun', 'assault', 'sniper', 'cryo', 'rocket', 'assault', 'minigun', 'sniper', 'rocket', 'shotgun', 'minigun', 'cryo', 'sniper', 'rocket', 'minigun']).filter((t) => sv.towerUnlocked(t));
       let built = 0, steps = 0, lowAt = null, bossInfo = '';
       const slots = g.slots.filter((s) => s.kind === 'tower').sort((a, b) => a.rank - b.rank);
       const act = () => {

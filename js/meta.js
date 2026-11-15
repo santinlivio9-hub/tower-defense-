@@ -17,7 +17,7 @@ const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) =>
 // abscisses (%) des PER_WORLD nœuds d'un monde, de bas en haut ; le dernier (boss) au centre
 const NODE_X = [26, 70, 32, 76, 28, 68, 30, 74, 34, 50], STEP_Y = 88, BAND = 128, SEC_H = 92 + (PER_WORLD - 1) * STEP_Y + 104 + BAND;
 const INK = '#3d2c4e';
-export const MECH_ICON = { sandstorm: 'storm', eruption: 'flame', ice: 'snow', grass: 'leaf' };
+export const MECH_ICON = { sandstorm: 'storm', eruption: 'flame', ice: 'snow', grass: 'leaf', blackout: 'bolt', portal: 'infinity', chaos: 'quake' };
 // Décor propre à chaque monde (SVG inline), posé loin du chemin
 const DECO = {
   prairie: [
@@ -40,6 +40,18 @@ const DECO = {
     (s) => `<svg viewBox="0 0 60 70" width="${s}"><path d="M28 68Q24 40 32 20h5Q30 40 34 68z" fill="#9a6a3a" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>${[-150, -110, -70, -30, 10].map((a) => `<path d="M34 20q12 -10 24 -2q-12 3 -24 2z" transform="rotate(${a + 90} 34 20)" fill="#2fae52" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`).join('')}<circle cx="31" cy="23" r="4" fill="#8a5530" stroke="${INK}" stroke-width="2"/><circle cx="38" cy="23" r="4" fill="#8a5530" stroke="${INK}" stroke-width="2"/></svg>`,
     (s) => `<svg viewBox="0 0 60 40" width="${s}"><rect x="27" y="22" width="7" height="14" rx="3" fill="#fff3dc" stroke="${INK}" stroke-width="2.5"/><path d="M14 24a16 12 0 0 1 32 0z" fill="#ff5d6c" stroke="${INK}" stroke-width="3"/><circle cx="23" cy="18" r="3" fill="#fff"/><circle cx="35" cy="16" r="2.4" fill="#fff"/></svg>`,
   ],
+  neon: [
+    (s) => `<svg viewBox="0 0 50 70" width="${s}"><rect x="8" y="10" width="34" height="58" rx="3" fill="#3a3566" stroke="${INK}" stroke-width="3"/>${[18, 30, 42, 54].map((y, i) => `<rect x="14" y="${y}" width="8" height="6" fill="${i % 2 ? '#3ff0ff' : '#ffd23f'}"/><rect x="28" y="${y}" width="8" height="6" fill="${i % 2 ? '#ffd23f' : '#ff3fb4'}"/>`).join('')}<rect x="12" y="2" width="26" height="10" rx="3" fill="#1b1736" stroke="#ff3fb4" stroke-width="2.5"/></svg>`,
+    (s) => `<svg viewBox="0 0 40 70" width="${s}"><rect x="17" y="18" width="6" height="48" rx="2" fill="#5a6578" stroke="${INK}" stroke-width="3"/><path d="M20 18q12-6 14 6" fill="none" stroke="${INK}" stroke-width="3"/><circle cx="34" cy="26" r="6" fill="#fff3a0" stroke="${INK}" stroke-width="2.5"/></svg>`,
+  ],
+  station: [
+    (s) => `<svg viewBox="0 0 60 60" width="${s}"><circle cx="30" cy="30" r="16" fill="#ff9f1a" stroke="${INK}" stroke-width="3"/><ellipse cx="30" cy="30" rx="27" ry="8" fill="none" stroke="#fff" stroke-width="4" transform="rotate(-20 30 30)"/><ellipse cx="30" cy="30" rx="27" ry="8" fill="none" stroke="${INK}" stroke-width="1.5" transform="rotate(-20 30 30)"/></svg>`,
+    (s) => `<svg viewBox="0 0 50 50" width="${s}"><rect x="10" y="12" width="30" height="30" rx="4" fill="#c9d3de" stroke="${INK}" stroke-width="3"/><path d="M10 27h30" stroke="#ff9f1a" stroke-width="4"/></svg>`,
+  ],
+  dimension: [
+    (s) => `<svg viewBox="0 0 50 50" width="${s}"><path d="M25 6l17 10v18L25 44 8 34V16z" fill="#3ff0ff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M8 16l17 10 17-10M25 26v18" fill="none" stroke="${INK}" stroke-width="3"/></svg>`,
+    (s) => `<svg viewBox="0 0 50 50" width="${s}"><circle cx="25" cy="25" r="16" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="25" cy="25" r="8" fill="#b05cff"/><circle cx="25" cy="25" r="3.5" fill="${INK}"/><circle cx="21" cy="21" r="2.4" fill="#fff"/></svg>`,
+  ],
   candy: [
     (s) => `<svg viewBox="0 0 40 70" width="${s}"><rect x="17" y="30" width="6" height="38" rx="3" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="20" r="17" fill="#ff5d8f" stroke="${INK}" stroke-width="3"/><path d="M20 20m-10 0a10 10 0 0 1 10-10a6 6 0 0 1 6 6a3 3 0 0 1-3 3" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
     (s) => `<svg viewBox="0 0 60 40" width="${s}"><path d="M8 36a22 22 0 0 1 44 0z" fill="#8fe3ff" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="26" r="2.5" fill="#fff"/><circle cx="34" cy="22" r="2.5" fill="#ffd23f"/><circle cx="42" cy="30" r="2.5" fill="#ff5d8f"/></svg>`,
@@ -52,9 +64,9 @@ const EXTRA = {
   sign: (s) => `<svg viewBox="0 0 40 46" width="${s}"><rect x="17" y="18" width="6" height="26" rx="2" fill="#8a5530" stroke="${INK}" stroke-width="3"/><path d="M4 6h26l6 7-6 7H4z" fill="#d9a566" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/><path d="M9 13h16" stroke="#8a5530" stroke-width="2.5" stroke-linecap="round"/></svg>`,
   fence: (s) => `<svg viewBox="0 0 60 30" width="${s}"><path d="M4 12h52M4 21h52" stroke="${INK}" stroke-width="6"/><path d="M4 12h52M4 21h52" stroke="#d9a566" stroke-width="3"/>${[8, 22, 36, 50].map((x) => `<rect x="${x - 3}" y="4" width="6" height="24" rx="2" fill="#d9a566" stroke="${INK}" stroke-width="2.5"/>`).join('')}</svg>`,
 };
-const RIVER = { jungle: ['#3fb0a0', '#9ff0d8'], prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
-const ROCK = { jungle: '#8fa07e', prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
-const BUSH = { jungle: '#1f7a34', prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
+const RIVER = { neon: ['#ff3fb4', '#ff9ad8'], station: ['#5fd8ff', '#e9f8ff'], dimension: ['#3ff0ff', '#fff3c4'], jungle: ['#3fb0a0', '#9ff0d8'], prairie: ['#5cc8ff', '#a6e4ff'], desert: ['#4fc4e8', '#b2f0ff'], volcano: ['#ff7a3c', '#ffd23f'], ice: ['#8fd8f5', '#e6f9ff'], candy: ['#8a4b2e', '#c98a5a'] };
+const ROCK = { neon: '#5a5490', station: '#8e9ab4', dimension: '#ffd23f', jungle: '#8fa07e', prairie: '#b8b0c8', desert: '#d9a566', volcano: '#56436a', ice: '#cfe3f5', candy: '#ff9dbb' };
+const BUSH = { neon: '#3a3566', station: '#5a6578', dimension: '#3fd873', jungle: '#1f7a34', prairie: '#3f9a3a', desert: '#8aa83c', volcano: '#3f8f7a', ice: '#5f9fbf', candy: '#3fae7a' };
 const nodeY = (i) => SEC_H - BAND - 92 - i * STEP_Y - (i === PER_WORLD - 1 ? 14 : 0);
 const RIVER_Y = Math.round((nodeY(4) + nodeY(5)) / 2) + 4;
 // petit générateur pseudo-aléatoire stable (même décor à chaque ouverture)
@@ -223,6 +235,13 @@ export const Meta = {
       // monde verrouillé : visible, mais dans le brouillard, avec son nom et sa condition
       if (!open) sec.append(el('div', 'wfog', `<i></i><i></i><i></i><i></i><div class="wf-lab">${icon('lock')}<small>Monde ${wi + 1}</small><b>${w.name}</b><span>Bats le boss du monde ${wi} pour l'ouvrir</span></div>`));
       box.append(sec);
+      if (wi > 0 && (w.era || 0) > (WORLDS[wi - 1].era || 0)) { // changement d'époque : bandeau lumineux, le chemin le traverse
+        const era = el('section', 'wera' + (open ? '' : ' locked'));
+        const d = `M${W / 2} 0 V100`;
+        era.innerHTML = `<svg class="road" viewBox="0 0 ${W} 100" width="${W}" height="100"><path d="${d}" class="r1"/><path d="${d}" class="r2" style="stroke:${th.edge}"/><path d="${d}" class="r3" style="stroke:${th.path}"/></svg>
+          <div class="wera-lab">${icon('bolt')}<span><small>Voyage dans le temps</small><b>ÈRE FUTURISTE</b></span>${icon('bolt')}</div>`;
+        box.append(era);
+      }
     }
     const target = current || [...box.querySelectorAll('.node')].find((n) => n.dataset.n == LEVELS.length);
     if (target) {

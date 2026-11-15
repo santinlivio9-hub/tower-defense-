@@ -35,3 +35,36 @@ export class Rocket {
     c.restore();
   }
 }
+
+// Boule de plasma : avance tout droit, traverse et touche une fois chaque ennemi sur sa route, explose en fin de course
+export class Plasma {
+  constructor(tower, x, y, ang, stats) {
+    this.tower = tower; this.x = x; this.y = y; this.ang = ang; this.s = stats; this.r = stats.size;
+    this.dist = 0; this.max = stats.range + 80; this.hit = new Set(); this.dead = false; this.t = 0;
+  }
+  update(dt, game) {
+    const s = this.s, v = s.projSpeed * dt;
+    this.x += Math.cos(this.ang) * v; this.y += Math.sin(this.ang) * v; this.dist += v; this.t += dt;
+    for (const e of game.enemies) {
+      if (e.dead || this.hit.has(e) || e.hidden) continue;
+      if (Math.hypot(e.x - this.x, e.y - this.y) > this.r + e.r * 0.7) continue;
+      this.hit.add(e);
+      const { dmg, crit } = this.tower.roll(e);
+      game.damage(e, dmg, this.tower, { crit, ignoreArmor: true });
+      game.fx.burst(e.x, e.y, '#8fffd0', 6, 140, 4);
+    }
+    if (Math.random() < dt * 40) game.fx.add({ k: 'dot', x: this.x - Math.cos(this.ang) * this.r, y: this.y - Math.sin(this.ang) * this.r, vx: (Math.random() - 0.5) * 40, vy: (Math.random() - 0.5) * 40, life: 0.35, max: 0.35, size: this.r * 0.45, color: '#8fffd0', drag: 2 });
+    if (this.dist >= this.max) {
+      this.dead = true;
+      if (s.splash > 0) game.explode(this.x, this.y, s.splash, s.damage * 0.8, this.tower, {});
+      else game.fx.ring(this.x, this.y, this.r * 0.5, this.r * 2.2, '#8fffd0', 0.3, 4);
+    }
+  }
+  draw(c) {
+    const r = this.r * (1 + Math.sin(this.t * 30) * 0.06);
+    const g = c.createRadialGradient(this.x, this.y, 1, this.x, this.y, r * 1.8);
+    g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.35, 'rgba(143,255,208,.9)'); g.addColorStop(1, 'rgba(47,208,138,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(this.x, this.y, r * 1.8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8fff4'; c.strokeStyle = '#1f8a5c'; c.lineWidth = 2.5; c.beginPath(); c.arc(this.x, this.y, r * 0.75, 0, Math.PI * 2); c.fill(); c.stroke();
+  }
+}

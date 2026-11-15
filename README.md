@@ -276,3 +276,18 @@ ralentit le tir des tourelles), Scimmia Bananina (bondit en avant), Camaleonte P
 Une sauvegarde de l'ancienne campagne (6 niveaux par monde, `lpw` absent) est convertie au chargement : chaque
 niveau garde sa place dans son monde, le boss reste le boss, et les nouveaux niveaux insérés avant le boss sont
 ouverts (badge « NOUVEAU » sur la carte) sans rien bloquer : la progression est le niveau le plus loin gagné.
+
+### Ère futuriste (mondes 6 à 8)
+
+Ville Néon (coupures de courant : des tourelles clignotent puis s'éteignent quelques secondes), Station Orbitale
+(portails : le bleu fait bondir les brainrots en avant, l'orange les renvoie en arrière) et Dimension Brainrot
+(chaos : glace et hautes herbes, puis tempête, éruption ou coupure à tour de rôle). Brainrots : Robo Gnocchetto
+(bouclier d'énergie qui se recharge), Cyborg Cannolo (décharge qui coupe les tourelles à sa mort), Astro Polpetta
+(volant à réacteur), Satellite Spaghetto (boucliers pour ses voisins), Glitch Mozzarella (se téléporte), et 3 boss.
+
+Nouvelles tourelles (même règle de design : 5 niveaux, 2 branches, niveau 5 doré) :
+Laser (`kind: 'beam'`, rayon continu qui chauffe sur la même cible), Tesla (`'chain'`, éclair en chaîne), Plasma
+(`'plasma'`, boule qui traverse tout) et Drone (`'drone'`, drones qui patrouillent autour de la base).
+Château : 3 apparences de plus (forteresse high-tech, citadelle orbitale, palais brainrot), une par boss futuriste.
+Sur la carte, un bandeau « ère futuriste » marque le passage entre la jungle et la ville néon.
+Les sprites ne sont plus tous préchargés au démarrage : seulement les tourelles possédées et les brainrots du niveau.

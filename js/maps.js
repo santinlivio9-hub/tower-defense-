@@ -10,6 +10,9 @@ export const THEMES = {
   volcano: { g1: '#75608a', g2: '#665179', g3: '#56436a', path: '#f7bfd0', path2: '#eda6bd', edge: '#8f3f5e', deco: 'volcano', flower: ['#8ff0e0', '#ffd23f', '#ff7a5c'], cloud: 'rgba(20,10,30,0.14)', stem: '#3f8f7a' },
   ice:     { g1: '#eaf7ff', g2: '#d3ecfb', g3: '#b9dcf2', path: '#a7bde0', path2: '#93a9d2', edge: '#55679a', deco: 'ice', flower: ['#8fe3ff', '#ffffff', '#c9a6ff'], cloud: 'rgba(40,70,120,0.10)', stem: '#5f9fbf' },
   jungle:  { g1: '#4fae4a', g2: '#3f9a3e', g3: '#2f8434', path: '#c99a62', path2: '#b5844c', edge: '#6e4524', deco: 'jungle', flower: ['#ff5d8f', '#ffd23f', '#ff9f1a'], cloud: 'rgba(10,50,20,0.14)', stem: '#1f6a2a' },
+  neon:      { g1: '#2e2856', g2: '#241f46', g3: '#1b1736', path: '#4a4478', path2: '#3a3566', edge: '#ff3fb4', deco: 'neon', flower: ['#ff3fb4', '#3ff0ff', '#ffd23f'], cloud: 'rgba(120,160,255,0.08)', stem: '#3ff0ff', rain: true },
+  station:   { g1: '#33406a', g2: '#29345a', g3: '#1f2848', path: '#a9b4cb', path2: '#8e9ab4', edge: '#5fd8ff', deco: 'space', flower: ['#5fd8ff', '#ffd23f', '#ff9f1a'], cloud: 'rgba(200,220,255,0.06)', stem: '#8e9ab4', stars: true },
+  dimension: { g1: '#c9a6ff', g2: '#b58cf5', g3: '#9b6bff', path: '#fff3c4', path2: '#ffe39a', edge: '#ff3fb4', deco: 'dimension', flower: ['#3ff0ff', '#ffd23f', '#3fd873'], cloud: 'rgba(255,63,180,0.10)', stem: '#ff3fb4', swirl: true },
   candy:   { g1: '#ffcfe6', g2: '#ffb6d8', g3: '#f79ac6', path: '#fff3c4', path2: '#ffe39a', edge: '#c9577f', deco: 'candy', flower: ['#ffffff', '#8fe3ff', '#ffd23f'], cloud: 'rgba(140,40,90,0.10)', stem: '#3fae7a' },
 };
 
@@ -196,9 +199,20 @@ const DECO = {
     c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 4); c.lineTo(0, -14); c.stroke(); },
   mushroom(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#fff3dc'; c.beginPath(); c.roundRect(-4, -4, 8, 14, 3); c.fill(); c.stroke(); c.fillStyle = k < 0.5 ? '#ff5d6c' : '#ff9f1a'; c.beginPath(); c.ellipse(0, -6, 13, 9, 0, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#fff'; c.beginPath(); c.arc(-5, -9, 2.4, 0, 7); c.arc(4, -11, 2, 0, 7); c.fill(); },
+  // ville néon : enseigne, réverbère, petit immeuble
+  neonsign(c, k = 0) { const col = ['#ff3fb4', '#3ff0ff', '#ffd23f'][Math.floor(k * 3) % 3]; c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#1b1736'; c.beginPath(); c.roundRect(-14, -14, 28, 18, 4); c.fill(); c.stroke(); c.strokeStyle = col; c.lineWidth = 2.5; c.shadowColor = col; c.shadowBlur = 8; c.beginPath(); c.moveTo(-8, -5); c.lineTo(-2, -10); c.lineTo(3, -2); c.lineTo(8, -8); c.stroke(); c.shadowBlur = 0; c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 4); c.lineTo(0, 14); c.stroke(); },
+  lamp(c) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#5a6578'; c.beginPath(); c.roundRect(-2.5, -18, 5, 30, 2); c.fill(); c.stroke(); c.beginPath(); c.moveTo(0, -18); c.quadraticCurveTo(10, -22, 12, -14); c.stroke(); c.fillStyle = '#fff3a0'; c.shadowColor = '#fff3a0'; c.shadowBlur = 10; c.beginPath(); c.arc(12, -12, 4, 0, 7); c.fill(); c.shadowBlur = 0; },
+  tower(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#3a3566'; c.beginPath(); c.roundRect(-11, -26, 22, 38, 3); c.fill(); c.stroke(); for (let y = -21; y < 8; y += 7) for (const x of [-6, 2]) { c.fillStyle = (y + x + Math.floor(k * 10)) % 3 ? '#ffd23f' : '#3ff0ff'; c.fillRect(x, y, 4, 4); } },
+  // station orbitale : caisse, antenne, mini-planète
+  crate(c) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#c9d3de'; c.beginPath(); c.roundRect(-11, -11, 22, 22, 3); c.fill(); c.stroke(); c.strokeStyle = '#ff9f1a'; c.lineWidth = 3; c.beginPath(); c.moveTo(-11, 0); c.lineTo(11, 0); c.stroke(); c.strokeStyle = 'rgba(61,44,78,.4)'; c.lineWidth = 2; c.beginPath(); c.moveTo(-6, -6); c.lineTo(6, 6); c.stroke(); },
+  dish(c) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = '#e9f4ff'; c.beginPath(); c.moveTo(-14, -6); c.quadraticCurveTo(0, 10, 14, -6); c.closePath(); c.fill(); c.stroke(); c.beginPath(); c.moveTo(0, 2); c.lineTo(0, 14); c.stroke(); c.fillStyle = '#5fd8ff'; c.beginPath(); c.arc(0, -8, 3, 0, 7); c.fill(); c.stroke(); },
+  planet(c, k = 0) { c.lineWidth = 3; c.strokeStyle = INK; c.fillStyle = ['#ff9f1a', '#5fd8ff', '#ff5d8f'][Math.floor(k * 3) % 3]; c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill(); c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); c.ellipse(0, 0, 17, 5, -0.3, 0, 7); c.stroke(); },
+  // dimension brainrot : cube flottant, spirale
+  cube(c, k = 0) { const col = ['#3ff0ff', '#ffd23f', '#3fd873', '#ff3fb4'][Math.floor(k * 4) % 4]; c.lineWidth = 3; c.strokeStyle = INK; c.lineJoin = 'round'; c.fillStyle = col; c.beginPath(); c.moveTo(0, -14); c.lineTo(12, -7); c.lineTo(12, 7); c.lineTo(0, 14); c.lineTo(-12, 7); c.lineTo(-12, -7); c.closePath(); c.fill(); c.stroke(); c.beginPath(); c.moveTo(-12, -7); c.lineTo(0, 0); c.lineTo(12, -7); c.moveTo(0, 0); c.lineTo(0, 14); c.stroke(); },
+  spiral(c) { c.lineWidth = 3.5; c.strokeStyle = '#ff3fb4'; c.beginPath(); for (let a = 0; a < 12; a += 0.3) { const r = a * 1.3; a ? c.lineTo(Math.cos(a) * r, Math.sin(a) * r) : c.moveTo(0, 0); } c.stroke(); },
   donut(c) { c.lineWidth = 3; c.strokeStyle = INK; blob(c, 0, 0, 12, '#f2c27a'); c.strokeStyle = '#ff7eb6'; c.lineWidth = 6; c.beginPath(); c.arc(0, 0, 7.5, 0, 7); c.stroke(); blob(c, 0, 0, 3.5, 'rgba(0,0,0,.25)', 2); },
 };
-const DECO_SETS = { meadow: ['bush', 'tree', 'rock', 'tree'], desert: ['cactus', 'dune', 'rock', 'dune'], volcano: ['crystal', 'lava', 'rock'], ice: ['pine', 'snow', 'icecube', 'snow'], candy: ['lollipop', 'gumdrop', 'donut', 'lollipop'], jungle: ['palm', 'fern', 'mushroom', 'palm', 'fern'] };
+const DECO_SETS = { meadow: ['bush', 'tree', 'rock', 'tree'], desert: ['cactus', 'dune', 'rock', 'dune'], volcano: ['crystal', 'lava', 'rock'], ice: ['pine', 'snow', 'icecube', 'snow'], candy: ['lollipop', 'gumdrop', 'donut', 'lollipop'], jungle: ['palm', 'fern', 'mushroom', 'palm', 'fern'], neon: ['neonsign', 'lamp', 'tower', 'lamp'], space: ['crate', 'dish', 'planet', 'crate'], dimension: ['cube', 'spiral', 'lollipop', 'cube', 'gumdrop'] };
 
 // Positions libres pour le décor (ni sur le chemin, ni sur un socle, ni sur le château)
 function decoSpots(field, rnd, n, margin, ext) {
@@ -229,6 +243,9 @@ const SLAB = {
   ice:     { top: '#e6f6ff', side: '#9cc4e6', crack: 'rgba(85,103,154,.35)', tuft: null },
   candy:   { top: '#ffe6f0', side: '#e8a3c4', crack: 'rgba(201,87,127,.35)', tuft: '#3fae7a' },
   jungle:  { top: '#a8b59a', side: '#6f7d62', crack: 'rgba(30,60,30,.4)', tuft: '#1f8a3a' },
+  neon:    { top: '#4a4478', side: '#2e2a50', crack: '#3ff0ff', tuft: null },
+  space:   { top: '#c9d3de', side: '#8a96ad', crack: 'rgba(30,40,80,.4)', tuft: null },
+  dimension: { top: '#fff3c4', side: '#e8b5ff', crack: '#ff3fb4', tuft: '#3fd873' },
 };
 export const SLOT_R = Math.round(GAME.towerRadius * 0.72);
 function drawSlot(c, s, deco = 'meadow') {
@@ -324,6 +341,18 @@ export function drawMapAnimated(c, theme, field, flowers, time) {
   }
 }
 export function drawClouds(c, theme, time, ext = FULL()) {
+  if (theme.rain) { // pluie fine en diagonale
+    c.strokeStyle = 'rgba(170,200,255,.35)'; c.lineWidth = 2; c.beginPath();
+    for (let i = 0; i < 70; i++) { const x = ext.l + ((i * 97.3 + time * 60) % (ext.r - ext.l + 100)) - 50, y = ext.t + ((i * 53.7 + time * 620) % (ext.b - ext.t + 40)) - 20; c.moveTo(x, y); c.lineTo(x - 6, y + 18); }
+    c.stroke();
+  }
+  if (theme.stars) { // étoiles qui scintillent
+    for (let i = 0; i < 40; i++) { const x = ext.l + ((i * 137.5) % (ext.r - ext.l)), y = ext.t + ((i * 89.3) % (ext.b - ext.t)), a = 0.3 + 0.7 * Math.abs(Math.sin(time * 1.5 + i)); c.fillStyle = `rgba(255,255,255,${a * 0.8})`; c.fillRect(x, y, 2.5, 2.5); }
+  }
+  if (theme.swirl) { // bulles colorées qui dérivent
+    const cols = ['rgba(63,240,255,.22)', 'rgba(255,210,63,.22)', 'rgba(255,63,180,.2)'];
+    for (let i = 0; i < 6; i++) { const x = ext.l + ((i * 211 + time * 14) % (ext.r - ext.l + 120)) - 60, y = ext.t + 120 + i * 140 + Math.sin(time * 0.8 + i) * 30; c.fillStyle = cols[i % 3]; c.beginPath(); c.arc(x, y, 26 + (i % 3) * 10, 0, 7); c.fill(); }
+  }
   c.fillStyle = theme.cloud;
   const w = ext.r - ext.l + 400;
   for (let i = 0; i < 3; i++) {

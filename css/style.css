@@ -1756,3 +1756,15 @@ body[data-screen="game"] { background: #1c1530; }
 
 /* carte : niveau ajouté par une mise à jour dans un monde déjà fini */
 .node .nnew { position: absolute; left: 50%; top: -14px; transform: translateX(-50%); padding: 1px 6px; border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #3d2c4e; background: var(--gold); border: 2px solid var(--ink); white-space: nowrap; animation: pulse 1.2s ease-in-out infinite; }
+
+/* carte : passage à l'ère futuriste */
+.wera { position: relative; height: 100px; overflow: hidden; background: linear-gradient(180deg, #2e2856 0%, #4a2a7a 45%, #2f9a45 100%); border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); }
+.wera::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(63, 240, 255, .16) 0 2px, transparent 2px 9px); animation: wera-scan 3s linear infinite; }
+@keyframes wera-scan { to { background-position: 0 90px; } }
+.wera .road { position: absolute; left: 0; top: 0; }
+.wera-lab { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-2deg); display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 16px; background: rgba(20, 10, 40, .85); border: 2.5px solid #3ff0ff; box-shadow: 0 0 16px rgba(63, 240, 255, .6), 0 4px 0 var(--ink); white-space: nowrap; }
+.wera-lab span { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.wera-lab small { font-size: 12px; letter-spacing: .08em; color: #c9f8ff; text-transform: uppercase; }
+.wera-lab b { font-size: 20px; letter-spacing: .06em; color: #fff; text-shadow: 0 0 8px #ff3fb4, var(--ol); }
+.wera-lab .ico { width: 22px; height: 22px; }
+.wera.locked { filter: saturate(.4) brightness(.7); }

@@ -16,6 +16,10 @@ export const CASTLE_LOOKS = [
   { name: 'Forteresse', wall: ['#d6dcea', '#98a2bd'], roof: ['#7fb6ff', '#3d7de0'], flag: '#3d9dfc', h: 16, keep: 1, fs: 1.3 },
   { name: 'Citadelle', wall: ['#f4f1fb', '#c6bedb'], roof: ['#c08cff', '#7a3fd8'], flag: '#b05cff', h: 24, keep: 2, fs: 1.5 },
   { name: 'Palais doré', wall: ['#fffaf0', '#f1dcae'], roof: ['#ffe27a', '#f0a81d'], flag: '#ffd23f', h: 30, keep: 3, fs: 1.7 },
+  // ère futuriste (boss des mondes 6, 7 et 8)
+  { name: 'Forteresse high-tech', wall: ['#dfe7f3', '#8a96ad'], roof: ['#5ff0ff', '#1f8fb3'], flag: '#5ff0ff', h: 32, keep: 3, fs: 1.75, tech: '#5ff0ff' },
+  { name: 'Citadelle orbitale', wall: ['#f4f8ff', '#aab8d6'], roof: ['#c08cff', '#5f3fd8'], flag: '#5fd8ff', h: 34, keep: 3, fs: 1.85, tech: '#b05cff', orbit: true },
+  { name: 'Palais brainrot', wall: ['#fff3fb', '#e8b5ff'], roof: ['#ff7ad0', '#b05cff'], flag: '#ffd23f', h: 36, keep: 3, fs: 1.95, tech: '#ff3fb4', orbit: true, rainbow: true },
 ];
 const GOLD_WALL = ['#fff3c4', '#f0c75a'], STONE = ['#e6e3ee', '#b3adc6'], WOOD = ['#d9a566', '#b27a40'];
 
@@ -299,13 +303,38 @@ function torches(c, G, L, time) {
 
 // tier ignoré : tout se déduit des niveaux d'amélioration cs = save.data.castle
 // o = { time, cannon (bool, en partie : faut-il le dessiner), aim, recoil, build: { id, p }, night }
+// Ère futuriste : bandes néon sur les murs, antennes lumineuses, anneau en orbite (citadelle), orbes (palais brainrot)
+function techParts(c, G, L, time) {
+  const pulse = (Math.sin(time * 3) + 1) / 2;
+  c.save(); c.lineCap = 'round';
+  // bandes néon le long du mur et des tours
+  c.strokeStyle = L.tech; c.lineWidth = 4; c.globalAlpha = 0.7 + pulse * 0.3; c.shadowColor = L.tech; c.shadowBlur = 8;
+  c.beginPath(); c.moveTo(-48, G.wallTop + 18); c.lineTo(48, G.wallTop + 18); c.stroke();
+  for (const x of [-62, 62]) { c.beginPath(); c.moveTo(x - G.tw / 2 + 5, G.towerTop + 20); c.lineTo(x + G.tw / 2 - 5, G.towerTop + 20); c.stroke(); }
+  c.shadowBlur = 0; c.globalAlpha = 1;
+  // antennes à pointe lumineuse sur les tours
+  for (const x of [-62, 62]) { const top = G.towerTop - G.tw * 1.05 - 6; c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(x + G.tw * 0.32, top + 18); c.lineTo(x + G.tw * 0.32, top - 2); c.stroke(); c.fillStyle = pulse > 0.5 ? L.tech : '#fff'; c.beginPath(); c.arc(x + G.tw * 0.32, top - 4, 3.5, 0, 7); c.fill(); c.stroke(); }
+  if (L.orbit) { // anneau qui tourne autour du donjon, avec 2 petits satellites
+    const cy = G.keepTop + 6, rx = 58, ry = 15;
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 3; c.beginPath(); c.ellipse(0, cy, rx, ry, -0.12, 0, 7); c.stroke();
+    c.strokeStyle = L.tech; c.lineWidth = 1.5; c.stroke();
+    for (let i = 0; i < 2; i++) { const a = time * 1.4 + i * Math.PI, x = Math.cos(a) * rx, y = cy + Math.sin(a) * ry - x * 0.12; c.fillStyle = i ? '#ffd23f' : L.tech; c.strokeStyle = INK; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 6, 0, 7); c.fill(); c.stroke(); }
+  }
+  if (L.rainbow) { // orbes colorés qui flottent
+    ['#ff3fb4', '#5ff0ff', '#ffd23f', '#3fd873'].forEach((col, i) => { const x = -80 + i * 53, y = G.towerTop - 30 + Math.sin(time * 2 + i) * 8; c.fillStyle = col; c.strokeStyle = INK; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 7, 0, 7); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.arc(x - 2, y - 2, 2.5, 0, 7); c.fill(); });
+  }
+  c.restore();
+}
 export function drawCastle(c, cs, o = {}) {
   if (typeof cs === 'number') cs = {}; // compatibilité
   const G = geo(cs), L = G.L, tier = castleTierOf(cs), time = o.time || 0;
   c.save();
   c.lineWidth = 4; c.strokeStyle = INK; c.lineJoin = 'round'; c.lineCap = 'round';
   c.fillStyle = 'rgba(0,0,0,.24)'; c.beginPath(); c.ellipse(0, 52, 92, 17, 0, 0, 7); c.fill();
-  if (tier >= 4) { const g = c.createRadialGradient(0, -20, 20, 0, -20, 140); g.addColorStop(0, 'rgba(255,220,90,.45)'); g.addColorStop(1, 'rgba(255,220,90,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, -20, 140, 0, 7); c.fill(); }
+  if (L.rainbow) { // halo arc-en-ciel du palais brainrot
+    const g = c.createRadialGradient(0, -30, 20, 0, -30, 160); g.addColorStop(0, 'rgba(255,63,180,.35)'); g.addColorStop(0.5, 'rgba(95,240,255,.25)'); g.addColorStop(1, 'rgba(255,210,63,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, -30, 160, 0, 7); c.fill();
+  } else if (L.tech) { const g = c.createRadialGradient(0, -20, 20, 0, -20, 140); g.addColorStop(0, 'rgba(95,240,255,.35)'); g.addColorStop(1, 'rgba(95,240,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, -20, 140, 0, 7); c.fill(); }
+  else if (tier >= 4) { const g = c.createRadialGradient(0, -20, 20, 0, -20, 140); g.addColorStop(0, 'rgba(255,220,90,.45)'); g.addColorStop(1, 'rgba(255,220,90,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, -20, 140, 0, 7); c.fill(); }
   // donjon central (et flèches du palais)
   if (L.keep) {
     if (L.keep >= 3) for (const s of [-1, 1]) tower(c, s * 26, G.keepTop + 26, -10, 18, L, time + s, { fs: L.fs * 0.6 });
@@ -332,6 +361,7 @@ export function drawCastle(c, cs, o = {}) {
     const s = (Math.sin(time * 3) + 1) / 2; c.fillStyle = `rgba(255,255,255,${0.4 + s * 0.6})`;
     for (const [x, y] of [[-40, -44], [44, -52], [0, G.keepTop - 10]]) star4(c, x, y, 6);
   }
+  if (L.tech) techParts(c, G, L, time);
   repairPart(c, cs, time, o);
   treasuryPart(c, cs, time, o);
   if (o.cannon !== false) cannons(c, G, cs, o);

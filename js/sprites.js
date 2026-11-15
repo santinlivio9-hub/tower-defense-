@@ -31,6 +31,10 @@ const gradDefs = () => [...grads].map((hex) => {
   if (finish === 'gold') { const g = shade('#f2b51d', (luma(hex) - 0.5) * 0.7); return linear(id, [[0, '#fffbe6'], [0.2, shade(g, 0.45)], [0.42, g], [0.55, shade(g, -0.3)], [0.7, shade(g, 0.25)], [1, shade(g, -0.45)]]); }
   if (finish === 'lava') { const l = luma(hex); return linear(id, [[0, '#ffe27a'], [0.22, mix('#ff8a1a', '#ffd23f', l * 0.6)], [0.6, mix('#b81d12', '#ff5a1f', l)], [1, '#3a0d0d']]); }
   if (finish === 'candy') { const pal = ['#ff8fc7', '#8fe3ff', '#c9a6ff', '#fff3a8', '#a8f0c0']; return vinyl(id, mix(pal[parseInt(hex.slice(1, 3), 16) % pal.length], '#ffffff', luma(hex) * 0.35)); }
+  // finitions des boss futuristes : chrome (métal miroir), nébuleuse (violet et bleu étoilé), glitch (bandes RVB)
+  if (finish === 'chrome') { const l = luma(hex); return linear(id, [[0, '#ffffff'], [0.22, mix('#c9d6e8', hex, 0.15)], [0.45, mix('#6f7f99', hex, 0.2)], [0.55, '#e9f4ff'], [0.8, mix('#8fa2bd', hex, 0.25 + l * 0.1)], [1, '#3d4a63']]); }
+  if (finish === 'nebula') return linear(id, [[0, '#9ff6ff'], [0.25, mix(hex, '#5f3fd8', 0.65)], [0.55, mix(hex, '#2a1d6e', 0.75)], [0.8, mix(hex, '#ff5dc8', 0.55)], [1, '#140d3a']]);
+  if (finish === 'glitchy') { const base = mix(hex, '#2a1d52', 0.35); return linear(id, [[0, '#ff3fb4'], [0.18, '#ff3fb4'], [0.19, shade(base, 0.3)], [0.5, base], [0.51, '#3ff0ff'], [0.62, '#3ff0ff'], [0.63, shade(base, -0.2)], [1, shade(base, -0.45)]]); }
   const TINT = { emerald: '#2fbf63', royal: '#7a3fd8', obsidian: '#2f2a44', frost: '#8fd8f5', galaxy: '#3a2a86' };
   if (TINT[finish]) { // finitions exclusives des boss : teinte + reflet doré (royal) ou étoilé (galaxie)
     const base = mix(hex, TINT[finish], finish === 'frost' ? 0.55 : 0.7), l = luma(hex);
@@ -247,6 +251,66 @@ const ENEMY_ART = {
     ${e === 1 ? `<path d="M26 -8 q8 6 16 0" ${line(3, INK)}/>` : e === 2 ? `<path d="M29 -13 l10 10 M39 -13 l-10 10" ${line(3, INK)}/>` : `<circle cx="${36 + (s ? 2 : -1)}" cy="-8" r="5.5" fill="${INK}"/><circle cx="${34 + (s ? 2 : -1)}" cy="-10" r="2" fill="#fff"/>`}
     <path d="M38 10 q8 4 14 -2" ${line(3, INK)}/><ellipse cx="22" cy="10" rx="5" ry="3" fill="#ff8fab" opacity=".7"/>
     ${shine(-24, -2, 5, 10, 60, 0.45)}`,
+  // Robo Gnocchetto — gnocchi robot, bouclier d'énergie
+  robo: (e, s) => `
+    ${[-1, 1].map((k) => `<rect x="${k * 24 - 14}" y="${40 - ((k < 0) === !s ? 5 : 0)}" width="28" height="18" rx="7" ${st('#6B7888', 4.5)}/>${[0, 1, 2].map((i) => `<circle cx="${k * 24 - 8 + i * 8}" cy="${58 - ((k < 0) === !s ? 5 : 0)}" r="3.4" fill="${INK}"/>`).join('')}`).join('')}
+    ${[-1, 1].map((k) => limb(`M${k * 40} 6 L${k * 58} ${s ? 18 : 8} L${k * 54} ${s ? 34 : 26}`, 6, '#98A6B6') + `<circle cx="${k * 54}" cy="${s ? 36 : 28}" r="6" ${st('#C9D3DE', 3.5)}/>`).join('')}
+    <path d="M-44 2 C-48 -36 -20 -50 0 -50 C20 -50 48 -36 44 2 C42 34 22 46 0 46 C-22 46 -42 34 -44 2 Z" ${st('#F6D7A3')}/>
+    ${[-26, -10, 6, 22].map((x) => `<path d="M${x} -42 Q${x + 4} 0 ${x} 40" ${line(3, '#D9B272')}/>`).join('')}
+    <rect x="-30" y="-38" width="60" height="34" rx="10" ${st('#5A6578', 4.5)}/>
+    <rect x="-24" y="-32" width="48" height="22" rx="6" fill="#1D2233"/>
+    ${e === 1 ? `<path d="M-16 -21 h10 M6 -21 h10" ${line(3.5, '#5FF0FF')}/>` : e === 2 ? `<path d="M-17 -26 l10 10 M-7 -26 l-10 10 M7 -26 l10 10 M17 -26 l-10 10" ${line(3, '#FF5D8F')}/>` : `<rect x="-17" y="-27" width="10" height="11" rx="3" fill="#5FF0FF"/><rect x="7" y="-27" width="10" height="11" rx="3" fill="#5FF0FF"/>`}
+    <path d="M0 -50 V-66" ${line(4, INK)}/><circle cx="0" cy="-70" r="6" ${st('#FF5D8F', 3.5)}/>
+    <path d="M-12 10 q12 8 24 0" ${line(3.2, INK)}/>
+    ${shine(-30, 6, 4, 12, 15, 0.5)}`,
+  // Cyborg Cannolo — cannolo à moitié robot, bras mécanique, visière rouge
+  cyber: (e, s) => `
+    ${feet(20, 54, s, '#6B7888', 13, 8)}
+    ${limb(`M-40 0 Q-62 ${s ? -8 : 6} -56 ${s ? -26 : 24}`, 7, '#E8A23B')}
+    ${limb(`M40 0 L58 ${s ? 10 : -4} L66 ${s ? -8 : -20}`, 8, '#98A6B6')}<path d="M62 ${s ? -12 : -24} l10 -6 M64 ${s ? -6 : -18} l12 0" ${line(4, INK)}/>
+    <rect x="-40" y="-46" width="80" height="94" rx="34" ${st('#E8A23B')}/>
+    ${[-30, -14, 2, 18].map((y) => `<path d="M-38 ${y} q38 -10 76 0" ${line(3, '#C47A1F')}/>`).join('')}
+    <ellipse cx="0" cy="-46" rx="40" ry="12" ${st('#FFF6E0', 4.5)}/><ellipse cx="0" cy="48" rx="40" ry="10" ${st('#FFF6E0', 4.5)}/>
+    ${[[-18, -50], [0, -54], [16, -49]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#5FB53C" stroke="${INK}" stroke-width="2"/>`).join('')}
+    <path d="M0 -36 H40 V-6 H0 Z" ${st('#98A6B6', 4.5)}/>${bolts(3, 0, 2)}<circle cx="10" cy="-28" r="2.6" fill="${INK}"/><circle cx="30" cy="-12" r="2.6" fill="${INK}"/>
+    <rect x="-34" y="-26" width="68" height="18" rx="9" fill="#2B2F45" stroke="${INK}" stroke-width="4"/>
+    ${e === 2 ? `<path d="M-24 -17 h14 M10 -17 h14" ${line(4, '#FF5D6C')}/>` : `<rect x="-26" y="-22" width="${e === 1 ? 16 : 18}" height="${e === 1 ? 3 : 10}" rx="3" fill="#FF3B3B"/><circle cx="18" cy="-17" r="6" fill="#FF3B3B"/><circle cx="16" cy="-19" r="2" fill="#fff"/>`}
+    <path d="M-12 6 q12 9 24 0" ${line(3.2, INK)}/>
+    ${shine(-28, 10, 4, 14, 0, 0.5)}`,
+  // Astro Polpetta — boulette de viande astronaute à réacteur (volante)
+  astro: (e, s) => `
+    <path d="M-14 46 L-20 ${68 + (s ? 10 : 0)} L-8 52 Z M14 46 L20 ${68 + (s ? 10 : 0)} L8 52 Z" fill="#FFB224" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M-10 48 L-12 ${60 + (s ? 6 : 0)} L-4 50 Z M10 48 L12 ${60 + (s ? 6 : 0)} L4 50 Z" fill="#FFF3A0"/>
+    <rect x="-26" y="10" width="52" height="40" rx="10" ${st('#C9D3DE', 4.5)}/><rect x="-18" y="20" width="12" height="20" rx="4" fill="#FF5D6C" stroke="${INK}" stroke-width="2.5"/><rect x="6" y="20" width="12" height="20" rx="4" fill="#FF5D6C" stroke="${INK}" stroke-width="2.5"/>
+    ${[-1, 1].map((k) => limb(`M${k * 34} 0 Q${k * 54} ${s ? -16 : 4} ${k * 48} ${s ? -30 : 20}`, 7, '#A0522D')).join('')}
+    <circle cx="0" cy="-6" r="40" ${st('#A0522D')}/>
+    ${[[-24, -26], [14, -32], [-28, 12], [22, 10], [0, 22], [-6, -36]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#7A3B1E"/>`).join('')}
+    <circle cx="0" cy="-8" r="48" fill="rgba(160,230,255,.22)" stroke="#E9F8FF" stroke-width="5"/><circle cx="0" cy="-8" r="48" fill="none" stroke="${INK}" stroke-width="2.5"/>
+    <path d="M-30 -36 a40 40 0 0 1 22 -14" ${line(6, 'rgba(255,255,255,.85)')}/>
+    ${face(0, -8, 0.95, e, 'open', 13)}
+    <path d="M0 -56 V-70" ${line(3.5, INK)}/><circle cx="0" cy="-72" r="5" fill="#5FF0FF" stroke="${INK}" stroke-width="3"/>`,
+  // Satellite Spaghetto — pelote de spaghetti satellite, panneaux solaires (volant)
+  satellite: (e, s) => `
+    ${[-1, 1].map((k) => `<rect x="${k > 0 ? 40 : -96}" y="-16" width="56" height="34" rx="4" transform="rotate(${k * (s ? 6 : -6)} ${k * 40} 0)" ${st('#3D7DE0', 4.5)}/><path d="M${k > 0 ? 54 : -82} -14 V16 M${k > 0 ? 68 : -68} -14 V16 M${k > 0 ? 82 : -54} -14 V16 M${k > 0 ? 42 : -94} 2 H${k > 0 ? 94 : -42}" ${line(2, 'rgba(255,255,255,.5)')}/>`).join('')}
+    ${limb('M-40 0 H40', 6, '#98A6B6')}
+    <circle cx="0" cy="0" r="40" ${st('#FFE08A')}/>
+    ${[0, 1, 2, 3, 4, 5].map((i) => `<path d="M${-34 + i * 4} ${-20 + i * 7} q${20 + i * 3} ${-24 + i * 2} ${44 - i * 4} ${4 + i * 2}" ${line(3.4, '#E8B848')}/>`).join('')}
+    <circle cx="-14" cy="22" r="8" fill="#C2402B" stroke="${INK}" stroke-width="3"/><circle cx="18" cy="18" r="6" fill="#C2402B" stroke="${INK}" stroke-width="3"/>
+    <path d="M10 -40 L22 -64" ${line(4, INK)}/><path d="M8 -70 a18 10 30 0 0 30 10 z" ${st('#E9F4FF', 3.5)}/><circle cx="23" cy="-64" r="3" fill="#FF5D8F"/>
+    ${face(0, -4, 0.9, e, 'smile', 13)}
+    ${shine(-22, -20, 5, 10, 30, 0.5)}`,
+  // Glitch Mozzarella — boule de mozzarella qui « buggue » (contours décalés RVB, pixels)
+  glitch: (e, s) => `
+    <circle cx="${s ? -6 : 6}" cy="0" r="46" fill="none" stroke="#FF3FB4" stroke-width="6" opacity=".75"/>
+    <circle cx="${s ? 6 : -6}" cy="2" r="46" fill="none" stroke="#3FF0FF" stroke-width="6" opacity=".75"/>
+    ${feet(22, 52, s, '#E9F6FF', 12, 8)}
+    <circle cx="0" cy="0" r="46" ${st('#FBFBF6')}/>
+    <path d="M-40 -16 Q0 -30 40 -16" ${line(3, '#E6E6DA')}/><path d="M-36 24 Q0 36 36 24" ${line(3, '#E6E6DA')}/>
+    ${[[-52, -30, '#FF3FB4'], [42, -40, '#3FF0FF'], [48, 20, '#FF3FB4'], [-50, 26, '#3FF0FF'], [30, 44, '#B05CFF']].map(([x, y, c]) => `<rect x="${x + (s ? 3 : 0)}" y="${y}" width="9" height="9" fill="${c}" stroke="${INK}" stroke-width="2"/>`).join('')}
+    <rect x="-46" y="${s ? -6 : 6}" width="92" height="7" fill="#3FF0FF" opacity=".35"/>
+    ${brows(0, -4, 0.95, 14)}${face(0, -4, 0.95, e, 'wobble', 14)}
+    <path d="M-8 -48 q8 -14 16 0" ${st('#4FB04A', 3.5)}/>
+    ${shine(-26, -22, 6, 12, 30, 0.6)}`,
   // BOSS 1 : Tricheco Fisarmonica — morse-accordéon
   boss1: (e, s) => { const k = s ? 5 : 0; return `
     ${feet(28, 58, s, '#7D5435', 16, 9)}
@@ -311,6 +375,45 @@ const ENEMY_ART = {
     ${brows(0, -46, 0.95, 12)}${face(0, -46, 0.95, e, 'none', 12)}
     <path d="M-10 -36 L0 -24 L10 -36 Q0 -42 -10 -36 Z" ${st('#FF9F1A', 4)}/>
     <path d="M-8 -84 l8 -10 l8 10 z" ${st('#5fd8ff', 3.5)}/>`,
+  // BOSS 6 : Robo Raviolo 3000 — raviolo géant robotisé, écran-visage
+  boss6: (e, s) => { let edge = ''; for (let i = 0; i < 28; i++) { const k = i / 28, a = k * TAU, r = 66 + (i % 2 ? 6 : 0); edge += `${i ? 'L' : 'M'}${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r * 0.86).toFixed(1)} `; } return `
+    ${[-1, 1].map((k) => `<rect x="${k * 34 - 16}" y="${50 - ((k < 0) === !s ? 6 : 0)}" width="32" height="22" rx="8" ${st('#5A6578', 4.5)}/>`).join('')}
+    ${[-1, 1].map((k) => { const dy = (k < 0) === !s ? -10 : 4; return limb(`M${k * 60} 0 L${k * 88} ${12 + dy} L${k * 84} ${40 + dy}`, 12, '#98A6B6') + `<path d="M${k * 76} ${44 + dy} l${k * 18} 6 l${k * -6} 12 z" ${st('#FF5D8F', 4)}/>`; }).join('')}
+    <path d="${edge}Z" ${st('#F6D7A3', 6)}/>
+    <ellipse cx="0" cy="0" rx="50" ry="40" fill="#EFC98C" stroke="#D9B272" stroke-width="3"/>
+    <rect x="-40" y="-30" width="80" height="54" rx="12" ${st('#2B2F45', 5)}/>
+    <rect x="-33" y="-24" width="66" height="42" rx="8" fill="#0F1A2E"/>
+    ${e === 2 ? `<path d="M-24 -12 l12 12 M-12 -12 l-12 12 M12 -12 l12 12 M24 -12 l-12 12" ${line(4, '#FF5D6C')}/>` : e === 1 ? `<path d="M-24 -6 h12 M12 -6 h12" ${line(4, '#5FF0FF')}/>` : `<rect x="-24" y="-14" width="13" height="15" rx="3" fill="#5FF0FF"/><rect x="11" y="-14" width="13" height="15" rx="3" fill="#5FF0FF"/>`}
+    <path d="M-16 10 h32" ${line(3.5, '#5FF0FF')} stroke-dasharray="5 4"/>
+    ${[-50, 50].map((x) => `<circle cx="${x}" cy="-30" r="8" ${st('#FF5D8F', 4)}/>`).join('')}
+    <path d="M0 -36 V-62" ${line(5, INK)}/><circle cx="0" cy="-68" r="9" ${st('#FFD23F', 4)}/>
+    <path d="M-30 30 l8 8 l8 -8 l8 8 l8 -8 l8 8 l8 -8" ${line(3, '#C98A3C')}/>
+    ${shine(-46, -10, 5, 14, 20, 0.45)}`; },
+  // BOSS 7 : Astronauta Arancino — arancino géant en combinaison spatiale
+  boss7: (e, s) => `
+    ${[-1, 1].map((k) => `<rect x="${k * 30 - 16}" y="${46 - ((k < 0) === !s ? 6 : 0)}" width="32" height="26" rx="10" ${st('#E9F4FF', 4.5)}/><rect x="${k * 30 - 16}" y="${62 - ((k < 0) === !s ? 6 : 0)}" width="32" height="10" rx="4" fill="#FF7A3C" stroke="${INK}" stroke-width="3"/>`).join('')}
+    <rect x="-52" y="-6" width="104" height="70" rx="26" ${st('#E9F4FF', 6)}/>
+    <rect x="-22" y="8" width="44" height="30" rx="7" ${st('#3D7DE0', 4)}/><circle cx="-10" cy="23" r="5" fill="#FF5D8F"/><circle cx="10" cy="23" r="5" fill="#5FF0FF"/>
+    ${[-1, 1].map((k) => { const dy = (k < 0) === !s ? -10 : 2; return limb(`M${k * 50} 6 Q${k * 80} ${dy} ${k * 74} ${40 + dy}`, 18, '#E9F4FF') + `<circle cx="${k * 74}" cy="${46 + dy}" r="13" ${st('#FF7A3C', 4.5)}/>`; }).join('')}
+    <path d="M78 -4 V-60" ${line(4, INK)}/><path d="M80 -60 h30 l-6 10 6 10 h-30 z" ${st('#FF5D8F', 3.5)}/>
+    <path d="M0 -96 C30 -96 50 -60 48 -36 C46 -14 26 -4 0 -4 C-26 -4 -46 -14 -48 -36 C-50 -60 -30 -96 0 -96 Z" ${st('#F29A2E', 6)}/>
+    ${[[-24, -56], [-6, -72], [16, -60], [-14, -30], [22, -26], [30, -46]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#C9701A"/>`).join('')}
+    <circle cx="0" cy="-48" r="58" fill="rgba(160,230,255,.2)" stroke="#E9F8FF" stroke-width="6"/><circle cx="0" cy="-48" r="58" fill="none" stroke="${INK}" stroke-width="3"/>
+    <path d="M-38 -80 a52 52 0 0 1 26 -22" ${line(7, 'rgba(255,255,255,.85)')}/>
+    ${brows(0, -46, 1.05, 14)}${face(0, -46, 1.05, e, 'grin', 14)}`,
+  // BOSS 8 : Re Spaghettone — roi des brainrots, chevelure de spaghetti, couronne et fourchette-sceptre
+  boss8: (e, s) => `
+    <path d="M-62 -10 Q-80 50 -60 70 L60 70 Q80 50 62 -10 Z" ${st('#B05CFF', 6)}/><path d="M-50 60 H50" ${line(5, '#FFD23F')}/>
+    ${[-1, 1].map((k) => `<rect x="${k * 28 - 15}" y="${58 - ((k < 0) === !s ? 6 : 0)}" width="30" height="16" rx="7" ${st('#5A3A2A', 4)}/>`).join('')}
+    ${limb(`M58 0 Q${s ? 84 : 78} -10 82 -60`, 8, '#C9D3DE')}<path d="M70 -60 V-90 M82 -60 V-94 M94 -60 V-90 M68 -60 H96" ${line(6, '#FFD23F')}/><path d="M70 -60 V-90 M82 -60 V-94 M94 -60 V-90 M68 -60 H96" ${line(2.5, INK)} opacity=".4"/>
+    ${[...Array(14)].map((_, i) => { const x = -66 + i * 10, sw = Math.sin(i + (s ? 1 : 0)) * 8; return `<path d="M${x} -50 Q${x + sw} -10 ${x - sw} 30" ${line(9, INK)}/><path d="M${x} -50 Q${x + sw} -10 ${x - sw} 30" ${line(5, '#FFE08A')}/>`; }).join('')}
+    <circle cx="0" cy="-36" r="44" ${st('#FFE08A', 6)}/>
+    ${[...Array(9)].map((_, i) => `<path d="M${-40 + i * 10} -70 q4 14 -2 26" ${line(3, '#E8B848')}/>`).join('')}
+    <circle cx="-18" cy="-6" r="10" fill="#C2402B" stroke="${INK}" stroke-width="3"/><circle cx="20" cy="-4" r="8" fill="#C2402B" stroke="${INK}" stroke-width="3"/>
+    ${brows(0, -38, 1.1, 14)}${face(0, -38, 1.1, e, 'grin', 14)}
+    <path d="M-36 -74 L-28 -106 L-14 -86 L0 -112 L14 -86 L28 -106 L36 -74 Z" ${st('#FFD23F', 5)}/>
+    ${[-24, 0, 24].map((x, i) => `<circle cx="${x}" cy="-84" r="4.5" fill="${['#3FF0FF', '#FF3FB4', '#3FD873'][i]}" stroke="${INK}" stroke-width="2.4"/>`).join('')}
+    ${shine(-28, -56, 6, 12, 30, 0.45)}`,
   // BOSS 5 : Leone Lasagna — lion à crinière de lasagnes
   boss5: (e, s) => `
     ${limb(`M52 30 q34 6 30 -22`, 9, '#E8A23B')}<circle cx="82" cy="4" r="10" ${st('#C2402B', 4.5)}/>
@@ -346,7 +449,7 @@ export function enemySvg(type, expr = 0, step = 0, px = 192) {
 // Vue de dessus : un socle fixe + une tête qui pivote (dessinée vers +x, pivot en (0,0), 2 unités = 1 px de jeu).
 // L = niveau (1-5), b = branche (0/1/null), R = couleur de rareté, M = couleur du type.
 const STEEL = '#8E9AAB', DARK = '#4A4F63', WOOD = '#C98A4B', GOLD = '#F5B83D', HOT = '#F04A3A';
-export const TOWER_COLOR = { assault: '#3D8BFF', smg: '#3FCF5E', shotgun: '#FF8A2A', sniper: '#9B5CFF', rocket: '#F0443A', minigun: '#8E9AAB', cryo: '#4FD6F5', mine: '#5B6178' };
+export const TOWER_COLOR = { assault: '#3D8BFF', smg: '#3FCF5E', shotgun: '#FF8A2A', sniper: '#9B5CFF', rocket: '#F0443A', minigun: '#8E9AAB', cryo: '#4FD6F5', mine: '#5B6178', laser: '#FF3FB4', tesla: '#6C7BFF', plasma: '#2FD08A', drone: '#2EC4B6' };
 const star = (x, y, r, fill = '#FFD23F') => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, q = i % 2 ? r * 0.45 : r; d += `${i ? 'L' : 'M'}${(x + Math.cos(a) * q).toFixed(1)} ${(y + Math.sin(a) * q).toFixed(1)}`; } return `<path d="${d}Z" fill="${fill}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`; };
 const rect = (x, y, w, h, r, fill, sw = SW) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${st(fill, sw)}/>`;
 const circ = (x, y, r, fill, sw = SW) => `<circle cx="${x}" cy="${y}" r="${r}" ${st(fill, sw)}/>`;
@@ -512,6 +615,66 @@ const HEAD = {
     }
     return s + shine(-14, -18, 7, 3, -30, 0.5) + (L >= 5 ? star(0, 0, 9) : '');
   },
+  // Laser — émetteur à cristal, rose néon : rayon continu
+  laser: (L, b, R, M) => {
+    const A = arm(L), B = bar(L), len = L >= 3 ? 72 : 60; let s = '';
+    if (b === 0) { // Prisme : trois émetteurs en éventail et un prisme
+      s += [-14, 0, 14].map((y) => `<g transform="rotate(${y * 0.9} 20 0)">${rect(20, -4.5, len - 6, 9, 4, B, 4)}${circ(20 + len - 2, 0, 6, R, 3)}</g>`).join('');
+      s += poly([[40, -20], [58, 0], [40, 20]], '#BDF3FF', 4) + `<path d="M44 -10 L52 0 L44 10" ${line(2, 'rgba(255,255,255,.8)')}/>`;
+    } else if (b === 1) { // Surchauffe : gros canon cerclé, ailettes rougeoyantes
+      s += rect(20, -10, len + 4, 20, 8, B) + [34, 50, 66].map((x) => rect(x, -14, 7, 28, 3, '#FF7A3C', 3.5)).join('') + circ(24 + len, 0, 11, '#FFD23F', 4) + circ(24 + len, 0, 5, '#fff', 0);
+    } else {
+      s += rect(20, -5, len, 10, 5, B);
+      if (L >= 2) s += [36, 52].map((x) => rect(x, -9, 6, 18, 3, A, 3.5)).join('');
+      s += circ(22 + len, 0, L >= 3 ? 10 : 8, R, 4) + `<circle cx="${20 + len}" cy="-3" r="3" fill="#fff"/>`;
+    }
+    s += poly([[-30, -24], [10, -24], [24, -10], [24, 10], [10, 24], [-30, 24], [-40, 10], [-40, -10]], M);
+    if (L >= 2) s += rect(-30, -34, 36, 10, 5, A, 4) + rect(-30, 24, 36, 10, 5, A, 4);
+    s += circ(-10, 0, 13, shade(M, -0.3), 4) + `<circle cx="-10" cy="0" r="7" fill="#FFF3FA"/><circle cx="-10" cy="0" r="7" fill="none" stroke="${R}" stroke-width="3"/>`;
+    s += shine(-26, -14, 9, 3, 0, 0.45) + (L >= 3 ? vents(-36, -6, 3, 8, 6) : '');
+    return s + (L >= 5 ? star(4, 14, 8) : '');
+  },
+  // Tesla — bobine à boule, bleu électrique (ne pivote pas)
+  tesla: (L, b, R, M) => {
+    const A = arm(L); let s = '';
+    const n = L >= 3 ? 6 : 4;
+    s += Array.from({ length: n }, (_, i) => { const a = (i / n) * TAU + 0.4, x = Math.cos(a) * 38, y = Math.sin(a) * 38; return `<path d="M0 0 L${x.toFixed(1)} ${y.toFixed(1)}" ${line(8)}/>` + circ(x, y, L >= 2 ? 9 : 7, A, 4) + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${R}"/>`; }).join('');
+    s += circ(0, 0, 32, M) + [26, 19].map((r) => `<circle r="${r}" fill="none" stroke="#E0A060" stroke-width="5"/><circle r="${r}" fill="none" stroke="${INK}" stroke-width="1.5" opacity=".5"/>`).join('');
+    if (b === 0) { // Orage : boule-nuage avec éclair
+      s += `<path d="M-18 6 a10 10 0 0 1 4 -18 a13 13 0 0 1 24 -2 a10 10 0 0 1 8 18 z" ${st('#E9F4FF', 4)}/><path d="M2 -6 l-8 12 h7 l-4 10 l10 -14 h-7 l4 -8 z" fill="#FFD23F" stroke="${INK}" stroke-width="2"/>`;
+    } else if (b === 1) { // Surtension : double boule et arcs jaunes
+      s += circ(-8, 0, 12, '#BDF3FF', 4) + circ(10, 0, 12, '#BDF3FF', 4) + `<path d="M-8 -12 q9 -10 18 0 M-8 12 q9 10 18 0" ${line(3, '#FFD23F')}/>`;
+    } else {
+      s += circ(0, 0, L >= 3 ? 15 : 12, '#BDF3FF', 4) + `<circle cx="-4" cy="-5" r="4" fill="#fff"/>`;
+    }
+    return s + (L >= 5 ? star(0, 24, 7) : '');
+  },
+  // Plasma — chambre bombée et canon court et large, vert acide
+  plasma: (L, b, R, M) => {
+    const A = arm(L), B = bar(L); let s = '';
+    const barrel = (y) => rect(22, y - 10, L >= 3 ? 46 : 38, 20, 9, B) + `<ellipse cx="${(L >= 3 ? 68 : 60) - 2}" cy="${y}" rx="6" ry="10" fill="#8FFFD0" stroke="${INK}" stroke-width="3.5"/>`;
+    s += b === 1 ? barrel(-13) + barrel(13) : barrel(0);
+    if (L >= 2) s += rect(14, -26, 22, 8, 4, A, 3.5) + rect(14, 18, 22, 8, 4, A, 3.5);
+    s += circ(-6, 0, 30, M);
+    const core = b === 0 ? '#FF9F1A' : '#8FFFD0';
+    s += `<circle cx="-6" cy="0" r="${b === 0 ? 20 : 17}" fill="${core}" stroke="${INK}" stroke-width="4"/><circle cx="-12" cy="-6" r="6" fill="#fff" opacity=".85"/>`;
+    if (L >= 3) s += `<circle cx="-6" cy="0" r="25" fill="none" stroke="${R}" stroke-width="4" stroke-dasharray="8 6"/>`;
+    s += shine(-24, -18, 8, 3, -30, 0.45);
+    return s + (L >= 5 ? star(-6, 0, 8) : '');
+  },
+  // Drone — quadricoptère (la tête est le drone, dessiné là où il patrouille), turquoise
+  drone: (L, b, R, M) => {
+    const A = arm(L); let s = '';
+    const rot = L >= 2 ? 17 : 14;
+    s += [45, 135, 225, 315].map((a) => { const x = Math.cos((a * Math.PI) / 180) * 34, y = Math.sin((a * Math.PI) / 180) * 34; return `<path d="M0 0 L${x.toFixed(1)} ${y.toFixed(1)}" ${line(9)}/><path d="M0 0 L${x.toFixed(1)} ${y.toFixed(1)}" ${line(5, A)}/>` + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rot}" fill="rgba(255,255,255,.35)" stroke="${INK}" stroke-width="3"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${INK}"/>`; }).join('');
+    if (b === 1) s += `<ellipse cx="0" cy="0" rx="14" ry="20" ${st('#2B2F45', 4)}/><circle cx="0" cy="22" r="9" ${st('#2B2F45', 3.5)}/><path d="M0 13 v-4" ${line(3, '#FFD23F')}/>`;
+    s += `<ellipse cx="0" cy="0" rx="22" ry="18" ${st(M)}/>`;
+    s += rect(14, -4, b === 1 ? 12 : 20, 8, 3, bar(L), 3.5);
+    if (L >= 3) s += rect(-14, -22, 20, 8, 4, A, 3.5) + rect(-14, 14, 20, 8, 4, A, 3.5);
+    if (b === 0) s += `<path d="M-8 -16 l-6 -14" ${line(3, INK)}/><circle cx="-14" cy="-31" r="3.5" fill="#FF5D8F"/>`;
+    s += lens(4, 0, 6, R) + shine(-10, -9, 7, 2.6, -20, 0.5);
+    return s + (L >= 5 ? star(-10, 6, 6) : '');
+  },
   // Mine — disque piégé (le voyant clignotant est dessiné par le jeu)
   mine: (L, b, R, M) => {
     const r = b === 0 ? 40 : [30, 33, 35, 36, 36][L - 1], n = b === 0 ? 10 : L >= 3 ? 8 : 6, A = arm(L); let s = '';
@@ -533,13 +696,14 @@ const TVB = 130; // demi-vue des tourelles (260 unités = 130 px de jeu)
 export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 260, part = 'icon') {
   grads = new Set(); finish = fin; OL = fin === 'neon' ? '#0a0d1c' : INK;
   const R = RARITY[level - 1].color, M = TOWER_COLOR[type];
-  const base = type === 'mine' ? '' : (type === 'sniper' ? tripod(level) : '') + basePlate(type === 'sniper' ? Math.max(1, level - 1) : level, R, M);
+  const base = type === 'mine' ? '' : (type === 'sniper' ? tripod(level) : '') + basePlate(type === 'sniper' ? Math.max(1, level - 1) : level, R, M)
+    + (type === 'drone' ? `<path d="M-12 -14 V14 M12 -14 V14 M-12 0 H12" ${line(6, '#FFD23F')}/>` : '');
   const head = HEAD[type](level, branch, R, M);
   let body, vb = TVB;
   if (part === 'base') body = base;
   else if (part === 'head') body = head;
   else { // icône : tête tournée vers le haut-droite, cadrage serré
-    const still = type === 'cryo' || type === 'mine', long = type === 'sniper' ? 0.74 : type === 'minigun' || type === 'assault' || type === 'shotgun' ? 0.86 : 0.95;
+    const still = type === 'cryo' || type === 'mine' || type === 'tesla' || type === 'drone', long = type === 'sniper' ? 0.74 : type === 'minigun' || type === 'assault' || type === 'shotgun' ? 0.86 : 0.95;
     body = `<g transform="scale(${still ? (type === 'mine' ? 1.45 : 1.2) : long})">${base}<g transform="rotate(${still ? 0 : -50}) translate(${still ? 0 : type === 'sniper' ? -22 : -8} 0)">${head}</g></g>`;
     vb = 84;
   }
@@ -586,9 +750,11 @@ export function towerSprite(type, level, branch, fin) {
   }
   return s;
 }
-export function preloadSprites(skin) {
-  for (const t of Object.keys(ENEMIES)) enemyFrames(t);
-  for (const t of Object.keys(HEAD)) towerSprite(t, 1, null, skinFinish(skin));
+// Préchargement : seulement ce qui va servir (les sprites sont des canvas, la mémoire de Safari iOS est limitée).
+// enemies / towers = listes de types ; sans liste, les tourelles débloquées par défaut et aucun ennemi.
+export function preloadSprites(skin, towers = Object.keys(HEAD), enemies = []) {
+  for (const t of enemies) if (ENEMY_ART[t]) enemyFrames(t);
+  for (const t of towers) if (HEAD[t]) towerSprite(t, 1, null, skinFinish(skin));
 }
 
 // Images pour l'interface (DOM)

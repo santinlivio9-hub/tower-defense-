@@ -14,7 +14,7 @@ import { Daily } from './daily.js';
 import { Radial } from './radial.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
-import { waveSummary } from './waves.js';
+import { waveSummary, levelEnemies } from './waves.js';
 import { enemyImg, towerImg, preloadSprites, enemyFrames, towerSprite, skinFinish } from './sprites.js';
 import { icon, hydrateIcons, coin, gem } from './icons.js';
 import { Haptics } from './haptics.js';
@@ -45,7 +45,7 @@ export class UI {
     this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
 
     hydrateIcons();
-    preloadSprites(save.data.skin);
+    preloadSprites(save.data.skin, save.data.towers);
     document.addEventListener('pointerdown', (e) => {
       this.audio.unlock(); if (!this.music.on) this.music.start();
       if (e.target.closest('.btn, .icon-btn, .seg button, .switch, .rb')) { this.audio.play('click'); this.haptics.pulse(0); }
@@ -127,8 +127,8 @@ export class UI {
       $('.cc-art', card).append(towerImg('assault', 84, s.id, 4, 0));   // aperçu sur une vraie tourelle, posée sur son socle
       if (on) card.append(owned('Équipé'));
       else if (s.exclusive && !has) { const n = UNLOCKS.skins[s.id]; card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('lock')}Boss ${LEVELS[n - 2].id}`)); }
-      else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
-      else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id); }));
+      else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id, d.towers); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }
+      else card.append(this.buyButton(s.cost, 'gems', '', () => { d.skins.push(s.id); d.skin = s.id; preloadSprites(s.id, d.towers); }));
       g.append(card);
     }
     grid.append(g, el('p', 'hint', 'Une finition s\'applique à toutes tes armes.'));
@@ -234,6 +234,8 @@ export class UI {
   // ------------------------------------------------------------------ partie
   startGame(n, heroic = false, endless = false, boosts = [], challenge = null) {
     this.clearGame();
+    // sprites de ce niveau seulement (tourelles possédées, brainrots qu'il peut envoyer, son boss)
+    { const L = LEVELS[n - 1]; preloadSprites(this.save.data.skin, this.save.data.towers, [...levelEnemies(L), WORLDS[L.world].boss, 'mini']); }
     const g = (this.game = new Game({ canvas: this.canvas, level: LEVELS[n - 1], heroic, endless, save: this.save, audio: this.audio, boosts, challenge }));
     this.lastArgs = [n, heroic, endless, challenge];
     this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
