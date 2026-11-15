@@ -1,4 +1,4 @@
-# Brainrot Bastion — Tower Defense
+# Brainrot TD
 
 Tower defense 2D en format portrait, jouable dans le navigateur et installable sur téléphone. Des créatures absurdes (escargot-pizza, hippopotame grille-pain,
 crabe-casserole…) suivent un chemin vers ta base ; tu les arrêtes avec des tourelles en forme d'armes,
