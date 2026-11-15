@@ -42,6 +42,18 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
   // réinitialisation annulable
   s = fresh({ v: 2, gems: 55, levels: { 1: { stars: 2 } } }); s.reset(); ok(s.data.gems === 0 && s.hasUndo(), 'réinitialisation : état d\'avant gardé');
   ok(s.restoreUndo() && s.data.gems === 55 && s.data.levels[1].stars === 2 && !s.hasUndo(), 'annulation : tout revient');
+  // Renaissance : ce qui part, ce qui reste, ce qu'on gagne
+  { const lv = {}; for (let n = 1; n <= 80; n++) lv[n] = { stars: 3, best: 1, heroic: n % 10 === 0 ? 1 : 0, heroicBest: 0 };
+    s = fresh({ v: 2, lpw: 10, levels: lv, gems: 300, coins: 9000, level: 30, xp: 50, talents: { dmg: 3, rate: 2 }, talentPts: 1, castle: { walls: 5, gold: 2 }, skins: ['default', 'neon'], achievements: ['first'], boosts: { coins2: 4 }, seen: { enemies: ['basic'], towers: [] } });
+    const d = s.data; ok(s.rebirthReady() && s.rebirthGain().shards === 20 + 240 + 8 * 3, 'Renaissance disponible, éclats = base + étoiles + héroïques');
+    const r = s.doRebirth();
+    ok(r && d.rebirth.rank === 1 && d.rebirth.shards === 284 && Object.keys(d.levels).length === 0 && s.castleSum() === 0 && d.coins === 150 && d.talentPts === 6 && Object.keys(d.talents).length === 0, 'remise à zéro : campagne, château, pièces ; points de talent rendus');
+    ok(d.gems === 300 && d.level === 30 && d.skins.includes('neon') && d.achievements.includes('first') && d.boosts.coins2 === 4 && d.towers.includes('drone') && d.seen.enemies.includes('basic'), 'gardés : gemmes, niveau, skins, succès, boosts, tourelles, collection');
+    ok(s.endlessUnlocked() && s.legendOk('drone') && !s.rebirthReady() && s.levelUnlocked(1) && !s.levelUnlocked(2), 'mode infini et légendaires gardés, campagne à refaire');
+    ok(Math.abs(s.mods().damage - 1.05 * (1 + 3 * 0.05)) < 0.01 || s.mods().damage > 1, 'bonus permanent de dégâts');
+    ok(s.buyRebirth('mk2_smg') && s.owns('mk2_smg') && d.rebirth.shards === 174 && !s.buyRebirth('mk2_smg'), 'boutique d\'éclats : achat unique');
+    ok(s.buyRebirth('skin_phoenix') && d.skins.includes('phoenix'), 'skin de Renaissance ajouté aux skins');
+    const again = new Save(); ok(again.rank() === 1 && again.owns('mk2_smg'), 'Renaissance enregistrée'); }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;

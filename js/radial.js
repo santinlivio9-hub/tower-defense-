@@ -74,7 +74,7 @@ export const Radial = {
         continue;
       }
       const ns = computeStats(t.type, o.level, o.branch, g.mods);
-      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (g.money < o.cost ? ' poor' : ''),
+      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (o.mk2 || (o.branch === 2) ? ' mk2' : '') + (g.money < o.cost ? ' poor' : ''),
         art: o.kind === 'level' ? icon('up') : towerImg(t.type, 42, skin, o.level, o.branch), label: o.kind === 'level' ? 'Niv. ' + o.level : o.name, price: o.cost,
         panel: { kind: 'up', type: t.type, cur: t.stats, next: ns, from: [t.level, t.branch], to: [o.level, o.branch], name: o.kind === 'level' ? 'Niveau ' + o.level : o.name, desc: o.kind === 'level' ? '' : o.desc, poor: g.money < o.cost, cost: o.cost },
         preview: { r: t.type === 'mine' ? ns.splash : ns.range, mode: g.money < o.cost ? 'bad' : 'ok' },
@@ -155,7 +155,7 @@ export const Radial = {
     const host = box.getBoundingClientRect(), p = this.toScreen(slot.x, slot.y), n = items.length;
     // rayon serré : juste ce qu'il faut pour que les boutons ne se touchent pas
     const ups0 = items.filter((i) => !i.side).length;
-    const R = t ? (ups0 > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
+    const R = t ? (ups0 > 2 ? RADIAL.rTower2 + 8 : ups0 > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
     const top = $('#hud').getBoundingClientRect().bottom - host.top + 34, bot = $('#dock').getBoundingClientRect().top - host.top - 30;
     const cx = Math.max(R + 34, Math.min(host.width - R - 34, p.x - host.left)), cy = Math.max(top + R, Math.min(bot - R, p.y - host.top));
     box.classList.toggle('build', !t);
@@ -164,7 +164,7 @@ export const Radial = {
       let a;
       if (!t) a = n === 1 ? -90 : -90 + (360 / n) * i;
       else if (it.side === 'left') a = 158; else if (it.side === 'bottom') a = 90;
-      else a = ups.length === 1 ? -90 : ups.indexOf(it) === 0 ? -130 : -50;
+      else a = ups.length === 1 ? -90 : ups.length === 3 ? [-146, -90, -34][ups.indexOf(it)] : ups.indexOf(it) === 0 ? -130 : -50;
       const b = el('button', 'rb ' + (it.cls || '') + (this.armed === it.key ? ' armed' : ''));
       b.style.cssText = `left:${cx + Math.cos((a * Math.PI) / 180) * R}px;top:${cy + Math.sin((a * Math.PI) / 180) * R}px;--i:${i}`;
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);

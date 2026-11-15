@@ -32,6 +32,9 @@ const gradDefs = () => [...grads].map((hex) => {
   if (finish === 'lava') { const l = luma(hex); return linear(id, [[0, '#ffe27a'], [0.22, mix('#ff8a1a', '#ffd23f', l * 0.6)], [0.6, mix('#b81d12', '#ff5a1f', l)], [1, '#3a0d0d']]); }
   if (finish === 'candy') { const pal = ['#ff8fc7', '#8fe3ff', '#c9a6ff', '#fff3a8', '#a8f0c0']; return vinyl(id, mix(pal[parseInt(hex.slice(1, 3), 16) % pal.length], '#ffffff', luma(hex) * 0.35)); }
   // finitions des boss futuristes : chrome (métal miroir), nébuleuse (violet et bleu étoilé), glitch (bandes RVB)
+  // finitions de Renaissance : phénix (flammes) et prisme (arc-en-ciel)
+  if (finish === 'phoenix') { const l = luma(hex); return linear(id, [[0, '#fff3a0'], [0.25, mix('#ffb224', hex, 0.15)], [0.55, mix('#ff5d3c', hex, 0.2 + l * 0.1)], [0.85, '#b8261a'], [1, '#5a0d12']]); }
+  if (finish === 'prism') return linear(id, [[0, '#ffffff'], [0.15, mix('#ff7ad0', hex, 0.2)], [0.35, mix('#ffd23f', hex, 0.2)], [0.55, mix('#5ff0ff', hex, 0.2)], [0.78, mix('#b05cff', hex, 0.25)], [1, shade(mix('#5f3fd8', hex, 0.3), -0.3)]]);
   if (finish === 'chrome') { const l = luma(hex); return linear(id, [[0, '#ffffff'], [0.22, mix('#c9d6e8', hex, 0.15)], [0.45, mix('#6f7f99', hex, 0.2)], [0.55, '#e9f4ff'], [0.8, mix('#8fa2bd', hex, 0.25 + l * 0.1)], [1, '#3d4a63']]); }
   if (finish === 'nebula') return linear(id, [[0, '#9ff6ff'], [0.25, mix(hex, '#5f3fd8', 0.65)], [0.55, mix(hex, '#2a1d6e', 0.75)], [0.8, mix(hex, '#ff5dc8', 0.55)], [1, '#140d3a']]);
   if (finish === 'glitchy') { const base = mix(hex, '#2a1d52', 0.35); return linear(id, [[0, '#ff3fb4'], [0.18, '#ff3fb4'], [0.19, shade(base, 0.3)], [0.5, base], [0.51, '#3ff0ff'], [0.62, '#3ff0ff'], [0.63, shade(base, -0.2)], [1, shade(base, -0.45)]]); }
@@ -698,7 +701,10 @@ export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 2
   const R = RARITY[level - 1].color, M = TOWER_COLOR[type];
   const base = type === 'mine' ? '' : (type === 'sniper' ? tripod(level) : '') + basePlate(type === 'sniper' ? Math.max(1, level - 1) : level, R, M)
     + (type === 'drone' ? `<path d="M-12 -14 V14 M12 -14 V14 M-12 0 H12" ${line(6, '#FFD23F')}/>` : '');
-  const head = HEAD[type](level, branch, R, M);
+  let head = HEAD[type](level, branch, R, M);
+  // Mk II (Renaissance) : anneau d'énergie violet et plaque « II »
+  if (branch === 2) head = `<circle r="${level >= 5 ? 46 : 42}" fill="none" stroke="#b05cff" stroke-width="5" stroke-dasharray="10 7" opacity=".9"/>` + head
+    + `<g transform="translate(-30 30)"><rect x="-13" y="-10" width="26" height="20" rx="6" ${st('#b05cff', 3.5)}/><text x="0" y="6" text-anchor="middle" font-family="Fredoka,system-ui,sans-serif" font-weight="700" font-size="15" fill="#fff">II</text></g>`;
   let body, vb = TVB;
   if (part === 'base') body = base;
   else if (part === 'head') body = head;

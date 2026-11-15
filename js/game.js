@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
 import { levelRewards } from './economy.js';
-import { WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, starGoals, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { REBIRTH, abilityDef, WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, starGoals, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -31,6 +31,9 @@ export class Game {
     this.ease = Math.max(CAMPAIGN.pathEase[0], Math.min(CAMPAIGN.pathEase[1], len / CAMPAIGN.pathRef));
     this.hpMult = level.hp * this.ease * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1) * (Ch.hp || 1); this.speedMult = level.speed * (H.speed || 1) * (Ch.speed || 1);
     this.sizeMult = Ch.size || 1; this.coinMult = Ch.coins || 1;
+    // Renaissance : brainrots « mutés » (plus résistants, plus rapides, ils se régénèrent)
+    this.mutant = save.rank ? save.rank() : 0;
+    if (this.mutant) { this.hpMult *= 1 + REBIRTH.hpPerRank * this.mutant; this.speedMult *= 1 + REBIRTH.speedPerRank * this.mutant; }
     this.scoreMult = this.heroic ? HEROIC.scoreMult : 1;
     this.banned = Ch.only ? TOWER_ORDER.filter((t) => !Ch.only.includes(t)) : H.ban || []; this.towerLimit = H.towerLimit || 0;
     this.money = Math.round(level.money * (H.money || 1) * (Ch.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
@@ -52,6 +55,7 @@ export class Game {
     { const B = castleBounds(cs); this.castleK = Math.min(1, 230 / (B.bottom - B.top)); this.gunY = castleGunY(cs) * this.castleK; }
     this.cannon = { lvl: cs.cannon, cd: 0, aim: -Math.PI / 2, recoil: 0 };
     this.abilities = Object.keys(CASTLE.abilities).filter((id) => cs[id] > 0).map((id) => { const max = CASTLE.abilities[id].cd[cs[id]] * m.cdMult; return { id, lvl: cs[id], cd: Math.min(15, max), max }; });
+    for (const id of Object.keys(REBIRTH.abilities)) if (save.owns && save.owns('ab_' + id)) { const max = REBIRTH.abilities[id].cd * m.cdMult; this.abilities.push({ id, lvl: 1, cd: Math.min(20, max), max, rebirth: true }); }
     // boosts emportés et effets en cours
     this.boosts = boosts.map((id) => ({ id, used: false }));
     this.overT = 0; this.blizzT = 0; this.coins2Until = 0; this.shieldUntil = 0; this.flash = null; this.strikes = [];
@@ -267,6 +271,7 @@ export class Game {
       if (d > radius + e.r * 0.6) continue;
       if (o.stun) e.stun(o.stun);
       const crit = tower && Math.random() < tower.stats.crit;
+      if (tower && tower.cfg.kind === 'rocket' && tower.stats.burn) e.ignite(tower.stats.burn, tower.stats.burnDur, tower);   // Mk II : napalm
       this.damage(e, damage * (1 - 0.5 * Math.min(1, d / radius)) * (crit ? tower.stats.critMult : 1), tower, { splash: true, crit });
     }
     for (let i = 0; i < (o.cluster || 0); i++) {
@@ -480,7 +485,7 @@ export class Game {
   useAbility(id, x, y) {
     const a = this.abilities.find((k) => k.id === id);
     if (!a || a.cd > 0 || this.over) { this.audio.play('error'); return false; }
-    const C = CASTLE.abilities[id]; a.cd = a.max;
+    const C = abilityDef(id); a.cd = a.max;
     if (id === 'air') {
       this.strikes.push({ x, y, t: 0.55, r: C.radius[a.lvl], lvl: a.lvl });
       this.audio.play('shot_rocket'); this.showBanner('FRAPPE AÉRIENNE', '', C.color, 1.1);
@@ -488,6 +493,13 @@ export class Game {
       const dur = C.dur[a.lvl] * this.mods.durMult; this.blizzT = dur; this.blizzSlow = C.slow[a.lvl];
       for (const e of this.enemies) { e.applySlow(C.slow[a.lvl], dur); this.fx.burst(e.x, e.y, '#d6f6ff', 5, 90, 4); }
       this.flashScreen('200,240,255', 0.7); this.audio.play('cryo'); this.audio.play('zap'); this.shake(5); this.showBanner('BLIZZARD', '', C.color, 1.2);
+    } else if (id === 'meteor') {   // Renaissance : météores sur les brainrots (ou au hasard sur le chemin)
+      const pool = this.enemies.filter((e) => !e.dead);
+      for (let i = 0; i < C.count; i++) { const e = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null, q = e || this.paths[0].pointAt(Math.random() * this.paths[0].total); this.strikes.push({ x: q.x + (Math.random() - 0.5) * 40, y: (e ? e.gy : q.y) + (Math.random() - 0.5) * 40, t: 0.45 + i * 0.18, r: C.radius, meteor: true }); }
+      this.audio.play('boss'); this.showBanner('PLUIE DE MÉTÉORES', '', C.color, 1.2); this.shake(5);
+    } else if (id === 'rewind') {   // Renaissance : tout le monde recule
+      for (const e of this.enemies) { if (e.dead) continue; this.fx.ring(e.x, e.y, 30, 6, '#d6b3ff', 0.4, 5); e.d = Math.max(0, e.d - C.dist * (e.boss ? 0.35 : 1)); e.place(); this.fx.burst(e.x, e.y, '#b05cff', 6, 120, 4); }
+      this.flashScreen('190,140,255', 0.6); this.audio.play('zap'); this.showBanner('RETOUR ARRIÈRE', '', C.color, 1.2);
     } else if (id === 'gold') {
       const n = C.coins[a.lvl] + C.perWave[a.lvl] * this.wave;
       this.addMoney(n); this.flashScreen('255,220,90', 0.6); this.audio.play('buy'); this.audio.play('coin');
@@ -499,6 +511,12 @@ export class Game {
     return true;
   }
   airImpact(s) {
+    if (s.meteor) { // météore de Renaissance
+      const M = REBIRTH.abilities.meteor;
+      this.fx.explosion(s.x, s.y, s.r, '#ff5d3c'); this.shake(8); this.audio.play('explosion');
+      for (const e of this.enemies) if (!e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= s.r + e.r * 0.6) this.damage(e, M.damage * this.level.hp + e.maxHp * (e.boss ? M.bossPct : M.pct), null, { splash: true, ignoreArmor: true });
+      return;
+    }
     const C = CASTLE.abilities.air;
     this.fx.explosion(s.x, s.y, s.r, '#ff7a3c'); this.fx.explosion(s.x - 30, s.y + 20, s.r * 0.6, '#ffd23f'); this.fx.explosion(s.x + 34, s.y - 16, s.r * 0.6, '#ff5d3c');
     this.flashScreen('255,200,120', 0.35); this.shake(14); this.audio.play('explosion'); this.onEvent('haptic', 2);
@@ -638,7 +656,7 @@ export class Game {
     const prevObj = sv.levelObj(L.n), allObj = prevObj.map((v, i) => v || !!(r.obj && r.obj[i]));
     const total = this.goals && victory ? allObj.filter(Boolean).length : stars;
     r.objAll = allObj; r.objPrev = prevObj; r.runStars = stars; if (this.goals && victory) r.stars = total;
-    const E = levelRewards({ victory, stars: total, prevStars: ld.stars, wavesDone, boss: L.boss, hero, heroDone: !!ld.heroic, endless: this.endless, challenge: !!this.challenge, killCost: g.cost, gemMult: this.mods.gemMult });
+    const E = levelRewards({ victory, stars: total, prevStars: ld.stars, wavesDone, boss: L.boss, hero, heroDone: !!ld.heroic, endless: this.endless, challenge: !!this.challenge, killCost: g.cost, gemMult: this.mods.gemMult, rebirthMult: sv.rewardMult ? sv.rewardMult() : 1 });
     r.firstClear = E.firstClear;
     if (this.challenge) {
       if (victory) {

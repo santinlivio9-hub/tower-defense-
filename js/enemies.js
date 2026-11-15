@@ -1,5 +1,5 @@
 // Ennemis : déplacement, états (ralenti, gel, brûlure), capacités, dessin.
-import { ENEMIES, WAVES } from './config.js';
+import { ENEMIES, WAVES, REBIRTH } from './config.js';
 import { enemyFrames } from './sprites.js';
 import { patchAt } from './mechanics.js';
 
@@ -32,6 +32,7 @@ export class Enemy {
     // bouclier d'énergie (robot), réacteur (astro), boucliers projetés (satellite), téléportation (glitch)
     this.shieldMax = cfg.shield ? this.maxHp * cfg.shield.pct : 0; this.shieldHp = this.shieldMax; this.shieldIdle = 0;
     this.boostT = cfg.boost ? Math.random() * cfg.boost.every : 0; this.auraT = cfg.shieldAura ? cfg.shieldAura.every * 0.5 : 0; this.blinkT2 = cfg.blink ? cfg.blink.every * (0.5 + Math.random() * 0.5) : 0; this.blinkHide = 0;
+    this.mutant = game.mutant || 0;
     this.glide = 0; this.hopT = cfg.hop ? cfg.hop.every * (0.5 + Math.random() * 0.5) : 0; this.jumpT = 0; this.camoT = Math.random() * 2; this.camo = false;
     this.x = 0; this.y = 0; this.gy = 0;
     this.place();
@@ -75,6 +76,7 @@ export class Enemy {
       if (this.jumpT > 0) { this.jumpT -= dt; sp += cfg0.hop.dist / cfg0.hop.dur; }
       else if ((this.hopT -= dt) <= 0) { this.hopT = cfg0.hop.every; this.jumpT = cfg0.hop.dur; game.fx.burst(this.x, this.gy, '#e8d27a', 6, 110, 4); }
     }
+    if (game.mutant && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * REBIRTH.regenPerRank * game.mutant * dt);   // mutés : régénération
     if (cfg0.shield && this.shieldHp < this.shieldMax && (this.shieldIdle += dt) >= cfg0.shield.regen) { this.shieldHp = this.shieldMax; game.fx.ring(this.x, this.y, this.r, this.r * 1.6, '#5ff0ff', 0.35, 5); }
     if (cfg0.boost) { this.boostT += dt; if (this.boostT % cfg0.boost.every < cfg0.boost.dur) { sp *= cfg0.boost.mult; if (Math.random() < dt * 30) game.fx.add({ k: 'dot', x: this.x, y: this.y + this.r, vx: (Math.random() - 0.5) * 40, vy: 120, life: 0.3, max: 0.3, size: 5, color: Math.random() < 0.5 ? '#ffb224' : '#fff3a0', drag: 2 }); } }
     if (cfg0.shieldAura && (this.auraT -= dt) <= 0) {
@@ -158,6 +160,8 @@ export class Enemy {
     const expr = this.flash > 0.2 || this.stunT > 0 ? 2 : this.blinkT < 0 ? 1 : 0;
     const step = Math.floor(w / Math.PI) & 1;
     const fr = f.frames[expr][step];
+    // brainrot muté (Renaissance) : aura violette qui pulse
+    if (this.mutant) { c.fillStyle = `rgba(176,92,255,${0.18 + Math.sin(this.walk * 0.15) * 0.08})`; c.beginPath(); c.arc(this.x, this.y, r * 1.35, 0, TAU); c.fill(); }
     // ombre portée au sol
     c.fillStyle = 'rgba(30,10,50,0.25)';
     c.beginPath(); c.ellipse(this.x, this.gy + r * 1.02, r * (0.9 - bounce * 0.12) * (this.flying ? 0.7 : 1), r * 0.28, 0, 0, TAU); c.fill();

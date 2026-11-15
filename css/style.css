@@ -1768,3 +1768,63 @@ body[data-screen="game"] { background: #1c1530; }
 .wera-lab b { font-size: 20px; letter-spacing: .06em; color: #fff; text-shadow: 0 0 8px #ff3fb4, var(--ol); }
 .wera-lab .ico { width: 22px; height: 22px; }
 .wera.locked { filter: saturate(.4) brightness(.7); }
+.rb.up.branch.mk2 { background: linear-gradient(180deg, #f1e3ff, #d38cff); box-shadow: 0 4px 0 #7a2fd0, 0 0 14px rgba(176, 92, 255, .8), inset 0 2px 0 rgba(255, 255, 255, .7); }
+
+/* ------------------------------------------------------------- Renaissance */
+.rk-badge { position: relative; display: inline-grid; place-items: center; width: 44px; height: 48px; flex: none; }
+.rk-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .25)); }
+.rk-badge b { position: relative; margin-top: -4px; font-size: 18px; color: #fff; text-shadow: var(--ol); }
+.rk-badge.none { background: rgba(255, 255, 255, .12); border-radius: 14px; border: 2px dashed rgba(255, 255, 255, .35); } .rk-badge.none .ico { width: 26px; height: 26px; }
+.rk-badge.sm { width: 26px; height: 28px; } .rk-badge.sm b { font-size: 12px; margin-top: -2px; }
+.rk-badge.xs { width: 30px; height: 32px; } .rk-badge.xs b { font-size: 12px; }
+.rk-badge.big { width: 76px; height: 82px; } .rk-badge.big b { font-size: 30px; }
+.rk-badge.next { animation: pulse 1.2s ease-in-out infinite; }
+.rk-badge.huge { width: 120px; height: 130px; } .rk-badge.huge b { font-size: 48px; margin-top: -8px; }
+.rk-mini { display: inline-flex; margin-right: -4px; cursor: pointer; }
+#rebirth-pill { position: relative; z-index: 2; align-self: center; display: inline-flex; align-items: center; gap: 6px; margin: -4px auto 2px; padding: 3px 12px 3px 4px; min-height: 44px; border-radius: 999px; color: #fff; background: linear-gradient(180deg, #8a3fe0, #5f2ab0); border: 2.5px solid var(--ink); box-shadow: 0 3px 0 #3d1d6e; cursor: pointer; }
+#rebirth-pill .rk-badge { width: 34px; height: 36px; } #rebirth-pill .rk-badge b { font-size: 14px; }
+#rebirth-pill span { display: flex; flex-direction: column; line-height: 1.05; text-align: left; } #rebirth-pill small { font-size: 12px; color: #e6d4ff; } #rebirth-pill b { font-size: 16px; text-shadow: var(--ol); }
+#rebirth-pill i { font-style: normal; font-size: 13px; font-weight: 700; color: var(--gold); text-shadow: var(--ol); }
+#rebirth-pill.ready { background: linear-gradient(180deg, #ffe27a, #ff9f1a); color: #3d1d6e; box-shadow: 0 3px 0 #b86a0a, 0 0 18px rgba(255, 210, 63, .8); animation: pulse 1.1s ease-in-out infinite; }
+#rebirth-pill.ready b { color: #fff; } #rebirth-pill.ready small { color: #5a2a00; }
+.rbscreen { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: calc(var(--safe-t) + 8px) 12px calc(var(--safe-b) + 12px); overflow-y: auto; overscroll-behavior: contain; background: radial-gradient(circle at 50% 10%, #5f2ab0, #1c1036 70%); }
+.rb-head { display: flex; align-items: center; gap: 8px; } .rb-head h2 { flex: 1; margin: 0; text-align: center; font-size: 24px; letter-spacing: .06em; color: #fff; text-shadow: 0 0 10px #b05cff, var(--ol); }
+.chip.shards .ico { width: 20px; height: 20px; }
+.rb-ranks { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px 0; }
+.rb-arrow { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--green-2); border: 2.5px solid var(--ink); transform: rotate(90deg); } .rb-arrow .ico { width: 20px; height: 20px; }
+.rb-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rb-cols section { padding: 8px; border-radius: 16px; border: 2px solid; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rb-cols .lose { background: rgba(120, 20, 50, .35); border-color: #ff5d6c; } .rb-cols .keep { background: rgba(20, 90, 60, .35); border-color: #3fd873; }
+.rb-cols h3 { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 14px; letter-spacing: .02em; color: #fff; text-shadow: var(--ol); } .rb-cols h3 .ico { width: 16px; height: 16px; }
+.rb-cols h3.gain { margin-top: 4px; color: var(--gold); }
+.rb-cols section > div { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.15; }
+.rb-cols .ra { flex: none; display: grid; place-items: center; width: 30px; height: 30px; } .rb-cols .ra .ico { width: 26px; height: 26px; } .rb-cols .ra .coin-ico { width: 20px; height: 20px; }
+.rb-cols section b { display: block; font-size: 14px; color: #fff; } .rb-cols section small { display: block; font-size: 12px; color: var(--text-soft); }
+.rb-mut { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 8px 10px; border-radius: 14px; background: rgba(176, 92, 255, .25); border: 2px solid #b05cff; font-size: 13px; line-height: 1.25; }
+.rb-mut .ico { width: 24px; height: 24px; flex: none; } .rb-mut b { color: #fff; }
+.rb-go { margin-top: 4px; } .rb-go .ico { width: 26px; height: 26px; }
+.rb-locked { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 16px; background: rgba(20, 10, 40, .6); border: 2px solid var(--glass-border); font-size: 14px; } .rb-locked b { display: block; color: #fff; } .rb-locked .ico { width: 24px; height: 24px; flex: none; }
+.rb-hold .hold { position: relative; overflow: hidden; width: 100%; min-height: 64px; margin: 12px 0 10px; border-radius: 20px; background: #3a2a66; border: 3px solid var(--ink); box-shadow: 0 5px 0 #1c1036; color: #fff; font-size: 20px; font-weight: 700; touch-action: none; cursor: pointer; }
+.rb-hold .hold i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(180deg, #ffe27a, #ff9f1a); }
+.rb-hold .hold span { position: relative; display: inline-flex; align-items: center; gap: 8px; text-shadow: var(--ol); } .rb-hold .hold .ico { width: 26px; height: 26px; }
+.rb-hold .hold.on { transform: translateY(3px); box-shadow: 0 2px 0 #1c1036; }
+.rb-hold > .btn { width: 100%; }
+.rbcine { position: relative; } .rbcine canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rbc-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: calc(var(--safe-t) + 40px) 16px calc(var(--safe-b) + 16px); gap: 6px; opacity: 0; pointer-events: none; }
+.rbcine.end .rbc-end { opacity: 1; pointer-events: auto; transition: opacity .5s; } .rbcine.end .rk-badge.huge { animation: star-slam .6s cubic-bezier(.3, 1.6, .5, 1); }
+.rbc-end .rays { top: 120px; opacity: 1; }
+.rbc-end small { position: relative; font-size: 14px; letter-spacing: .14em; color: #e6d4ff; } .rbc-end h2 { position: relative; margin: 0; font-size: 34px; color: #fff; text-shadow: 0 0 12px #b05cff, var(--ol); }
+.rbc-gains { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: auto; margin-bottom: 8px; }
+.rbc-gains span { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: rgba(20, 10, 40, .82); border: 2px solid #b05cff; font-size: 14px; color: #fff; } .rbc-gains .ico { width: 18px; height: 18px; }
+.rbc-end .btn { position: relative; }
+.rb-h { margin: 6px 0 0; font-size: 16px; color: #fff; text-shadow: var(--ol); } .rb-h small { display: block; font-size: 12px; font-weight: 500; color: var(--text-soft); text-shadow: none; }
+.rb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rb-card { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px; border-radius: 16px; text-align: center; background: rgba(20, 10, 40, .6); border: 2px solid rgba(176, 92, 255, .6); min-width: 0; }
+.rb-card.own { border-color: #3fd873; } .rb-card b { font-size: 14px; line-height: 1.1; } .rb-card small { font-size: 12px; line-height: 1.2; color: var(--text-soft); flex: 1; }
+.rb-card .rb-art { display: grid; place-items: center; height: 64px; } .rb-card .rb-art img { width: 64px; height: 64px; max-width: none; }
+.rb-ab { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; background: var(--ac); border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .3); } .rb-ab .ico { width: 30px; height: 30px; }
+.rb-card .btn { width: auto; min-width: 88px; } .rb-card .btn .ico { width: 18px; height: 18px; } .rb-card .btn.poor { filter: grayscale(.6); }
+.rb-card .miss { font-style: normal; font-size: 12px; color: #ff9aa8; } .rb-card .owned { display: inline-flex; align-items: center; gap: 4px; color: #8dffae; font-size: 14px; } .rb-card .owned .ico { width: 16px; height: 16px; }
+.wsec.final .wrb { position: absolute; transform: translateX(-50%); }
+.prep-info .mech.mut b { color: #e6b3ff; }
+@media (max-width: 380px) { .rb-cols { grid-template-columns: 1fr; } }

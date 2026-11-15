@@ -520,6 +520,9 @@ export const SHOP = {
     { id: 'chrome',   name: 'Chrome',     cost: 0, finish: 'chrome', exclusive: true },
     { id: 'nebula',   name: 'Nébuleuse',  cost: 0, finish: 'nebula', exclusive: true },
     { id: 'glitchy',  name: 'Glitch',     cost: 0, finish: 'glitchy', exclusive: true },
+    // skins de Renaissance (boutique d'éclats) : finition + aura autour des tourelles
+    { id: 'phoenix',  name: 'Phénix',     cost: 0, finish: 'phoenix', rebirth: true, aura: '#ff7a3c' },
+    { id: 'prism',    name: 'Prisme',     cost: 0, finish: 'prism', rebirth: true, aura: '#b05cff' },
   ],
 };
 
@@ -548,6 +551,49 @@ export const RADIAL = {
   pathNear: 260,     // le panneau évite le chemin dans ce rayon autour de l'emplacement (unités du terrain)
   pathHalf: 30,      // demi-largeur du chemin prise en compte (unités du terrain)
 };
+// ----------------------------------------------------------------------------
+//  RENAISSANCE (prestige) : disponible une fois le boss du dernier monde battu. Remet à zéro la campagne, le château,
+//  les talents (points rendus) et les pièces ; garde collection, skins, succès, niveau, gemmes et boosts.
+//  Chaque rang : bonus permanents, brainrots « mutés » (plus résistants, ils se régénèrent) mais gains multipliés.
+// ----------------------------------------------------------------------------
+export const REBIRTH = {
+  shardsBase: 20, shardsPerStar: 1, shardsPerHeroic: 3,   // éclats gagnés : base + étoiles + défis héroïques réussis
+  coinsPerRank: 0.10, damagePerRank: 0.05,                 // bonus permanents par rang
+  hpPerRank: 0.30, speedPerRank: 0.03, regenPerRank: 0.004, // mutation : PV, vitesse, régénération (part des PV max / s)
+  rewardPerRank: 0.5,                                      // gains de fin de niveau (pièces, gemmes, XP) x (1 + 0.5 x rang)
+  // Mk II : une 3e branche d'amélioration (niveau 4, puis 5 légendaire)
+  mk2: {
+    smg:     { name: 'Balles ricochets', desc: 'Chaque balle rebondit sur 2 ennemis proches (60 % des dégâts).', cost: 260, mods: { ricochet: 2, ricochetPct: 0.6, rateMul: 1.1 },
+               master: { name: 'Billard infernal', desc: '4 rebonds, dégâts +40 %.', cost: 440, mods: { ricochet: 4, damageMul: 1.4 } } },
+    assault: { name: 'Munitions explosives', desc: 'Chaque balle explose (petite zone).', cost: 270, mods: { blast: 34, damageMul: 1.2 },
+               master: { name: 'Obus', desc: 'Zone +40 %, dégâts +40 %.', cost: 450, mods: { blastMul: 1.4, damageMul: 1.4 } } },
+    shotgun: { name: 'Fléchettes', desc: 'Les plombs traversent 2 ennemis, portée +30 %.', cost: 280, mods: { pierce: 2, rangeMul: 1.3, ignoreArmor: true },
+               master: { name: 'Tempête de fléchettes', desc: '+4 plombs, traversent 4 ennemis.', cost: 460, mods: { pelletsAdd: 4, pierce: 4 } } },
+    sniper:  { name: 'Rail-gun', desc: 'Le tir traverse toute la ligne et ignore le blindage.', cost: 500, mods: { pierce: 12, ignoreArmor: true, damageMul: 1.2 },
+               master: { name: 'Canon électromagnétique', desc: 'Dégâts +80 %, étourdit.', cost: 780, mods: { damageMul: 1.8, stun: 0.5 } } },
+    rocket:  { name: 'Napalm', desc: "L'explosion enflamme tous les ennemis touchés.", cost: 540, mods: { burn: 30, burnDur: 3, splashMul: 1.15 },
+               master: { name: 'Mer de feu', desc: 'Brûlure x2, zone +25 %.', cost: 830, mods: { burnMul: 2, splashMul: 1.25 } } },
+    tesla:   { name: 'Arc magnétique', desc: "L'éclair ralentit fortement les ennemis touchés.", cost: 540, mods: { slowZap: 0.5, chain: 6, damageMul: 1.2 },
+               master: { name: 'Orage polaire', desc: 'Dégâts +60 %, 8 sauts.', cost: 840, mods: { damageMul: 1.6, chain: 8 } } },
+  },
+  // nouvelles capacités (pouvoirs de Renaissance, à côté des capacités du château)
+  abilities: {
+    meteor: { name: 'Pluie de météores', desc: 'Six météores tombent sur les brainrots', icon: 'flame', color: '#ff5d3c', cd: 55, count: 6, radius: 70, damage: 260, pct: 0.12, bossPct: 0.03 },
+    rewind: { name: 'Retour arrière', desc: 'Renvoie tous les brainrots en arrière sur le chemin', icon: 'restart', color: '#b05cff', cd: 70, dist: 150 },
+  },
+  // boutique d'éclats
+  shop: [
+    ...['smg', 'assault', 'shotgun', 'sniper', 'rocket', 'tesla'].map((t) => ({ id: 'mk2_' + t, kind: 'mk2', tower: t, cost: t === 'sniper' || t === 'rocket' || t === 'tesla' ? 140 : 110 })),
+    { id: 'ab_meteor', kind: 'ability', ability: 'meteor', cost: 180 },
+    { id: 'ab_rewind', kind: 'ability', ability: 'rewind', cost: 200 },
+    { id: 'skin_phoenix', kind: 'skin', skin: 'phoenix', cost: 150 },
+    { id: 'skin_prism', kind: 'skin', skin: 'prism', cost: 150 },
+    { id: 'slot', kind: 'slot', cost: 260, name: 'Emplacement de boost', desc: 'Un 4e boost à emporter dans chaque niveau' },
+  ],
+};
+export const ROMAN = (n) => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
+// capacité active, du château ou de Renaissance
+export const abilityDef = (id) => CASTLE.abilities[id] || REBIRTH.abilities[id];
 // Qualité graphique automatique : si les images mettent trop de temps à se calculer, on descend d'un cran
 // (définition du canvas et nombre de particules). On ne remonte pas en cours de session, pour éviter les à-coups.
 export const QUALITY = {
@@ -593,6 +639,7 @@ export const ACHIEVEMENTS = [
   { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 20 },
   { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 25 },
   { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 20 },
+  { id: 'rebirth1',  name: 'Phénix',             desc: 'Faire une Renaissance',          stat: 'rebirths', goal: 1, gems: 50 },
   { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 80, gems: 100 },
   { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 30 },
   { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 60 },

@@ -102,6 +102,7 @@ export const Meta = {
       const d = `M${W / 2} 132 C${W / 2} 100 ${W / 2} 100 ${W / 2} 70`;
       fin.innerHTML = `<svg class="road" viewBox="0 0 ${W} 130" width="${W}" height="130"><path d="${d}" class="r1"/><path d="${d}" class="r2" style="stroke:${th.edge}"/><path d="${d}" class="r3" style="stroke:${th.path}"/></svg>`;
       fin.append(Object.assign(el('div', 'wmark end', `${icon('trophy')}<b>Victoire finale</b>`), { style: `left:${W / 2}px;top:52px` }));
+      if (sv.rebirthReady()) { const rb = el('button', 'btn sm primary wrb', `${icon('rebirth')}Renaissance`); rb.style.cssText = `left:${W / 2 + 70}px;top:34px`; rb.onclick = () => this.openRebirth(); fin.append(rb); }
       box.append(fin);
     }
     for (let wi = NW - 1; wi >= 0; wi--) {
@@ -307,6 +308,7 @@ export const Meta = {
       <div>${coin()}<b>${money}</b> pièces au départ</div>
       <div>${icon('target')}<b>${L.slots}</b> emplacements</div>
       ${w.mech ? `<div class="mech">${icon(MECH_ICON[w.mech.kind])}<b>${w.mech.name}</b></div>` : ''}
+      ${sv.rank() ? `<div class="mech mut">${icon('rebirth')}<b>Mutés · gains x${sv.rewardMult()}</b></div>` : ''}
       <div>${icon('trophy', 'gold')}Record <b>${fmt(heroic ? ld.heroicBest : ld.best)}</b></div>`);
     top.append(cv, info); m.append(top);
     if (!heroic) m.append(el('div', 'prep-goals', this.goalList(starGoals(L), sv.levelObj(n))));

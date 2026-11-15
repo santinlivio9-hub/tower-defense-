@@ -109,7 +109,8 @@ js/music.js           musique de fond générée (Web Audio)
 js/haptics.js         vibrations
 js/music.js           musique procédurale : thèmes du menu, des mondes et du boss, couche « vague », jingles
 js/radial.js          menu radial et panneau d'aperçu des améliorations
-js/mechanics.js       mécaniques propres à chaque monde (tempête, éruption, glace, hautes herbes)
+js/mechanics.js       mécaniques propres à chaque monde (tempête, éruption, glace, hautes herbes, courant, portails)
+js/rebirth.js         Renaissance : écran, double confirmation, cinématique, boutique d'éclats
 js/viewport.js        taille de #app (jamais plus grande que la zone visible) et mode debug d'affichage
 js/save.js            sauvegarde, migration, progression, XP, coffres
 js/ui.js              navigation, HUD, menu radial, tutoriel, boutique, paramètres, partage
@@ -291,3 +292,14 @@ Laser (`kind: 'beam'`, rayon continu qui chauffe sur la même cible), Tesla (`'c
 Château : 3 apparences de plus (forteresse high-tech, citadelle orbitale, palais brainrot), une par boss futuriste.
 Sur la carte, un bandeau « ère futuriste » marque le passage entre la jungle et la ville néon.
 Les sprites ne sont plus tous préchargés au démarrage : seulement les tourelles possédées et les brainrots du niveau.
+
+### Renaissance
+
+`REBIRTH` dans `js/config.js`. Disponible quand le boss du dernier monde est battu (ruban sous le logo de
+l'accueil, bouton sur le trophée de la carte), toujours facultative. Remet à zéro la campagne, le château, les
+talents (points rendus) et les pièces ; garde collection, skins, succès, niveau, gemmes, boosts et tourelles.
+Chaque rang : badge à côté du niveau, éclats (base + 1 par étoile + 3 par défi héroïque), +10 % de pièces et
++5 % de dégâts, brainrots mutés (PV +30 %, vitesse +3 %, régénération) et gains de fin de niveau x(1 + 0,5 x rang).
+Boutique d'éclats : tourelles Mk II (3e branche : balles ricochets, munitions explosives, fléchettes, rail-gun,
+napalm, arc magnétique), pouvoirs (pluie de météores, retour arrière), skins à aura (Phénix, Prisme) et un
+4e emplacement de boost. Sauvegarde : `rebirth: { rank, shards, owned, history }`.

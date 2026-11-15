@@ -1,6 +1,6 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
-import { GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS } from './config.js';
+import { GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, abilityDef } from './config.js';
 import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -41,6 +41,7 @@ export const Hub = {
     $('#resbar .lvl').textContent = d.level;
     $('#resbar .xpbar i').style.width = (d.xp / need) * 100 + '%';
     $('#resbar .xpbar b').textContent = `${d.xp} / ${need}`;
+    if (this.rankInBar) this.rankInBar();
   },
   buildTabbar() {
     const bar = $('#tabbar'); bar.innerHTML = '';
@@ -106,6 +107,7 @@ export const Hub = {
     $('#play-sub').textContent = `${L.boss ? 'Boss' : 'Niveau'} ${L.id} · ${w.name}`;
     $('#btn-play').onclick = () => this.playNext();
     this.renderHomeSide();
+    if (this.rebirthPill) this.rebirthPill();
     this.homeLay = null;
     // coffres d'étoiles prêts sur la carte
     const mb = $('.home-play .map-btn'), sc = this.save.starChestsReady(); let em = $('em', mb); if (!em) { em = el('em'); mb.append(em); } em.className = 'mb-badge'; em.hidden = !sc; em.textContent = sc; this.capBadges();
@@ -418,7 +420,7 @@ export const Hub = {
     const g = this.game, ab = $('#abilities'), bo = $('#boosts');
     ab.innerHTML = ''; bo.innerHTML = '';
     g.abilities.forEach((a) => {
-      const C = CASTLE.abilities[a.id];
+      const C = abilityDef(a.id);
       const b = el('button', 'ab', `<i class="gauge"></i>${icon(C.icon)}<span class="cd"></span>`);
       b.style.setProperty('--ac', C.color); b.dataset.id = a.id; b.setAttribute('aria-label', C.name);
       b.onclick = () => {
