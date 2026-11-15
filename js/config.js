@@ -336,7 +336,7 @@ export const CAMPAIGN = {
     ['fourche!', 'tour!', 'croix', 'serpent', 'ygrec', 'lacets!', 'boucle!', 'escalier!', 'zigzag', 'detour!'],
   ],
   hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1, 2.2, 2.32, 2.45], // PV des ennemis par monde...
-  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2, 1.0, 1.0, 1.05],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2, 1.0, 0.92, 0.92],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.012,                      // ...puis +1,2 % par niveau dans le monde
   density:    [1, 1.08, 1.16, 1.24, 1.32, 1.34, 1.37, 1.4],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12, 1.14, 1.16, 1.18],
