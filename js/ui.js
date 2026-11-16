@@ -348,7 +348,7 @@ export class UI {
       if (!this.game || this.screen !== 'game') return;
       this.updateBoosts();
       let tg = $(`#boosts .bo[data-i="${d.i}"]`); if (!tg) return;
-      if (tg.closest('.fan')) tg = tg.closest('.pile-wrap').querySelector('.pile');
+      if (tg.closest('.pile-fan')) tg = tg.closest('.pile-wrap').querySelector('.pile');
       const q = tg.getBoundingClientRect(), b = el('div', 'drop-fly', icon(C.icon));
       b.style.setProperty('--bc', C.color); b.style.left = from.x + 'px'; b.style.top = from.y + 'px';
       document.body.append(b); tg.classList.add('incoming');

@@ -422,7 +422,7 @@ export const Hub = {
     const max = HUD_FX.dockMax;
     if (btns.length <= max) { box.append(...btns); return; }
     box.append(...btns.slice(0, max - 1));
-    const rest = btns.slice(max - 1), wrap = el('div', 'pile-wrap k-' + kind), fan = el('div', 'fan');
+    const rest = btns.slice(max - 1), wrap = el('div', 'pile-wrap k-' + kind), fan = el('div', 'pile-fan');
     const face = rest[0].querySelector('.ico');
     const pile = el('button', 'pile', `<span class="pl-card"></span><span class="pl-card"></span><span class="pl-face">${face ? face.outerHTML : ''}</span><b class="pl-n">+${rest.length}</b>`);
     pile.setAttribute('aria-label', (kind === 'ab' ? 'Autres capacités' : 'Autres boosts') + ` (${rest.length})`);
@@ -437,7 +437,7 @@ export const Hub = {
   // la pile s'allume quand un bouton caché est prêt (capacité rechargée, boost au bon moment, boost ramassé)
   updatePiles() {
     for (const w of $$('#dock .pile-wrap')) {
-      const hot = !!w.querySelector('.fan .ab.ready, .fan .bo.good, .fan .bo.free:not(.used)');
+      const hot = !!w.querySelector('.pile-fan .ab.ready, .pile-fan .bo.good, .pile-fan .bo.free:not(.used)');
       if (w._hot !== hot) { w._hot = hot; w.classList.toggle('hot', hot); }
     }
   },
