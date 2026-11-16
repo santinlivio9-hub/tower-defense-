@@ -175,7 +175,8 @@ export const Loot = {
           node.onclick = (e) => { e.stopPropagation(); turn(c); };
           fan.append(node); return c;
         });
-        tap.textContent = 'Touche les cartes pour les retourner';
+        // consigne seulement une fois toutes les cartes posées (animation fan-out : 550 ms + 80 ms par carte)
+        tap.textContent = ''; setTimeout(() => { if (stage.isConnected && cards.some((c) => !c.done)) tap.textContent = 'Touche les cartes pour les retourner'; }, 650 + cards.length * 80);
         // toucher ailleurs retourne la carte suivante
         stage.onclick = (e) => { if (e.target.closest('.btn')) return; const next = cards.find((c) => !c.done); if (next && opened && !chest.contains(e.target)) turn(next); };
       }, 700);
