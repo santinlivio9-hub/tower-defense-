@@ -1728,7 +1728,6 @@ body[data-screen="game"] { background: #1c1530; }
 .upp.poor .upp-ok { color: #ff9aa8; }
 .rb .lab.under { top: auto; bottom: -13px; }
 .rb.tgt .lab.under { bottom: -14px; }
-.rb.up.branch .lab { max-width: 88px; font-size: 12px; }
 .upp { width: 262px; }
 .upp-head { align-items: center; }
 .upp-art { flex: none; min-height: 0; gap: 0; }
@@ -1768,7 +1767,7 @@ body[data-screen="game"] { background: #1c1530; }
 .wera-lab b { font-size: 20px; letter-spacing: .06em; color: #fff; text-shadow: 0 0 8px #ff3fb4, var(--ol); }
 .wera-lab .ico { width: 22px; height: 22px; }
 .wera.locked { filter: saturate(.4) brightness(.7); }
-.rb.up.branch.mk2 { background: linear-gradient(180deg, #f1e3ff, #d38cff); box-shadow: 0 4px 0 #7a2fd0, 0 0 14px rgba(176, 92, 255, .8), inset 0 2px 0 rgba(255, 255, 255, .7); }
+.rb.up.br.mk2 { background: linear-gradient(180deg, #f1e3ff, #d38cff); box-shadow: 0 4px 0 #7a2fd0, 0 0 14px rgba(176, 92, 255, .8), inset 0 2px 0 rgba(255, 255, 255, .7); }
 
 /* ------------------------------------------------------------- Renaissance */
 .rk-badge { position: relative; display: inline-grid; place-items: center; width: 44px; height: 48px; flex: none; }
@@ -1898,3 +1897,34 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .es-newgun { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; font-size: 15px; font-weight: 700; color: var(--gold); text-shadow: 0 2px 0 var(--ink); animation: pulse 1.2s ease-in-out infinite; }
 .es-newgun .ico { width: 18px; height: 18px; }
 #goals .gl { pointer-events: auto; cursor: pointer; position: relative; } #goals .gl::after { content: ""; position: absolute; inset: -9px -3px; }
+
+/* ============================================================= menu radial : boutons stables, branches lisibles */
+.rb .ok { display: none; } .rb.armed .ok { display: grid; }
+.rb.press { transform: translateY(3px) scale(.94); }
+.rb.up.br { width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: linear-gradient(180deg, #e9d8ff, #b98cff); box-shadow: 0 4px 0 #6b3fc0, 0 8px 12px rgba(0, 0, 0, .35), inset 0 2px 0 rgba(255, 255, 255, .7); }
+.rb.up.br img { width: 44px; height: 44px; }
+.rb.up.br.mk2 { background: linear-gradient(180deg, #f1e3ff, #d38cff); box-shadow: 0 4px 0 #7a2fd0, 0 0 14px rgba(176, 92, 255, .8), inset 0 2px 0 rgba(255, 255, 255, .7); }
+.rb .lab.name { top: auto; bottom: calc(100% + 5px); max-width: 108px; width: max-content; white-space: normal; text-align: center; justify-content: center; line-height: 1.1; padding: 3px 8px; font-size: 12.5px; border-radius: 10px; overflow: visible; text-overflow: clip; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .3); }
+.rb.armed .lab.name { display: inline-flex; background: var(--green-2); color: #0c4a22; }
+.rb.locked .lab.name { background: #4a3d5e; }
+/* pas assez d'argent : le dessin se grise, le prix passe en rouge (lisible) */
+.rb.poor { filter: none; }
+.rb.poor > img, .rb.poor > .ico { filter: grayscale(.85) brightness(.72); }
+.rb.poor .price { color: #ffb3bd; background: #6a1426; box-shadow: 0 0 0 1.5px #ff5d6c; }
+/* panneau : prix toujours visible à côté de « Touche encore pour valider » */
+.upp-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.upp-foot .upp-ok { flex: 1; min-width: 0; justify-content: flex-start; }
+.upp-cost { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 15px; font-weight: 700; color: var(--gold); background: var(--ink); box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .3); font-variant-numeric: tabular-nums; }
+.upp-cost .coin-ico { width: 13px; height: 13px; }
+.upp.poor .upp-cost { color: #ffb3bd; background: #6a1426; box-shadow: 0 0 0 1.5px #ff5d6c; }
+/* petits écrans : panneau d'amélioration plus compact (les barres et le badge disent déjà le gain) */
+@media (max-height: 700px) {
+  .upp { gap: 3px; padding: 6px 9px; }
+  .upp.up > p.upp-desc { display: none; }
+  .upp-art { min-height: 54px; }
+  .upp-art .from img { width: 44px; height: 44px; } .upp-art .to img { width: 56px; height: 56px; }
+}
+.rb.armed { transform: scale(1.06); animation: none; box-shadow: 0 0 0 4px #fff, 0 0 16px var(--green-2); outline: 3px solid var(--green-2); outline-offset: 4px; }
+.rb.armed.press { transform: translateY(3px) scale(1); }
+.upp.mini .upp-bars, .upp.mini > p.upp-desc { display: none; }
+#radial.measure .rb, #radial.measure .rb * { animation: none !important; transition: none !important; }
