@@ -350,11 +350,16 @@ export class Save {
     q.claimed = true; const text = this.grant(def.reward); this.addPass(def.pass); this.persist();
     return text;
   }
-  wheelReady() { return this.data.daily.wheel !== today(); }
-  spinWheel() {
+  // Roue : un tour gratuit toutes les DAILY.wheelEvery heures (heure du dernier tour gratuit dans daily.wheelAt).
+  // Anciennes sauvegardes (daily.wheel = date du jour) : le prochain tour est simplement disponible.
+  wheelLeft() { const at = Math.min(this.data.daily.wheelAt || 0, Date.now()); return Math.max(0, at + DAILY.wheelEvery * 3600000 - Date.now()); }   // horloge reculée : jamais bloqué
+  wheelReady() { return this.wheelLeft() <= 0; }
+  spinWheel(free = true) {
     const W = DAILY.wheel, total = W.reduce((a, s) => a + s.w, 0); let x = Math.random() * total, i = 0;
     for (; i < W.length - 1; i++) { x -= W[i].w; if (x < 0) break; }
-    const { w, ...r } = W[i]; const text = this.grant(r); this.data.daily.wheel = today(); this.persist();
+    const { w, ...r } = W[i]; const text = this.grant(r);
+    if (free) this.data.daily.wheelAt = Date.now();
+    this.persist();
     return { i, text, r };
   }
   // défi du jour : un niveau normal déjà terminé (sinon le 1er) + un modificateur, tirés selon la date

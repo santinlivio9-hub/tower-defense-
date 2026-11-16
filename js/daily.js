@@ -20,6 +20,11 @@ export function untilMidnight() {
   const s = Math.max(60, (m - n) / 1000), h = Math.floor(s / 3600), mn = Math.floor((s % 3600) / 60);
   return h ? `${h} h ${String(mn).padStart(2, '0')}` : `${mn} min`;
 }
+// Temps restant avant le prochain tour gratuit de la roue : « 4 h 12 » ou « 12 min »
+export function untilMs(ms) {
+  const s = Math.max(60, ms / 1000), h = Math.floor(s / 3600), mn = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${String(mn).padStart(2, '0')}` : `${mn} min`;
+}
 // Jusqu'au lundi suivant (quête de la semaine) : « 3 j 4 h »
 export function untilMonday() {
   const n = new Date(), m = new Date(n); m.setHours(24, 0, 0, 0); while (m.getDay() !== 1) m.setDate(m.getDate() + 1);
@@ -54,7 +59,7 @@ export const Daily = {
     const qdone = D.quests.filter((q) => q.claimed || q.prog >= sv.questDef(q).n).length;
     crest(left, { art: icon('gift'), label: 'Cadeau', color: 'gift', fn: () => this.openDaily('calendar'), badge: cal ? 1 : 0, info: cal ? 'Prêt !' : untilMidnight(), go: cal, cls: cal ? 'ready' : '' });
     crest(left, { art: icon('scroll'), label: 'Quêtes', color: 'quests', fn: () => this.openDaily('quests'), badge: qn, info: qn ? 'Prêt !' : `${qdone}/${D.quests.length}`, go: !!qn, cls: qn ? 'ready' : '' });
-    crest(right, { art: icon('wheel'), label: 'Roue', color: 'wheel', fn: () => this.openDaily('wheel'), badge: wh ? 1 : 0, info: wh ? 'Gratuit !' : untilMidnight(), go: wh, cls: wh ? 'ready spin' : '' });
+    crest(right, { art: icon('wheel'), label: 'Roue', color: 'wheel', fn: () => this.openDaily('wheel'), badge: wh ? 1 : 0, info: wh ? 'Gratuit !' : untilMs(sv.wheelLeft()), go: wh, cls: wh ? 'ready spin' : '' });
     crest(right, { art: icon('pass'), label: 'Passe', color: 'pass', fn: () => this.openDaily('pass'), badge: pn, info: pn ? 'Prêt !' : `Palier ${sv.passTier()}`, go: !!pn, cls: pn ? 'ready' : '' });
     crest(right, { art: icon('challenge'), label: 'Défi', color: 'challenge', fn: () => this.openDaily('challenge'), info: ch.done ? untilMidnight() : 'À relever' });
     // le cadeau du jour s'ouvre tout seul à la première visite de la journée
@@ -175,13 +180,13 @@ export const Daily = {
       paths += `<path d="${d}" fill="${i === jack ? 'url(#wjack)' : WHEEL_COLORS[i % WHEEL_COLORS.length]}" stroke="#3d2c4e" stroke-width="3"/>`;
       if (i === jack) paths += `<path class="jshine" d="${d}" fill="#fff"/>`;
     });
-    const wheel = el('div', 'wheel', `<svg viewBox="0 0 200 200"><defs><linearGradient id="wjack" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6c8"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e09600"/></linearGradient></defs>${paths}
+    const wheel = el('div', 'wheel' + (n > 8 ? ' n9' : ''), `<svg viewBox="0 0 200 200"><defs><linearGradient id="wjack" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6c8"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e09600"/></linearGradient></defs>${paths}
       <circle cx="100" cy="100" r="96" fill="none" stroke="#3d2c4e" stroke-width="5"/></svg>`);
     // libellés : icône illustrée + valeur, toujours à l'endroit (ils compensent la rotation)
     const val = (sg) => (sg.coins ? fmt(sg.coins) : sg.gems ? sg.gems : sg.boosts ? '×' + sg.boosts : sg.chest === 'gold' ? 'JACKPOT' : 'Coffre');
     const art = (sg) => (sg.coins ? coin('big') : sg.gems ? gem('big') : sg.boosts ? icon('boost') : chestSvg(sg.chest));
     const labs = W.map((sg, i) => { const l = el('span', 'wl' + (i === jack ? ' jack' : ''), `<span class="wl-art">${art(sg)}</span><b>${val(sg)}</b>`); wheel.append(l); return l; });
-    const place = (A) => labs.forEach((l, i) => { l.style.transform = `rotate(${i * seg}deg) translateY(-62px) rotate(${-i * seg - A}deg)`; });
+    const place = (A) => labs.forEach((l, i) => { l.style.transform = `rotate(${i * seg}deg) translateY(${n > 8 ? -80 : -62}px) rotate(${-i * seg - A}deg)`; });
     place(0);
     const box = el('div', 'wheel-box'); box.append(wheel, el('i', 'pointer'), el('span', 'hub', icon('star')));
     const bulbs = []; for (let k = 0; k < 16; k++) { const b = el('i', 'bulb'); b.style.transform = `rotate(${k * 22.5}deg) translateY(-128px)`; b.style.animationDelay = `${(k % 2) * 0.4}s`; box.append(b); bulbs.push(b); }
@@ -189,9 +194,9 @@ export const Daily = {
     const free = sv.wheelReady(), foot = el('div', 'wheel-foot');
     let spinning = false;
     // lancer : accélère, tourne, ralentit longuement (suspense), cliquette à chaque case
-    const spin = () => {
+    const spin = (free = true) => {
       spinning = true; box.classList.add('spinning');
-      const res = sv.spinWheel(), turns = 7 * 360 + (360 - res.i * seg) + (Math.random() - 0.5) * seg * 0.55, T = 5600;
+      const res = sv.spinWheel(free), turns = 7 * 360 + (360 - res.i * seg) + (Math.random() - 0.5) * seg * 0.55, T = 5600;
       const N = 240, cum = [0]; for (let k = 1; k <= N; k++) { const u = k / N, v = u < 0.1 ? u / 0.1 : Math.pow(1 - (u - 0.1) / 0.9, 2.4); cum.push(cum[k - 1] + v); }
       const ease = (u) => { const x = Math.min(N, u * N), i = Math.floor(x); return (cum[i] + (cum[Math.min(N, i + 1)] - cum[i]) * (x - i)) / cum[N]; };
       const t0 = performance.now(); let last = 0, lit = 0;
@@ -209,10 +214,11 @@ export const Daily = {
     if (free) {
       const go = el('button', 'btn big green cta', icon('playgold') + 'TOURNER');
       go.onclick = () => { if (spinning) return; go.classList.remove('cta'); go.classList.add('locked'); go.innerHTML = 'La roue tourne…'; spin(); };
-      foot.append(go, el('p', 'sub', 'Un tour gratuit chaque jour.'));
+      foot.append(go, el('p', 'sub', `Un tour gratuit toutes les ${DAILY.wheelEvery} heures.`));
     } else {
-      foot.append(el('div', 'wheel-timer', `${icon('calendar')}<span>Prochain tour gratuit dans <b>${untilMidnight()}</b></span>`));
-      const bonus = this.buyButton(DAILY.wheelExtraCost, 'gems', 'Tour bonus', () => { if (spinning) return false; sv.data.daily.wheel = ''; bonus.disabled = true; spin(); return false; }, 'pink');
+      const tm = el('div', 'wheel-timer', `${icon('hourglass')}<span>Prochain tour gratuit dans <b>${untilMs(sv.wheelLeft())}</b></span>`); foot.append(tm);
+      const tick = setInterval(() => { if (!tm.isConnected) { clearInterval(tick); return; } if (sv.wheelReady()) { clearInterval(tick); if (!spinning) this.openDaily('wheel'); return; } $('b', tm).textContent = untilMs(sv.wheelLeft()); }, 1000);
+      const bonus = this.buyButton(DAILY.wheelExtraCost, 'gems', 'Tour bonus', () => { if (spinning) return false; bonus.disabled = true; spin(false); return false; }, 'pink');
       bonus.classList.add('wide'); foot.append(bonus);
     }
     m.append(foot);

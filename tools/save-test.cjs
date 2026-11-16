@@ -54,6 +54,15 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
     ok(s.buyRebirth('mk2_smg') && s.owns('mk2_smg') && d.rebirth.shards === 210 && !s.buyRebirth('mk2_smg'), 'boutique d\'éclats : achat unique');
     ok(s.buyRebirth('skin_phoenix') && d.skins.includes('phoenix'), 'skin de Renaissance ajouté aux skins');
     const again = new Save(); ok(again.rank() === 1 && again.owns('mk2_smg'), 'Renaissance enregistrée'); }
+  // roue : un tour gratuit toutes les 6 h ; ancienne sauvegarde (date du jour) : tour disponible ; tour bonus sans effet sur le minuteur
+  { const realNow = Date.now; let t = realNow(); Date.now = () => t;
+    s = fresh({ v: 2, lpw: 10, daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: new Date().toDateString(), chDay: '', week: '', weekly: null, popped: '', offer: '' } });
+    ok(s.wheelReady(), 'roue : ancienne sauvegarde (tour du jour déjà pris) -> tour gratuit disponible');
+    const r = s.spinWheel(); ok(r && !s.wheelReady() && Math.abs(s.wheelLeft() - 6 * 3600000) < 1000, 'roue : après un tour gratuit, prochain dans 6 h');
+    t += 3 * 3600000; s.spinWheel(false); ok(!s.wheelReady() && Math.abs(s.wheelLeft() - 3 * 3600000) < 1000, 'roue : un tour bonus ne repousse pas le tour gratuit');
+    t += 3 * 3600000 + 1000; ok(s.wheelReady(), 'roue : tour gratuit de nouveau disponible 6 h après');
+    s.data.daily.wheelAt = t + 48 * 3600000; ok(s.wheelLeft() <= 6 * 3600000, 'roue : horloge reculée, jamais bloquée plus de 6 h');
+    Date.now = realNow; }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;
