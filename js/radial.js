@@ -62,25 +62,26 @@ export const Radial = {
       for (const type of g.buildable(slot)) {
         const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
         const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
-        items.push({ key: type, cls: (g.money < cost ? 'poor' : '') + (isNew ? ' isnew' : ''), art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
+        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
           panel: { kind: 'build', type, cur: st, name: cfg.name, desc: cfg.desc, poor: g.money < cost, cost },
           preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
-          confirm: () => { if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
+          confirm: () => { if (g.money < g.costOf(type)) { this.audio.play('error'); this.haptics.pulse(1); this.radialLive(true); return; } if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
       }
       return items;
     }
     for (const o of t.upgradeOptions()) {
       if (o.locked) { // amélioration légendaire pas encore débloquée par la campagne
         const n = UNLOCKS.legend[t.type], at = LEVELS[Math.max(0, n - 2)].id;
-        items.push({ key: 'lock', cls: 'up branch locked', art: towerImg(t.type, 42, skin, o.level, o.branch), label: 'Légendaire', tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
+        items.push({ key: 'lock', cls: 'up br locked', isBranch: true, art: towerImg(t.type, 42, skin, o.level, o.branch), label: 'Légendaire', tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
         continue;
       }
       const ns = computeStats(t.type, o.level, o.branch, g.mods);
-      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' branch') + (o.mk2 || (o.branch === 2) ? ' mk2' : '') + (g.money < o.cost ? ' poor' : ''),
+      items.push({ key: 'up' + (o.branch ?? ''), cls: 'up' + (o.kind === 'level' ? '' : ' br') + (o.mk2 || (o.branch === 2) ? ' mk2' : ''), cost: o.cost, isBranch: o.kind !== 'level',
         art: o.kind === 'level' ? icon('up') : towerImg(t.type, 42, skin, o.level, o.branch), label: o.kind === 'level' ? 'Niv. ' + o.level : o.name, price: o.cost,
         panel: { kind: 'up', type: t.type, cur: t.stats, next: ns, from: [t.level, t.branch], to: [o.level, o.branch], name: o.kind === 'level' ? 'Niveau ' + o.level : o.name, desc: o.kind === 'level' ? '' : o.desc, poor: g.money < o.cost, cost: o.cost },
         preview: { r: t.type === 'mine' ? ns.splash : ns.range, mode: g.money < o.cost ? 'bad' : 'ok' },
-        confirm: () => { if (!g.upgradeTower(t, o)) this.haptics.pulse(1); this.armed = null; this.cache.radial = null; } });
+        // 2e toucher : validé si l'argent suffit encore ; sinon le bouton reste choisi et affiche « Il manque X »
+        confirm: () => { if (g.money < o.cost) { this.audio.play('error'); this.haptics.pulse(1); this.radialLive(true); return; } if (g.upgradeTower(t, o)) { this.armed = null; this.cache.radial = null; } else this.haptics.pulse(1); } });
     }
     if (t.cfg.targeting) {
       const names = { first: 'Premier', last: 'Dernier', strong: 'Fort', close: 'Proche' };
@@ -117,12 +118,20 @@ export const Radial = {
     });
     box.append(bars);
     if (p.kind === 'up' && p.desc) { const d = el('p', 'upp-desc', ''); d.textContent = p.desc; box.append(d); }
-    box.append(el('em', 'upp-ok', p.poor ? `Il manque ${Math.ceil(p.cost - g.money)} pièces` : `${icon('check')}Touche encore pour valider`));
+    const foot = el('div', 'upp-foot', `<em class="upp-ok"></em><b class="upp-cost">${coin()}<span>${p.cost}</span></b>`);
+    box.append(foot); box.dataset.cost = p.cost; this.panelMoney(box);
     return box;
+  },
+  // pied du panneau selon l'argent du moment : prix rouge et « Il manque X », ou « Touche encore pour valider »
+  panelMoney(box) {
+    const g = this.game, cost = +box.dataset.cost, poor = g.money < cost, ok = $('.upp-ok', box);
+    box.classList.toggle('poor', poor);
+    const html = poor ? `Il manque ${Math.ceil(cost - g.money)} pièces` : `${icon('check')}Touche encore pour valider`;
+    if (ok._h !== html) { ok._h = html; ok.innerHTML = html; }
   },
 
   // Position du panneau : candidats autour du menu, score = recouvrement (boutons, tourelle, chemin proche)
-  placePanel(node, cx, cy, R, slot, host) {
+  placePanel(node, cx, cy, R, slot, host, boxes = []) {
     const gl = $('#goals'), g = this.game, W = host.width, top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 4, bot = $('#dock').getBoundingClientRect().top - host.top - 4;
     const w = node.offsetWidth, h = node.offsetHeight, ring = R + RADIAL.ringPad;
     // points du chemin proches de l'emplacement (en px écran, relatifs à #radial)
@@ -135,71 +144,171 @@ export const Radial = {
       [cx - ring - w + 30, cy - ring - h + 30], [cx + ring - 30, cy - ring - h + 30], [cx - ring - w + 30, cy + ring - 30], [cx + ring - 30, cy + ring - 30],
       // replis : tout en haut ou tout en bas de la zone de jeu, à gauche, au centre ou à droite
       ...[6, (W - w) / 2, W - w - 6].flatMap((x) => [[x, top], [x, bot - h]]),
+      // et une grille sur toute la hauteur de la zone de jeu (petits écrans, menu près d'un bord)
+      ...[6, (W - w) / 2, W - w - 6].flatMap((x) => Array.from({ length: Math.max(0, Math.floor((bot - h - top) / 24)) }, (_, k) => [x, top + 12 + k * 24])),
     ]) {
       const l = Math.max(6, Math.min(W - w - 6, x)), t = Math.max(top, Math.min(bot - h, y));
       // recouvrement avec le disque des boutons
       const nx = Math.max(l, Math.min(cx, l + w)), ny = Math.max(t, Math.min(cy, t + h)), dd = Math.hypot(nx - cx, ny - cy);
       let score = dd < ring ? (ring - dd) * 40 : 0;
+      for (const b of boxes) { const ox = Math.min(l + w, b.r) - Math.max(l, b.l), oy = Math.min(t + h, b.b) - Math.max(t, b.t); if (ox > 0 && oy > 0) score += 3000 + ox * oy; }
       for (const [px, py, k] of pts) if (px > l - pw && px < l + w + pw && py > t - pw && py < t + h + pw) score += k;
       score += Math.hypot(l + w / 2 - cx, t + h / 2 - cy) * 0.02 + (t + h > bot || t < top ? 500 : 0);
       cands.push({ l, t, score });
     }
     cands.sort((a, b) => a.score - b.score);
+    // aucune place libre (petit écran) : panneau court (dessins, gain, prix), sans les barres
+    if (cands[0].score >= 3000 && node.classList.contains('upp') && !node.classList.contains('mini')) { node.classList.add('mini'); this.placePanel(node, cx, cy, R, slot, host, boxes); return; }
     node.style.left = cands[0].l + 'px'; node.style.top = cands[0].t + 'px';
     node.dataset.score = Math.round(cands[0].score);
   },
 
+  // Menu radial : le DOM est construit UNE fois par structure (emplacement, niveau / branche / ciblage de la
+  // tourelle, options proposées). Ensuite on ne fait que mettre à jour ce qui change (argent, choix en cours) sur les
+  // mêmes éléments : un toucher commencé sur un bouton n'est jamais perdu.
   renderRadial() {
     const g = this.game, box = $('#radial'), slot = g && g.menuSlot;
+    this._rad = null;
     if (!slot || g.over) { box.hidden = true; box.innerHTML = ''; return; }
     const items = this.menuItems(slot), t = slot.tower;
     box.hidden = false; box.innerHTML = '';
     const host = box.getBoundingClientRect(), p = this.toScreen(slot.x, slot.y), n = items.length;
-    // rayon serré : juste ce qu'il faut pour que les boutons ne se touchent pas
-    const ups0 = items.filter((i) => !i.side).length;
-    const R = t ? (ups0 > 2 ? RADIAL.rTower2 + 8 : ups0 > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
-    // jamais sous le HUD ni sous les pastilles d'objectifs
-    const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 32, bot = $('#dock').getBoundingClientRect().top - host.top - 30;
-    const cx = Math.max(R + 34, Math.min(host.width - R - 34, p.x - host.left)), cy = Math.max(top + R, Math.min(bot - R, p.y - host.top));
-    box.classList.toggle('build', !t);
     const ups = items.filter((i) => !i.side);
+    // rayon : juste ce qu'il faut pour que les boutons (et les noms des branches) ne se touchent pas
+    const R = t ? (ups.length > 2 ? RADIAL.rTower3 : ups.length > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
+    const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 6, bot = $('#dock').getBoundingClientRect().top - host.top - 6;
+    box.classList.toggle('build', !t);
+    // angles : UP en haut, ciblage à gauche, vente en bas ; « spread » écarte les branches sur les côtés
+    const ang = (it, i, spread) => {
+      if (!t) return n === 1 ? -90 : -90 + (360 / n) * i;
+      if (it.side === 'left') return spread ? 135 : 158; if (it.side === 'bottom') return 90;
+      const k = ups.indexOf(it);
+      if (ups.length === 1) return -90;
+      if (ups.length === 3) return spread ? [-170, -90, -10][k] : [-150, -90, -30][k];
+      return spread ? [-168, -12][k] : [-140, -40][k];
+    };
+    // encombrement de chaque bouton autour de son centre (nom au-dessus, prix ou libellé au-dessous)
+    const ext = (it) => (it.isBranch ? { w: 56, up: 54, down: 40 } : { w: 40, up: it.label && !it.side ? 44 : 36, down: 44 });
+    const tx = p.x - host.left, ty = p.y - host.top;
+    const fits = (x, y, e) => x - e.w >= 6 && x + e.w <= host.width - 6 && y - e.up >= top && y + e.down <= bot;
+    let pos;
+    if (!t) {
+      // choix d'une tourelle sur un emplacement vide : cercle complet, décalé pour tenir dans l'écran
+      pos = items.map((it, i) => { const a = (ang(it, i) * Math.PI) / 180; return { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e: ext(it) }; });
+      const o = pos.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - q.e.w)), r: Math.max(o.r, q.x + q.e.w - (host.width - 6)), t: Math.max(o.t, top - (q.y - q.e.up)), b: Math.max(o.b, q.y + q.e.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
+      for (const q of pos) { q.x += o.l - o.r; q.y += o.t - o.b; }
+    } else {
+      // Tourelle posée : le cercle reste centré sur elle, aucun bouton ne la recouvre.
+      // 1) disposition habituelle (UP en haut, ciblage à gauche, vente en bas) si elle tient dans l'écran ;
+      pos = items.map((it, i) => { const a = (ang(it, i) * Math.PI) / 180; return { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e: ext(it) }; });
+      if (!pos.every((q) => fits(q.x, q.y, q.e))) {
+        // 2) sinon (bord de l'écran) : les boutons, dans le même ordre (ciblage, améliorations, vente), se répartissent
+        //    sur l'arc de cercle libre le plus grand ; le rayon grandit si l'arc est trop court.
+        const order = [...items.filter((i) => i.side === 'left'), ...ups, ...items.filter((i) => i.side === 'bottom')];
+        const big = { w: 56, up: 54, down: 44 };
+        const gap = (a, b) => (a.isBranch && b.isBranch ? 142 : a.isBranch || b.isBranch ? 114 : 100);   // distance mini entre deux voisins, nom et prix compris (px)
+        let done = false;
+        for (let RR = R; RR <= R + 130 && !done; RR += 10) {
+          const ok = []; for (let d = 0; d < 360; d += 4) { const a = (d * Math.PI) / 180; ok.push(fits(tx + Math.cos(a) * RR, ty + Math.sin(a) * RR, big)); }
+          // plus grand arc libre (en degrés), en tenant compte du passage 359 → 0
+          let bestS = -1, bestL = 0;
+          for (let st = 0; st < 90; st++) { if (!ok[st] || ok[(st + 89) % 90]) continue; let L = 0; while (L < 90 && ok[(st + L) % 90]) L++; if (L > bestL) { bestL = L; bestS = st; } }
+          if (ok.every(Boolean)) { bestS = 0; bestL = 90; }
+          const need = order.slice(1).reduce((acc, it, k) => acc + (2 * Math.asin(Math.min(1, gap(order[k], it) / (2 * RR))) * 180) / Math.PI, 0);
+          if (bestS < 0 || bestL * 4 < need) continue;
+          let a = bestS * 4 + (bestL * 4 - need) / 2;
+          pos = new Array(items.length);
+          order.forEach((it, k) => {
+            if (k) a += (2 * Math.asin(Math.min(1, gap(order[k - 1], it) / (2 * RR))) * 180) / Math.PI;
+            const r = (a * Math.PI) / 180; pos[items.indexOf(it)] = { x: tx + Math.cos(r) * RR, y: ty + Math.sin(r) * RR, e: ext(it) };
+          });
+          done = true;
+        }
+        // 3) aucun arc ne suffit (coin de l'écran, petit téléphone) : deux rangées sous la tourelle (ou au-dessus si
+        //    elle est en bas) — améliorations d'abord, puis ciblage et vente
+        if (!done) {
+          const down = ty < (top + bot) / 2, dir = down ? 1 : -1, row1 = ty + dir * (down ? 26 + 54 + 8 : 26 + 44 + 8), row2 = row1 + dir * 112;
+          const clampX = (x, e) => Math.max(6 + e.w, Math.min(host.width - 6 - e.w, x));
+          ups.forEach((it, k) => { const e = ext(it); pos[items.indexOf(it)] = { x: clampX(tx + (k - (ups.length - 1) / 2) * 118, e), y: row1, e }; });
+          const side = items.filter((i) => i.side);
+          side.forEach((it, k) => { const e = ext(it); pos[items.indexOf(it)] = { x: clampX(tx + (side.length === 1 ? 0 : k ? 52 : -52), e), y: row2, e }; });
+          // si la 1re rangée a été poussée contre un bord, la 2e se cale dessous sans la chevaucher
+        }
+      }
+    }
+    const cx = tx, cy = ty, Rn = Math.max(R, ...pos.map((q) => Math.hypot(q.x - tx, q.y - ty)));
+    const btns = {};
     items.forEach((it, i) => {
-      let a;
-      if (!t) a = n === 1 ? -90 : -90 + (360 / n) * i;
-      else if (it.side === 'left') a = 158; else if (it.side === 'bottom') a = 90;
-      else a = ups.length === 1 ? -90 : ups.length === 3 ? [-146, -90, -34][ups.indexOf(it)] : ups.indexOf(it) === 0 ? -130 : -50;
-      const b = el('button', 'rb ' + (it.cls || '') + (this.armed === it.key ? ' armed' : ''));
-      b.style.cssText = `left:${cx + Math.cos((a * Math.PI) / 180) * R}px;top:${cy + Math.sin((a * Math.PI) / 180) * R}px;--i:${i}`;
+      const b = el('button', 'rb ' + (it.cls || ''));
+      b.style.cssText = `left:${pos[i].x}px;top:${pos[i].y}px;--i:${i}`;
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
-      // deux branches côte à côte : pas de libellé (le panneau affiche le nom dès le 1er toucher)
-      if (it.label && !(t && ups.length > 1 && !it.side)) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
+      if (it.isBranch) b.append(el('span', 'lab name', it.label));   // nom de la branche, toujours visible
+      else if (it.label) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
       if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
       if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
-      if (this.armed === it.key) b.append(el('span', 'ok', icon('check')));
-      b.onclick = () => {
-        if (it.tap) { it.tap(); return; }
-        if (this.armed === it.key) { it.confirm(); return; }
-        this.armed = it.key; g.preview = it.preview || null; this.cache.radial = null; this.audio.play('tick'); this.haptics.pulse(0);
-      };
-      box.append(b);
+      b.append(el('span', 'ok', icon('check')));
+      // pointerdown puis pointerup sur le même bouton (éléments stables) ; clic clavier en secours
+      b.addEventListener('pointerdown', (e) => { this._rbDown = it.key; b.classList.add('press'); e.stopPropagation(); });
+      b.addEventListener('pointerup', (e) => { b.classList.remove('press'); if (this._rbDown !== it.key) return; this._rbDown = null; e.preventDefault(); this.radialTap(it); });
+      b.addEventListener('pointercancel', () => { b.classList.remove('press'); this._rbDown = null; });
+      b.addEventListener('pointerleave', () => b.classList.remove('press'));
+      b.addEventListener('click', (e) => { if (e.detail === 0) this.radialTap(it); });   // clavier (touches 1 à 9)
+      box.append(b); btns[it.key] = b;
     });
-    // panneau : aperçu visuel (1er toucher), confirmation de vente, ou fiche courte de la tourelle
-    const armed = items.find((i) => i.key === this.armed);
+    // emprise réelle de chaque bouton (nom sur 2 lignes, prix), mesurée une fois affiché, pour placer le panneau
+    box.classList.add('measure');   // mesure sans l'animation d'apparition (taille finale)
+    const boxes = Object.values(btns).map((b) => { const qs = [b, ...b.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width); return { l: Math.min(...qs.map((q) => q.left)) - host.left - 3, r: Math.max(...qs.map((q) => q.right)) - host.left + 3, t: Math.min(...qs.map((q) => q.top)) - host.top - 3, b: Math.max(...qs.map((q) => q.bottom)) - host.top + 3 }; });
+    box.classList.remove('measure');
+    this._rad = { items, btns, slot, cx, cy, R: Rn, host, boxes, panelKey: null, panel: null, money: null };
+    this.radialPanel(); this.radialLive(true);
+  },
+  // 1er toucher : choisit (aperçu) ; 2e toucher sur le même bouton : valide
+  radialTap(it) {
+    const g = this.game; if (!g || g.over || !this._rad) return;
+    if (it.tap) { it.tap(); return; }
+    if (this.armed === it.key) { it.confirm(); return; }
+    this.armed = it.key; g.preview = it.preview || null; this.audio.play('tick'); this.haptics.pulse(0);
+    this.radialPanel(); this.radialLive(true);
+  },
+  // panneau (remplacé seulement quand le choix change ; il ne reçoit pas les touchers)
+  radialPanel() {
+    const R0 = this._rad, g = this.game, t = R0.slot.tower, slot = R0.slot, key = this.armed || '';
+    if (R0.panelKey === key && R0.panel) return;
+    const armed = R0.items.find((i) => i.key === this.armed);
     let node;
     if (armed && armed.panel) node = this.upgradePanel(armed.panel);
     else if (armed && armed.info) node = el('div', 'info', armed.info);
     else if (t) { const rar = RARITY[t.level - 1]; node = el('div', 'info', `<b style="color:${rar.color}">${t.label}</b><span class="lv">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= t.level ? 'on' : ''}" style="--rar:${rar.color}"></i>`).join('')}</span><small>${icon('sword')}<b class="dmg">${short(t.dmg)}</b> dégâts · ${icon('skull')}<b class="kills">${t.kills}</b> kills</small><small class="hint">${t.upgradeOptions().length ? 'Touche UP pour voir l\'amélioration' : 'Niveau maximum'}</small>`); }
     else node = el('div', 'info', slot.kind === 'mine' ? '<b>Zone de mine</b><small class="hint">Choisis une mine</small>' : '<b>Choisis une tourelle</b><small class="hint">Touche-la pour voir ses stats</small>');
-    node.classList.add('rpanel'); box.append(node);
-    this.placePanel(node, cx, cy, R, slot, host);
+    node.classList.add('rpanel');
+    if (R0.panel) R0.panel.replaceWith(node); else $('#radial').append(node);
+    R0.panel = node; R0.panelKey = key;
+    this.placePanel(node, R0.cx, R0.cy, R0.R, slot, R0.host, R0.boxes);
+    for (const [k, b] of Object.entries(R0.btns)) b.classList.toggle('armed', k === this.armed);
+  },
+  // ce qui change en continu (argent) : classes et textes mis à jour sur les mêmes éléments
+  radialLive(force) {
+    const R0 = this._rad, g = this.game; if (!R0) return;
+    if (!force && R0.money === g.money) return;
+    R0.money = g.money;
+    for (const it of R0.items) {
+      const b = R0.btns[it.key]; if (!b || it.cost == null) continue;
+      const poor = g.money < (it.free ? 0 : it.cost);
+      if (b._poor !== poor) { b._poor = poor; b.classList.toggle('poor', poor); }
+      if (it.preview) it.preview.mode = poor ? 'bad' : 'ok';
+    }
+    if (R0.panel && R0.panel.dataset.cost) this.panelMoney(R0.panel);
+    const armed = R0.items.find((i) => i.key === this.armed); if (armed && armed.preview) g.preview = armed.preview;
   },
   updateRadial() {
     const g = this.game, slot = g.menuSlot;
-    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; g.menuSlot = null; } return; }
+    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; $('#radial').innerHTML = ''; this._rad = null; g.menuSlot = null; } return; }
     const t = slot.tower;
-    const afford = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : g.money >= o.cost ? 1 : 0)).join('') : g.buildable(slot).map((k) => (g.money >= g.costOf(k) ? 1 : 0)).join('');
-    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', this.armed, afford, g.freeNext, this.armed ? Math.floor(g.money / 5) : ''].join('/');
-    if (this.cache.radial !== key) { this.cache.radial = key; this.renderRadial(); }
-    else if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { d.textContent = short(t.dmg); k.textContent = t.kills; } }
+    // structure seulement : l'argent et le choix en cours ne reconstruisent jamais le menu
+    const opts = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : o.level + ':' + (o.branch ?? ''))).join(',') : g.buildable(slot).join(',');
+    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', opts, g.freeNext].join('/');
+    if (this.cache.radial !== key || !this._rad) { this.cache.radial = key; this.renderRadial(); return; }
+    this.radialLive(false);
+    if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { const v = short(t.dmg); if (d.textContent !== v) d.textContent = v; if (k.textContent !== String(t.kills)) k.textContent = t.kills; } }
   },
 };
