@@ -8,6 +8,8 @@
 //   et rachète en pièces les boosts qui lui manquent (3 de chaque) en gardant de quoi payer le château.
 const path = require('path');
 const DAYS = +(process.argv[2] || 45), GAMES = +(process.argv[3] || 3), SEED = +(process.argv[4] || 1), REBIRTH = process.argv[5] === 'renaissance';
+// tours de roue gratuits par jour (un toutes les 6 h au mieux : 1 h, 7 h, 13 h, 19 h) — variable WHEEL, 4 par défaut
+const WHEEL = +(process.env.WHEEL || 4), WHEEL_HOURS = [1, 7, 13, 19].slice(4 - Math.min(4, WHEEL));
 const root = 'file://' + path.resolve(__dirname, '..') + '/js/';
 
 // horloge simulée (les quêtes, le calendrier et les constructions utilisent la date)
@@ -84,11 +86,13 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
       for (let k = 0; k < 12; k++) { const id = COIN_BOOSTS.filter((b) => (d.boosts[b] || 0) < 3).sort((a, b) => (d.boosts[a] || 0) - (d.boosts[b] || 0))[0]; if (!id) break; const c = C.boostCost(id, sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; d.boosts[id] = (d.boosts[id] || 0) + 1; stats.boostBuys++; stats.boostCoins += c; } }
     for (const k of C.CHEST_ORDER) while (d.chests[k] > 0) sv.openChest(k);
   };
-  const stats = { bought: 0, used: 0, boostBuys: 0, boostCoins: 0 }, rows = [], marks = {};
+  const stats = { bought: 0, used: 0, boostBuys: 0, boostCoins: 0, spins: 0 }, rows = [], marks = {};
   const MAXT = Object.values(C.TALENTS).reduce((a, b) => a + b.nodes.reduce((x, n) => x + n.max, 0), 0), MAXC = caps().reduce((a, id) => a + sv.castleDef(id).costs.length, 0);
   for (let day = 1; day <= DAYS; day++) {
     NOW = new RealDate(2026, 0, 4 + day, 8, 0, 0).getTime();
-    sv.dailyTick(); sv.claimCalendar(); if (sv.wheelReady()) sv.spinWheel();
+    sv.dailyTick(); sv.claimCalendar();
+    for (const h of WHEEL_HOURS) { NOW = new RealDate(2026, 0, 4 + day, h, 0, 0).getTime(); if (sv.wheelReady()) { sv.spinWheel(); stats.spins++; } }
+    NOW = new RealDate(2026, 0, 4 + day, 8, 0, 0).getTime();
     // variante « renaissance » : le joueur renaît 2 jours après l'avoir débloquée (pièces converties en éclats)
     if (REBIRTH && marks.rb && day >= marks.rb + 2 && sv.rebirthReady()) { const r = sv.doRebirth(); (marks.rebirths = marks.rebirths || []).push(`jour ${day} : rang ${r.rank}, ${r.shards} éclats dont ${r.fromCoins} pour les pièces`); marks.rb = null; marks.rbGain = null; }
     const sessions = [8, 12.5, 18, 21.5]; let g = 0;
@@ -111,6 +115,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
   console.log('jour | niv | gemmes | pièces | talents | pts | château | palier | campagne | étoiles | héroïque | passe');
   for (const r of show) console.log(`${pad(r.day, 4)} | ${pad(r.lvl, 3)} | ${pad(r.gems, 6)} | ${pad(r.coins, 6)} | ${pad(r.tal, 7)} | ${pad(r.pts, 3)} | ${pad(r.castle, 7)} | ${pad(r.tier, 6)} | ${pad(r.camp, 8)} | ${pad(r.stars, 7)} | ${pad(r.hero + '/' + N, 8)} | ${pad(r.pass + '/' + C.PASS.tiers, 5)}`);
   console.log(`\nRepères : monde 1 fini jour ${marks.w1 || '-'} · palier 2 du château jour ${marks.t2 || '-'} · 5 mondes jour ${marks.w5 || '-'} · campagne finie jour ${marks.camp || '-'} · tout maxé jour ${marks.all || '-'} · coffres en bois achetés ${stats.bought}`);
+  console.log(`Roue : ${stats.spins} tours gratuits (${(stats.spins / DAYS).toFixed(1)} par jour)`);
   console.log(`Boosts : ${stats.used} utilisés, ${stats.boostBuys} achetés en pièces (${stats.boostCoins} pièces) · pièces en fin de simulation ${d.coins}`);
   if (marks.rebirths) console.log('Renaissances : ' + marks.rebirths.join(' · '));
   if (marks.rbGain) console.log(`Renaissance possible dès le jour ${marks.rb} : ${marks.rbGain.shards} éclats ce jour-là (dont ${marks.rbGain.fromCoins} pour les pièces) ; au jour ${DAYS} : ${sv.rebirthGain().shards} éclats (dont ${sv.rebirthGain().fromCoins} pour ${d.coins} pièces)`);

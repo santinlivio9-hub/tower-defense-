@@ -1928,3 +1928,10 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .rb.armed.press { transform: translateY(3px) scale(1); }
 .upp.mini .upp-bars, .upp.mini > p.upp-desc { display: none; }
 #radial.measure .rb, #radial.measure .rb * { animation: none !important; transition: none !important; }
+/* roue à 9 cases : libellés plus compacts, plus loin du centre (jamais de chevauchement) */
+.wheel.n9 .wl { width: 50px; height: 44px; margin: -22px 0 0 -25px; }
+.wheel.n9 .wl b { font-size: 13px; line-height: 1.05; }
+.wheel.n9 .wl.jack { width: 60px; margin-left: -30px; } .wheel.n9 .wl.jack b { font-size: 13px; letter-spacing: -.3px; }
+.wheel.n9 .wl .wl-art .coin-ico, .wheel.n9 .wl .wl-art .gem, .wheel.n9 .wl .wl-art .ico { width: 22px; height: 22px; }
+.wheel.n9 .wl .wl-art svg { width: 26px; height: auto; }
+.wheel.n9 .wl .wl-art { height: 24px; } .wheel.n9 .wl .wl-art .chest-svg { width: 26px; height: 24px; }

@@ -801,11 +801,15 @@ export const DAILY = {
     { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 5 }, pass: 200 },
     { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 5 }, pass: 200 },
   ],
-  wheel: [                    // segments de la roue (w = poids)
-    { coins: 50, w: 22 }, { gems: 1, w: 16 }, { coins: 100, w: 16 }, { boosts: 1, w: 14 },
-    { coins: 200, w: 10 }, { gems: 4, w: 8 }, { chest: 'wood', w: 10 }, { chest: 'gold', w: 4 },
+  // Roue de la chance : un tour gratuit toutes les wheelEvery heures. Segments (w = poids, sur 100) : le JACKPOT
+  // (coffre doré) est le segment le plus rare. Gain moyen par tour : ~69 pièces, ~2,5 gemmes, 0,16 coffre en bois,
+  // 0,24 boost, 0,02 coffre doré (calé avec tools/progression.cjs : 4 tours par jour sans accélérer la campagne).
+  wheel: [
+    { coins: 150, w: 16 }, { gems: 5, w: 18 }, { coins: 300, w: 9 }, { boosts: 1, w: 24 },
+    { coins: 600, w: 3 }, { gems: 10, w: 9 }, { chest: 'wood', w: 16 }, { gems: 25, w: 3 }, { chest: 'gold', w: 2 },
   ],
-  wheelExtraCost: 25,         // gemmes pour un tour bonus (le tour du jour est gratuit)
+  wheelEvery: 6,              // heures entre deux tours gratuits
+  wheelExtraCost: 25,         // gemmes pour un tour bonus (sans attendre le tour gratuit)
   challenges: [               // défi du jour : un niveau déjà joué + un modificateur fun
     { id: 'giant', name: 'Brainrots géants', desc: 'Énormes et coriaces, mais plus lents', size: 1.6, hp: 1.5, speed: 0.8 },
     { id: 'double', name: 'Tout en x2', desc: 'Deux fois plus de brainrots, deux fois plus de pièces', density: 2, coins: 2, money: 2 },
