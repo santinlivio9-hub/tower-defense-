@@ -63,6 +63,12 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
     t += 3 * 3600000 + 1000; ok(s.wheelReady(), 'roue : tour gratuit de nouveau disponible 6 h après');
     s.data.daily.wheelAt = t + 48 * 3600000; ok(s.wheelLeft() <= 6 * 3600000, 'roue : horloge reculée, jamais bloquée plus de 6 h');
     Date.now = realNow; }
+  // talents : anciens points conservés (mêmes identifiants), respécialisation contre des gemmes
+  { s = fresh({ v: 2, lpw: 10, level: 30, gems: 70, talents: { dmg: 5, rate: 2, slot: 1, lives: 3, cd: 2, dur: 1 }, talentPts: 2 });
+    const d = s.data, n = s.talentsSpent();
+    ok(n === 14 && d.talents.slot === 1 && s.mods().slots === 1 && d.talentPts === 2, 'talents : points déjà placés conservés (Sacoche comprise)');
+    ok(s.respec() === 14 && d.talentPts === 16 && d.gems === 20 && s.talentsSpent() === 0, 'respécialisation : 14 points rendus contre 50 gemmes');
+    d.talents = { dmg: 1 }; ok(s.respec() === 0 && d.talents.dmg === 1 && d.gems === 20, 'respécialisation refusée sans assez de gemmes, rien de perdu'); }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;

@@ -447,26 +447,34 @@ export const XP = {
   // coffre en bois tous les 5 niveaux, doré tous les 10
   rewards: [{ talent: 1 }, { coins: 120 }, { talent: 1 }, { boosts: 1 }],
 };
-// rangée i de l'arbre (1 à 4) disponible à ce niveau de joueur ; 1 point de talent de plus par 1re victoire Héroïque
-export const TALENT_ROWS = [1, 8, 16, 25];
+// rangée i de l'arbre (1 à 6) disponible à ce niveau de joueur ; 1 point de talent de plus par 1re victoire Héroïque.
+// La 6e rangée est celle des talents ULTIMES (un seul rang, effet marquant, demande des points dans la branche).
+export const TALENT_ROWS = [1, 7, 13, 18, 23, 28];
+export const TALENT_RESPEC = { gems: 50 };   // respécialisation : récupère tous les points placés
 export const TALENTS = {
   attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
     { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02, pct: 1, fx: '+{v} % dégâts' },
     { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02, pct: 1, fx: '+{v} % cadence' },
     { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02, pct: 1, fx: '+{v} % portée' },
     { id: 'crit', icon: 'crit',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01, pct: 1, fx: '+{v} % critiques' },
+    { id: 'boss', icon: 'skull', name: 'Tueur de géants', desc: '+4 % de dégâts aux boss, mini-boss et élites', max: 3, per: 0.04, pct: 1, fx: '+{v} % sur les gros' },
+    { id: 'double', icon: 'flame', name: 'Tir double', desc: '1 tir sur 10 inflige le double de dégâts', max: 1, per: 1, need: 12, ult: 1, fx: '1 tir sur 10 doublé' },
   ] },
   economy: { name: 'Économie', color: '#ffd23f', icon: 'coins', nodes: [
     { id: 'start', icon: 'piggy', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15, fx: '+{v} pièces' },
     { id: 'kill', icon: 'coins',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03, pct: 1, fx: '+{v} % pièces' },
     { id: 'wave', icon: 'gift',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1, pct: 1, fx: '+{v} % bonus' },
     { id: 'gems', icon: 'gem',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05, pct: 1, fx: '+{v} % gemmes' },
+    { id: 'sell', icon: 'trash', name: 'Brocanteur',     desc: '+5 % de valeur de revente des tourelles', max: 3, per: 0.05, pct: 1, fx: '+{v} % revente' },
+    { id: 'interest', icon: 'piggy', name: 'Intérêts',   desc: 'Au début de chaque vague, +5 % de tes pièces (40 au plus)', max: 1, per: 0.05, cap: 40, need: 12, ult: 1, fx: '+5 % de pièces par vague' },
   ] },
   castle: { name: 'Château', color: '#5c9df2', icon: 'shield', nodes: [
     { id: 'lives', icon: 'heart', name: 'Garnison',       desc: '+1 PV au château', max: 5, per: 1, fx: '+{v} PV' },
     { id: 'cd', icon: 'hourglass',    name: 'Artilleurs',     desc: '-4 % de recharge des capacités', max: 5, per: 0.04, pct: 1, fx: '-{v} % recharge' },
     { id: 'dur', icon: 'snow',   name: 'Ingénieur',      desc: '+10 % de durée de Surcharge et de Blizzard', max: 3, per: 0.1, pct: 1, fx: '+{v} % durée' },
     { id: 'slot', icon: 'boost',  name: 'Sacoche',        desc: '+1 emplacement de boost', max: 1, per: 1, need: 6, fx: '+{v} emplacement' },   // need = points déjà placés dans la branche
+    { id: 'gunner', icon: 'cannon', name: 'Canonniers',  desc: '+15 % de dégâts du canon du château', max: 3, per: 0.15, pct: 1, fx: '+{v} % canon' },
+    { id: 'twin', icon: 'crown', name: 'Double salve',  desc: 'Le canon du château tire 2 fois (2 cibles)', max: 1, per: 1, need: 12, ult: 1, fx: 'Le château tire 2 fois' },
   ] },
 };
 export const CHESTS = {

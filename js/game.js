@@ -115,6 +115,7 @@ export class Game {
     const seen = this.save.data.seen.enemies, fresh = [...new Set(w.groups.map((g) => g.type))].filter((t) => !seen.includes(t));
     if (fresh.length) { seen.push(...fresh); this.save.persist(); this.onEvent('intro', fresh); }
     this.wave = w.n; this._nextCache = null; this.countdown = null;
+    { const I = this.mods.interest; if (I && w.n > 1) { const k = Math.min(I.cap, Math.floor(this.money * I.per)); if (k > 0) { this.money += k; this.fx.text(VIEW.W / 2, 190, `INTÉRÊTS +${k}`, '#ffd23f', 20, 1.2); } } }   // ultime « Intérêts »
     for (const q of spawnQueue(w, this.paths.length)) { q.t += this.spawnClock; this.queue.push(q); }
     this.queue.sort((a, b) => a.t - b.t);
     if (!w.boss) this.showBanner(!this.endless && w.n === this.totalWaves ? 'Vague finale' : 'Vague ' + w.n, this.endless ? 'Mode infini' : `sur ${this.totalWaves}`, '#fff', 1.5);
@@ -202,6 +203,9 @@ export class Game {
     }
     if (e.armor && !o.ignoreArmor) amount = Math.max(amount - e.armor * (o.splash ? 0.5 : 1), amount * 0.25);
     if (e.vulnT > 0) amount *= 1 + e.vuln;
+    const M = this.mods;
+    if (M.bossDmg && (e.cfg.boss || e.elite || e.mini)) amount *= 1 + M.bossDmg;   // talent « Tueur de géants »
+    if (M.double && tower && !o.dot && !o.group && (tower.shotN = (tower.shotN || 0) + 1) % 10 === 0) { amount *= 2; o = { ...o, crit: true }; }   // ultime « Tir double »
     const real = Math.min(amount, e.hp);
     if (e.cfg.stealth) e.revealT = Math.max(e.revealT, GAME.stealthRevealOnHit);
     e.hp -= amount;
@@ -345,9 +349,10 @@ export class Game {
   sellTower(t) {
     const i = this.towers.indexOf(t); if (i < 0) return;
     this.towers.splice(i, 1); if (t.slot) t.slot.tower = null;
-    this.money += t.sellValue;
+    const sv = t.sellValue;
+    this.money += sv;
     this.onEvent('coins', { x: t.x, y: t.y, n: 5 }); this.fx.burst(t.x, t.y, '#aab', 10, 140, 5);
-    this.fx.text(t.x, t.y - 30, '+' + t.sellValue, '#ffd23f', 16, 0.9);
+    this.fx.text(t.x, t.y - 30, '+' + sv, '#ffd23f', 16, 0.9);
     this.audio.play('sell');
     if (this.selected === t) this.selected = null;
   }
@@ -476,7 +481,12 @@ export class Game {
     c.aim = Math.atan2(e.y - cy, e.x - cx);
     if (c.cd <= 0) {
       c.cd = 1 / U.rate[c.lvl]; c.recoil = 7;
-      this.damage(e, U.damage[c.lvl] * this.level.hp, null, { ignoreArmor: true });
+      const dmg = U.damage[c.lvl] * this.level.hp * this.mods.cannonMult;
+      this.damage(e, dmg, null, { ignoreArmor: true });
+      if (this.mods.twin) {   // ultime « Double salve » : un 2e boulet sur une autre cible proche (ou la même)
+        let e2 = null, best = U.range[c.lvl]; for (const o of this.enemies) { if (o === e || o.dead || o.hidden) continue; const dd = Math.hypot(o.x - cx, o.y - cy); if (dd < best) { best = dd; e2 = o; } }
+        e2 = e2 || (e.dead ? null : e); if (e2) { this.damage(e2, dmg, null, { ignoreArmor: true }); this.fx.tracer(cx, cy, e2.x, e2.y, '#ffd23f', 4, 0.12); }
+      }
       // 2 canons : ils tirent chacun leur tour ; grosse tourelle : canon plus long, tir plus épais
       const ox = c.lvl >= 5 ? 0 : c.lvl >= 3 ? (c.side = -(c.side || 1)) * 22 : 0, len = c.lvl >= 5 ? 46 : 30;
       this.fx.tracer(cx + ox + Math.cos(c.aim) * len, cy + Math.sin(c.aim) * len, e.x, e.y, '#ffe9a0', c.lvl >= 5 ? 6 : 4, 0.12);

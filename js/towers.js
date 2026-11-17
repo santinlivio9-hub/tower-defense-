@@ -60,7 +60,7 @@ export class Tower {
     this.stats = computeStats(this.type, this.level, this.branch, this.game.mods);
     if (this.type === 'drone') while (this.drones.length < this.stats.drones) { const a = this.drones.length * 2.1; this.drones.push({ x: this.x + Math.cos(a) * 30, y: this.y + Math.sin(a) * 30, a, cd: 0, tilt: 0, fire: 0 }); }
   }
-  get sellValue() { return Math.floor(this.invested * GAME.sellRatio); }
+  get sellValue() { return Math.floor(this.invested * GAME.sellRatio * ((this.game.mods && this.game.mods.sellMult) || 1)); }
   get rangeShown() { return this.type === 'mine' ? this.stats.splash : this.type === 'drone' ? this.stats.patrol + this.stats.range * 0.5 : this.stats.range; }
   get label() {
     if (this.level >= 5) return branchDef(this.type, this.branch).master.name;
