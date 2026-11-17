@@ -1935,3 +1935,5 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .wheel.n9 .wl .wl-art .coin-ico, .wheel.n9 .wl .wl-art .gem, .wheel.n9 .wl .wl-art .ico { width: 22px; height: 22px; }
 .wheel.n9 .wl .wl-art svg { width: 26px; height: auto; }
 .wheel.n9 .wl .wl-art { height: 24px; } .wheel.n9 .wl .wl-art .chest-svg { width: 26px; height: 24px; }
+/* pastille de couleur signature de la tourelle (menu de pose) */
+#radial .rb .tdot { position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #3d2c4e; box-shadow: 0 1px 0 rgba(0,0,0,.35); pointer-events: none; }

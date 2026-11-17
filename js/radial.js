@@ -4,7 +4,7 @@
 // Méthodes ajoutées à la classe UI.
 import { TOWERS, RARITY, LEVELS, UNLOCKS, RADIAL } from './config.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
-import { towerImg } from './sprites.js';
+import { towerImg, TOWER_COLOR } from './sprites.js';
 import { icon, coin } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -62,7 +62,7 @@ export const Radial = {
       for (const type of g.buildable(slot)) {
         const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
         const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
-        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
+        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, dot: TOWER_COLOR[type], art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
           panel: { kind: 'build', type, cur: st, name: cfg.name, desc: cfg.desc, poor: g.money < cost, cost },
           preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
           confirm: () => { if (g.money < g.costOf(type)) { this.audio.play('error'); this.haptics.pulse(1); this.radialLive(true); return; } if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
@@ -244,6 +244,7 @@ export const Radial = {
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
       if (it.isBranch) b.append(el('span', 'lab name', it.label));   // nom de la branche, toujours visible
       else if (it.label) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
+      if (it.dot) { const d = el('i', 'tdot'); d.style.background = it.dot; b.append(d); }   // pastille de couleur signature
       if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
       if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
       b.append(el('span', 'ok', icon('check')));
