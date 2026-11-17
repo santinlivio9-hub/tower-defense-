@@ -347,7 +347,7 @@ export const CAMPAIGN = {
   endlessAfter: 20,                       // le mode infini se débloque après ce niveau (fin du monde 2)
   // gemmes
   // gemmes : seulement à la 1re victoire et aux premières 3 étoiles (pas aux replays) ; ×2 pour un boss
-  gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 5, gems3Stars: 3, gemsHeroicFirst: 6, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.15,
+  gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 3, gems3Stars: 2, gemsHeroicFirst: 4, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.09,   // gemmes : monnaie rare (-40 %)
 };
 // Liste à plat des niveaux (PER_WORLD par monde)
 export const LEVELS = [];
@@ -382,8 +382,8 @@ export const heroicMod = (n) => HEROIC.mods[(n - 1) % HEROIC.mods.length];
 //  CHÂTEAU (amélioré avec les gemmes entre les niveaux)
 // ----------------------------------------------------------------------------
 // coûts du château : ×CASTLE_GROWTH par rang (exponentiel)
-const CASTLE_GROWTH = 1.55;
-const grow = (base, n = 5) => Array.from({ length: n }, (_, i) => Math.round((base * CASTLE_GROWTH ** i) / 10) * 10);
+const CASTLE_GROWTH = 1.55, CASTLE_COST = 1.3;   // CASTLE_COST : tous les coûts ×1,3 (plus de pièces gagnées)
+const grow = (base, n = 5) => Array.from({ length: n }, (_, i) => Math.round((base * CASTLE_COST * CASTLE_GROWTH ** i) / 10) * 10);
 export const CASTLE = {
   upgrades: {
     walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: grow(560) },
@@ -445,7 +445,7 @@ export const XP = {
   // récompense de chaque niveau gagné (cycle), + un coffre doré tous les 10 niveaux
   // récompense de chaque niveau atteint : 1 point de talent tous les 2 niveaux, sinon pièces / boosts ;
   // coffre en bois tous les 5 niveaux, doré tous les 10
-  rewards: [{ talent: 1 }, { coins: 80 }, { talent: 1 }, { boosts: 1 }],
+  rewards: [{ talent: 1 }, { coins: 120 }, { talent: 1 }, { boosts: 1 }],
 };
 // rangée i de l'arbre (1 à 4) disponible à ce niveau de joueur ; 1 point de talent de plus par 1re victoire Héroïque
 export const TALENT_ROWS = [1, 8, 16, 25];
@@ -470,11 +470,15 @@ export const TALENTS = {
   ] },
 };
 export const CHESTS = {
-  wood: { name: 'Coffre en bois', cost: 80, cards: 3, coins: [40, 90], gems: [2, 5], boostChance: 0.6, rare: 0.15 },
-  gold: { name: 'Coffre doré',    cost: 250, cards: 5, coins: [150, 280], gems: [6, 15], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
-  legend: { name: 'Coffre légendaire', cost: 0, noBuy: true, cards: 7, coins: [300, 600], gems: [12, 25], boostChance: 0.75, rare: 0.7 },   // récompense uniquement
+  // cost = prix en gemmes ; coinCost = prix en pièces (×(1 + CHEST_COINS.perWorld × (monde - 1)), pour dépenser les pièces
+  // en fin de partie, une fois le château terminé)
+  wood: { name: 'Coffre en bois', cost: 60, coinCost: 600, cards: 3, coins: [60, 130], gems: [1, 3], boostChance: 0.6, rare: 0.15 },
+  gold: { name: 'Coffre doré',    cost: 180, coinCost: 2000, cards: 5, coins: [220, 400], gems: [4, 9], boostChance: 0.65, rare: 0.4 },   // rare = chance qu'un boost soit Bouclier / Seconde chance
+  legend: { name: 'Coffre légendaire', cost: 0, noBuy: true, cards: 7, coins: [450, 900], gems: [7, 15], boostChance: 0.75, rare: 0.7 },   // récompense uniquement
 };
 export const CHEST_ORDER = ['wood', 'gold', 'legend'];
+export const CHEST_COINS = { perWorld: 0.15 };
+export const chestCoinCost = (kind, world = 1) => Math.round((CHESTS[kind].coinCost * (1 + CHEST_COINS.perWorld * (Math.max(1, world) - 1))) / 10) * 10;
 // ----------------------------------------------------------------------------
 //  CALENDRIER DE DÉBLOCAGE par la campagne. Valeur = niveau (lvl(monde, n)) à partir duquel c'est disponible :
 //  on l'obtient en battant le niveau précédent (1 = dès le départ ; 31 = en battant le dernier boss).
@@ -496,8 +500,9 @@ export function unlocksOf(n) {
 // Coffres d'étoiles de chaque monde : [étoiles, coffre]
 export const STAR_CHESTS = [[10, 'wood'], [20, 'gold'], [30, 'legend']];   // 30 étoiles par monde
 // Fin de monde (boss vaincu la 1re fois) : grosse récompense, en plus du skin exclusif
-export const WORLD_REWARD = { chest: 'legend', gems: 15, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 2 };
+export const WORLD_REWARD = { chest: 'legend', gems: 9, boosts: { coins2: 2, shield: 1, over: 2 }, castleFree: 2 };
 // Offre du jour (boutique) : un article tiré au sort chaque jour, remisé, achetable une fois
+export const exchangeCoins = (pack, world = 1) => Math.round((pack.coins * (1 + SHOP.exchange.perWorld * (Math.max(1, world) - 1))) / 10) * 10;
 export const OFFER = {
   discount: 0.4,
   pool: [
@@ -510,14 +515,17 @@ export const OFFER = {
 //  BOUTIQUE (gemmes) — tout se débloque en jouant
 // ----------------------------------------------------------------------------
 export const SHOP = {
+  // Échange gemmes → pièces : 3 packs, plus le pack est gros, meilleur est le taux ; pièces ×(1 + perWorld × (monde - 1))
+  exchange: { perWorld: 0.2, packs: [{ gems: 20, coins: 400 }, { gems: 60, coins: 1400, tag: '+17 %' }, { gems: 150, coins: 4000, tag: '+33 %' }] },
+  boostPack: { gems: 40, n: 5 },   // lot de boosts au hasard
   get starterTowers() { return Object.keys(UNLOCKS.towers).filter((t) => UNLOCKS.towers[t] <= 1); },
   skins: [   // finish = rendu appliqué aux sprites d'armes (voir js/sprites.js)
     { id: 'default', name: 'Standard',   cost: 0,   finish: 'classic' },
-    { id: 'camo',    name: 'Camouflage', cost: 20,  finish: 'camo' },
-    { id: 'neon',    name: 'Néon',       cost: 35,  finish: 'neon' },
-    { id: 'lava',    name: 'Lave',       cost: 35,  finish: 'lava' },
-    { id: 'candy',   name: 'Bonbon',     cost: 45,  finish: 'candy' },
-    { id: 'gold',    name: 'Or massif',  cost: 100, finish: 'gold' },
+    { id: 'camo',    name: 'Camouflage', cost: 60,  finish: 'camo' },
+    { id: 'neon',    name: 'Néon',       cost: 90,  finish: 'neon' },
+    { id: 'lava',    name: 'Lave',       cost: 90,  finish: 'lava' },
+    { id: 'candy',   name: 'Bonbon',     cost: 120, finish: 'candy' },
+    { id: 'gold',    name: 'Or massif',  cost: 200, finish: 'gold' },
     // skins exclusifs : offerts en battant le boss d'un monde (voir UNLOCKS.skins)
     { id: 'emerald',  name: 'Émeraude',   cost: 0, finish: 'emerald', exclusive: true },
     { id: 'royal',    name: 'Pharaon',    cost: 0, finish: 'royal', exclusive: true },
@@ -646,24 +654,24 @@ export function starGoals(L) {
 //  SUCCÈS — "stat" lit save.stats[stat] ; "special" est géré dans save.js
 // ----------------------------------------------------------------------------
 export const ACHIEVEMENTS = [
-  { id: 'kills100',  name: 'Première fournée',   desc: 'Éliminer 100 brainrots',         stat: 'kills', goal: 100,  gems: 5 },
-  { id: 'kills1000', name: 'Exterminateur',      desc: 'Éliminer 1 000 brainrots',       stat: 'kills', goal: 1000, gems: 15 },
-  { id: 'kills5000', name: 'Légende anti-rot',   desc: 'Éliminer 5 000 brainrots',       stat: 'kills', goal: 5000, gems: 40 },
-  { id: 'boss1',     name: 'Chasseur de boss',   desc: 'Vaincre un boss',                stat: 'bossKills', goal: 1, gems: 10 },
-  { id: 'boss10',    name: 'Terreur des boss',   desc: 'Vaincre 10 boss',                stat: 'bossKills', goal: 10, gems: 30 },
-  { id: 'build50',   name: 'Armurier',           desc: 'Poser 50 tourelles',             stat: 'towersBuilt', goal: 50, gems: 10 },
-  { id: 'legend',    name: 'Butin doré',         desc: 'Monter une tourelle au niveau Légendaire', stat: 'legendaries', goal: 1, gems: 10 },
-  { id: 'win1',      name: 'Première victoire',  desc: 'Gagner une partie',              stat: 'wins', goal: 1, gems: 10 },
-  { id: 'win10',     name: 'Vétéran',            desc: 'Gagner 10 parties',              stat: 'wins', goal: 10, gems: 30 },
-  { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 20 },
-  { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 25 },
-  { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 20 },
-  { id: 'rebirth1',  name: 'Phénix',             desc: 'Faire une Renaissance',          stat: 'rebirths', goal: 1, gems: 50 },
-  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 80, gems: 100 },
-  { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 30 },
-  { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 60 },
-  { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 30 },
-  { id: 'early20',   name: 'Pressé',             desc: 'Lancer 20 vagues en avance',     stat: 'earlyStarts', goal: 20, gems: 10 },
+  { id: 'kills100',  name: 'Première fournée',   desc: 'Éliminer 100 brainrots',         stat: 'kills', goal: 100,  gems: 3 },
+  { id: 'kills1000', name: 'Exterminateur',      desc: 'Éliminer 1 000 brainrots',       stat: 'kills', goal: 1000, gems: 9 },
+  { id: 'kills5000', name: 'Légende anti-rot',   desc: 'Éliminer 5 000 brainrots',       stat: 'kills', goal: 5000, gems: 24 },
+  { id: 'boss1',     name: 'Chasseur de boss',   desc: 'Vaincre un boss',                stat: 'bossKills', goal: 1, gems: 6 },
+  { id: 'boss10',    name: 'Terreur des boss',   desc: 'Vaincre 10 boss',                stat: 'bossKills', goal: 10, gems: 18 },
+  { id: 'build50',   name: 'Armurier',           desc: 'Poser 50 tourelles',             stat: 'towersBuilt', goal: 50, gems: 6 },
+  { id: 'legend',    name: 'Butin doré',         desc: 'Monter une tourelle au niveau Légendaire', stat: 'legendaries', goal: 1, gems: 6 },
+  { id: 'win1',      name: 'Première victoire',  desc: 'Gagner une partie',              stat: 'wins', goal: 1, gems: 6 },
+  { id: 'win10',     name: 'Vétéran',            desc: 'Gagner 10 parties',              stat: 'wins', goal: 10, gems: 18 },
+  { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 12 },
+  { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 15 },
+  { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 12 },
+  { id: 'rebirth1',  name: 'Phénix',             desc: 'Faire une Renaissance',          stat: 'rebirths', goal: 1, gems: 30 },
+  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 80, gems: 60 },
+  { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 18 },
+  { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 36 },
+  { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 18 },
+  { id: 'early20',   name: 'Pressé',             desc: 'Lancer 20 vagues en avance',     stat: 'earlyStarts', goal: 20, gems: 6 },
 ];
 
 // Séquence de fin de niveau : messages de défaite, conseils (selon l'ennemi qui a fait le plus de dégâts au château)
@@ -702,7 +710,7 @@ export const END = {
 export const COINS = {
   start: 150,                 // nouveau joueur
   migrateBase: 300, migratePerStar: 60,   // anciennes sauvegardes (avant les pièces)
-  win: 45, perStar: 12, perWave: 3, perWaveLost: 2, firstClear: 60, bossMult: 2, endlessPerWave: 3,
+  win: 60, perStar: 15, perWave: 4, perWaveLost: 3, firstClear: 80, bossMult: 2, endlessPerWave: 4,   // pièces : monnaie de tous les jours
 };
 // Barre d'onglets du hub (ordre affiché)
 export const TABS = [
@@ -781,33 +789,33 @@ export const MUSIC = {
 // ----------------------------------------------------------------------------
 export const DAILY = {
   calendar: [
-    { coins: 80 }, { gems: 2 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 150 },
-    { gems: 3 }, { boosts: { over: 1, shield: 1 } }, { chest: 'wood', gems: 5 },
+    { coins: 120 }, { gems: 1 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 220 },
+    { gems: 2 }, { boosts: { over: 1, shield: 1 } }, { chest: 'wood', gems: 3 },
   ],
   perDay: 3,                  // quêtes du jour
   quests: [                   // {n} = objectif ; pass = points de passe en plus de la récompense
-    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 90 }, pass: 40 },
-    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 120 }, pass: 50 },
-    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 80, gems: 1 }, pass: 40 },
-    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 110 }, pass: 50 },
-    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 90 }, pass: 40 },
-    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 90 }, pass: 40 },
-    { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'flame', reward: { gems: 2 }, pass: 40 },
-    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 150 }, pass: 50 },
+    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 130 }, pass: 40 },
+    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 170 }, pass: 50 },
+    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 150 }, pass: 40 },
+    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 160 }, pass: 50 },
+    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 130 }, pass: 40 },
+    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 130 }, pass: 40 },
+    { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'flame', reward: { gems: 1 }, pass: 40 },
+    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 220 }, pass: 50 },
     { id: 'drops', text: 'Ramasse {n} bulles de boost', n: 2, icon: 'gift', reward: { boosts: 1 }, pass: 40 },
-    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 90 }, pass: 40 },
+    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 130 }, pass: 40 },
   ],
   weekly: [                   // une grosse quête par semaine (lundi)
-    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 5 }, pass: 200 },
-    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 5 }, pass: 200 },
-    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 5 }, pass: 200 },
+    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 3 }, pass: 200 },
+    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 3 }, pass: 200 },
+    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 3 }, pass: 200 },
   ],
   // Roue de la chance : un tour gratuit toutes les wheelEvery heures. Segments (w = poids, sur 100) : le JACKPOT
-  // (coffre doré) est le segment le plus rare. Gain moyen par tour : ~69 pièces, ~2,5 gemmes, 0,16 coffre en bois,
+  // (coffre doré) est le segment le plus rare. Gain moyen par tour : ~98 pièces, ~1,5 gemme, 0,16 coffre en bois,
   // 0,24 boost, 0,02 coffre doré (calé avec tools/progression.cjs : 4 tours par jour sans accélérer la campagne).
   wheel: [
-    { coins: 150, w: 16 }, { gems: 5, w: 18 }, { coins: 300, w: 9 }, { boosts: 1, w: 24 },
-    { coins: 600, w: 3 }, { gems: 10, w: 9 }, { chest: 'wood', w: 16 }, { gems: 25, w: 3 }, { chest: 'gold', w: 2 },
+    { coins: 200, w: 16 }, { gems: 3, w: 18 }, { coins: 450, w: 9 }, { boosts: 1, w: 24 },
+    { coins: 900, w: 3 }, { gems: 6, w: 9 }, { chest: 'wood', w: 16 }, { gems: 15, w: 3 }, { chest: 'gold', w: 2 },
   ],
   wheelEvery: 6,              // heures entre deux tours gratuits
   wheelExtraCost: 25,         // gemmes pour un tour bonus (sans attendre le tour gratuit)
@@ -819,14 +827,14 @@ export const DAILY = {
     { id: 'tiny', name: 'Mini-invasion', desc: 'Brainrots minuscules, fragiles et très nombreux', size: 0.6, hp: 0.45, density: 2.4 },
     { id: 'sniper', name: 'Tireurs d\'élite', desc: 'Seul le sniper est autorisé', only: ['sniper'], money: 1.6 },
   ],
-  challengeReward: { chest: 'wood', gems: 4 }, challengePass: 80,
+  challengeReward: { chest: 'wood', gems: 2, coins: 200 }, challengePass: 80,
 };
 export const PASS = {
   tiers: 30, perTier: 1050,    // points par palier (≈ 3 à 4 semaines de jeu régulier)
   perStar: 25,                // points par étoile gagnée (en plus de la moitié de l'XP gagnée)
   xpShare: 0.5,
-  cycle: [{ coins: 120 }, { gems: 2 }, { boosts: 1 }, { coins: 180 }],
+  cycle: [{ coins: 180 }, { gems: 1 }, { boosts: 1 }, { coins: 260 }],
   every5: { chest: 'gold' },  // paliers 5, 10, 15...
-  final: { coins: 800, gems: 20, chest: 'legend' },
+  final: { coins: 1500, gems: 12, chest: 'legend' },
 };
 export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);
