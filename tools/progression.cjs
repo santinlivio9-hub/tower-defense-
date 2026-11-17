@@ -80,13 +80,19 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     for (const q of [...d.daily.quests, d.daily.weekly].filter(Boolean)) sv.claimQuest(q);
     for (let t = 1; t <= sv.passTier(); t++) sv.claimPass(t);
     C.WORLDS.forEach((w, wi) => sv.starChests(wi).forEach((c) => c.ready && sv.claimStarChest(wi, c.k)));
-    if (d.gems >= C.CHESTS.wood.cost + 20) { d.gems -= C.CHESTS.wood.cost; d.chests.wood++; stats.bought++; }
+    // gemmes : garde une réserve de 30 ; échange contre des pièces quand le château attend des pièces, sinon coffre en bois
+    { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), need = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) : 0;
+      const P = C.SHOP.exchange.packs;
+      if (need > d.coins && d.gems >= P[1].gems + 30) { d.gems -= P[1].gems; d.coins += C.exchangeCoins(P[1], sv.worldReached()); stats.xch++; stats.gemsSpent += P[1].gems; }
+      else if (d.gems >= C.CHESTS.wood.cost + 30) { d.gems -= C.CHESTS.wood.cost; d.chests.wood++; stats.bought++; stats.gemsSpent += C.CHESTS.wood.cost; } }
     // boosts en pièces : complète son stock (3 de chaque) en gardant de quoi payer la prochaine construction
     { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), reserve = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) : 600;
       for (let k = 0; k < 12; k++) { const id = COIN_BOOSTS.filter((b) => (d.boosts[b] || 0) < 3).sort((a, b) => (d.boosts[a] || 0) - (d.boosts[b] || 0))[0]; if (!id) break; const c = C.boostCost(id, sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; d.boosts[id] = (d.boosts[id] || 0) + 1; stats.boostBuys++; stats.boostCoins += c; } }
+    { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), reserve = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) * 1.2 : 1500;
+      for (let k = 0; k < 6; k++) { const c = C.chestCoinCost('gold', sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; d.chests.gold++; stats.coinChests++; stats.coinsChests += c; } }
     for (const k of C.CHEST_ORDER) while (d.chests[k] > 0) sv.openChest(k);
   };
-  const stats = { bought: 0, used: 0, boostBuys: 0, boostCoins: 0, spins: 0 }, rows = [], marks = {};
+  const stats = { bought: 0, used: 0, boostBuys: 0, boostCoins: 0, spins: 0, xch: 0, gemsSpent: 0, coinChests: 0, coinsChests: 0 }, rows = [], marks = {};
   const MAXT = Object.values(C.TALENTS).reduce((a, b) => a + b.nodes.reduce((x, n) => x + n.max, 0), 0), MAXC = caps().reduce((a, id) => a + sv.castleDef(id).costs.length, 0);
   for (let day = 1; day <= DAYS; day++) {
     NOW = new RealDate(2026, 0, 4 + day, 8, 0, 0).getTime();
@@ -115,6 +121,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
   console.log('jour | niv | gemmes | pièces | talents | pts | château | palier | campagne | étoiles | héroïque | passe');
   for (const r of show) console.log(`${pad(r.day, 4)} | ${pad(r.lvl, 3)} | ${pad(r.gems, 6)} | ${pad(r.coins, 6)} | ${pad(r.tal, 7)} | ${pad(r.pts, 3)} | ${pad(r.castle, 7)} | ${pad(r.tier, 6)} | ${pad(r.camp, 8)} | ${pad(r.stars, 7)} | ${pad(r.hero + '/' + N, 8)} | ${pad(r.pass + '/' + C.PASS.tiers, 5)}`);
   console.log(`\nRepères : monde 1 fini jour ${marks.w1 || '-'} · palier 2 du château jour ${marks.t2 || '-'} · 5 mondes jour ${marks.w5 || '-'} · campagne finie jour ${marks.camp || '-'} · tout maxé jour ${marks.all || '-'} · coffres en bois achetés ${stats.bought}`);
+  console.log(`Gemmes : ${stats.gemsSpent + d.gems} gagnées, ${stats.gemsSpent} dépensées (${stats.bought} coffres en bois, ${stats.xch} échanges contre des pièces) · coffres dorés achetés en pièces : ${stats.coinChests} (${stats.coinsChests} pièces)`);
   console.log(`Roue : ${stats.spins} tours gratuits (${(stats.spins / DAYS).toFixed(1)} par jour)`);
   console.log(`Boosts : ${stats.used} utilisés, ${stats.boostBuys} achetés en pièces (${stats.boostCoins} pièces) · pièces en fin de simulation ${d.coins}`);
   if (marks.rebirths) console.log('Renaissances : ' + marks.rebirths.join(' · '));

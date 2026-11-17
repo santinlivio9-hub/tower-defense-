@@ -1,5 +1,5 @@
 // Niveau de joueur (XP), talents, inventaire de boosts et coffres. Méthodes ajoutées à la classe UI (voir la fin de ui.js).
-import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, CHEST_ORDER, RARITY, OFFER, SHOP, boostCost } from './config.js';
+import { XP, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, CHEST_ORDER, RARITY, OFFER, SHOP, boostCost, chestCoinCost, exchangeCoins } from './config.js';
 import { untilMidnight } from './daily.js';
 import { towerImg } from './sprites.js';
 import { icon, gem, coin } from './icons.js';
@@ -78,10 +78,24 @@ export const Loot = {
         <span class="cc-txt"><b>${c.name}</b><small>${c.cards} cartes · ${kind === 'legend' ? 'beaucoup de gemmes, boosts rares' : 'pièces, gemmes et boosts'}</small></span>${n ? `<em>×${n}</em>` : ''}`);
       const btns = el('div', 'cc-btns');
       if (n) { const open = el('button', 'btn sm green cta', 'Ouvrir'); open.onclick = () => { if (!d.chests[kind]) { this.audio.play('error'); return; } this.openChest(kind); }; btns.append(open); }
-      btns.append(c.noBuy ? el('span', 'btn sm locked', `${icon('lock')}Récompense uniquement`) : this.buyButton(c.cost, 'gems', 'Acheter', () => d.chests[kind]++, 'ghostgem'));
+      if (c.noBuy) btns.append(el('span', 'btn sm locked', `${icon('lock')}Récompense uniquement`));
+      else btns.append(this.buyButton(c.cost, 'gems', '', () => d.chests[kind]++, 'ghostgem'), this.buyButton(chestCoinCost(kind, this.save.worldReached()), 'coins', '', () => d.chests[kind]++, 'ghost'));
       card.append(btns); row.append(card);
     }
     grid.append(row, el('p', 'hint', 'Tu gagnes aussi des coffres en montant de niveau, en battant les boss, avec le cadeau du jour et le passe.'));
+    this.renderExchange(grid);
+  },
+  // Échange gemmes → pièces : 3 packs à taux dégressif (le plus gros est le plus avantageux)
+  renderExchange(grid) {
+    const w = this.save.worldReached(), row = el('div', 'xch-row');
+    grid.append(el('h3', 'shop-h', `${icon('coins')}Changer des gemmes en pièces`));
+    SHOP.exchange.packs.forEach((p, i) => {
+      const n = exchangeCoins(p, w), card = el('div', 'xch-card s' + i, `${p.tag ? `<em class="xch-tag">${p.tag}</em>` : ''}<span class="xch-art">${coin('big')}${i ? coin('big') : ''}${i > 1 ? coin('big') : ''}</span><b>${n.toLocaleString('fr-FR')}</b><small>pièces</small>`);
+      card.append(this.buyButton(p.gems, 'gems', '', () => { d0().coins += n; this.toast(`+${n.toLocaleString('fr-FR')} pièces`, 'Échange effectué', coin()); }, 'ghostgem'));
+      row.append(card);
+    });
+    const d0 = () => this.save.data;
+    grid.append(row, el('p', 'hint', 'Plus le pack est gros, plus le taux est avantageux. Les pièces reçues augmentent avec ta progression.'));
   },
   // Offre du jour : un article remisé, une fois par jour, avec minuteur
   offerItem() {
@@ -108,7 +122,10 @@ export const Loot = {
     grid.append(card);
   },
   renderShopBoosts(grid) {
-    const d = this.save.data, g = el('div', 'cgrid');
+    const d = this.save.data, g = el('div', 'cgrid'), P = SHOP.boostPack;
+    const pack = el('div', 'bpack', `<span class="bp-art">${BOOST_ORDER.slice(0, 4).map((id) => boostIco(id)).join('')}</span><span class="bp-txt"><b>Lot de ${P.n} boosts</b><small>Au hasard parmi les boosts courants</small></span>`);
+    pack.append(this.buyButton(P.gems, 'gems', '', () => { const t = this.save.grant({ boosts: P.n }); this.toast('Lot de boosts', t, icon('bag')); }, 'ghostgem'));
+    grid.append(pack);
     for (const id of BOOST_ORDER) {
       const b = BOOSTS[id], R = RARITY[b.rarity || 0];
       const c = el('div', 'ccard boost shop', `<span class="cc-art">${boostArt(id)}</span><b>${b.name}</b><small class="rar">${R.name}</small><i class="qty">×${d.boosts[id] || 0}</i>`);

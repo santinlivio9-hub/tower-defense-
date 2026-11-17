@@ -1976,3 +1976,16 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 @media (max-height: 700px) { .upp-br .bt small { font-size: 11.5px; } .upp-br { padding: 3px 5px; } }
 #radial.measure .rsheet { animation: none !important; }
 #radial .rb.tile.armed .lab.sname { display: block; }
+/* Boutique : échange gemmes → pièces, lot de boosts */
+.shop-h { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; font-size: 16px; color: #fff; text-shadow: var(--ol); } .shop-h .ico { width: 20px; height: 20px; }
+.xch-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.xch-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 8px; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border); box-shadow: 0 4px 0 var(--edge), var(--shadow); min-width: 0; }
+.xch-card.s2 { border-color: var(--gold); }
+.xch-art { display: flex; justify-content: center; height: 34px; align-items: center; } .xch-art .coin-ico { width: 26px; height: 26px; margin: 0 -5px; }
+.xch-card b { font-size: 18px; color: var(--gold); text-shadow: var(--ol); font-variant-numeric: tabular-nums; } .xch-card small { font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }
+.xch-card .btn { width: 100%; padding-left: 4px; padding-right: 4px; }
+.xch-tag { position: absolute; top: -9px; right: -4px; padding: 1px 6px; border-radius: 8px; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; background: #e8283f; border: 2px solid var(--ink); }
+.bpack { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 10px; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border); box-shadow: 0 4px 0 var(--edge), var(--shadow); }
+.bp-art { display: flex; } .bp-art .bico { margin-right: -8px; }
+.bp-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; margin-left: 8px; } .bp-txt b { font-size: 15px; } .bp-txt small { font-size: 14px; color: var(--text-soft); }
+.bpack .btn { flex: none; }
