@@ -131,7 +131,8 @@ export class UI {
     const ms = inGame ? HUD_FX.toastMs : 3900; t.style.animationDuration = ms + 'ms';
     box.append(t); setTimeout(() => t.remove(), ms + 100);
   }
-  announce(list) { for (const a of list || []) this.toast('Succès : ' + a.name, `${a.desc} · +${a.gems} gemmes`); this.refreshGems(); }
+  // Succès débloqué : notification discrète (la récompense se récupère dans Collection > Succès)
+  announce(list) { for (const a of (list || []).slice(0, 2)) this.toast('Succès : ' + a.name + (a.tier ? ' · ' + a.tier.name : ''), a.desc, icon('medal')); if (list && list.length) this.tabBadges(); }
   openOverlay(node, cls = '') { const ov = $('#overlay'); ov.innerHTML = ''; ov.append(node); ov.className = 'overlay show ' + cls; }
   closeOverlay() { $('#overlay').classList.remove('show'); }
 
@@ -592,6 +593,7 @@ export class UI {
     const g = this.game;
     if (g && this.screen === 'game' && !this.simulating) {
       if (!this.crashOpen) { const t0 = performance.now(); g.frame(dt); this.updateHud(); this.watchQuality(g, raw, performance.now() - t0); }
+      if (!g.over && (!this._achT || ts - this._achT > 2000)) { this._achT = ts; try { const s = g.stats; this.announce(this.save.checkAchievements({ kills: s.kills, bossKills: s.bossKills, legendaries: s.legendaries, bestCombo: g.chainBest, maxed: s.maxedTypes || [] })); } catch (e) { /* facultatif */ } }
     }
     else if (this.screen === 'castle') this.tickCastle(ts);
     else if (this.screen === 'menu') this.tickHome(ts);

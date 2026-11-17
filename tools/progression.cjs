@@ -78,6 +78,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     }
     // quêtes, passe, coffres d'étoiles, coffres (le joueur achète un coffre en bois à 80 gemmes)
     for (const q of [...d.daily.quests, d.daily.weekly].filter(Boolean)) sv.claimQuest(q);
+    for (const st of sv.achievementSteps()) sv.claimAchievement(st.key);   // succès récupérés
     for (let t = 1; t <= sv.passTier(); t++) sv.claimPass(t);
     C.WORLDS.forEach((w, wi) => sv.starChests(wi).forEach((c) => c.ready && sv.claimStarChest(wi, c.k)));
     // gemmes : garde une réserve de 30 ; échange contre des pièces quand le château attend des pièces, sinon coffre en bois

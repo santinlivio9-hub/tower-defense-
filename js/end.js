@@ -180,7 +180,7 @@ export const End = {
       // ---------------------------------------------------------------- 4. succès et déblocages
       await step(async () => {
         seq.fast = false;
-        badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.gems ? `+${a.gems}${gem()}` : '' }))];
+        badges = [...(r.achievements || []).map((a) => ({ ico: 'medal', name: a.name, sub: a.desc, val: a.tier ? a.tier.name : '' }))];
         if (r.firstClear && !g.heroic && win) badges.push({ ico: 'crown', name: 'Défi Héroïque débloqué', sub: 'Plus dur, récompenses doublées' });
         if (r.challengeWin) badges.unshift({ ico: 'target', name: 'Défi du jour réussi !', sub: 'Coffre doré et gemmes' });
         if (win && !g.heroic && g.level.n === CAMPAIGN.endlessAfter && r.firstClear) badges.push({ ico: 'infinity', name: 'Mode infini débloqué', sub: 'Avec classement local' });

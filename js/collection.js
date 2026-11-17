@@ -1,6 +1,7 @@
 // Collection : fiches illustrées des tourelles, des brainrots rencontrés (silhouette noire tant
 // qu'ils ne sont pas découverts), des boosts et des succès. Méthodes ajoutées à la classe UI.
-import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, CAMPAIGN, LEVELS, UNLOCKS, boostCost } from './config.js';
+import { TOWERS, TOWER_ORDER, ENEMIES, BOOSTS, BOOST_ORDER, RARITY, ACHIEVEMENTS, ACH_CATS, ACH_TIERS, CAMPAIGN, LEVELS, UNLOCKS, boostCost } from './config.js';
+import { rewardChips } from './daily.js';
 import { computeStats } from './towers.js';
 import { towerImg, enemyImg, TOWER_COLOR } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -56,10 +57,34 @@ export const Collection = {
         grid.append(c);
       }
     } else {
-      for (const a of ACHIEVEMENTS) {
-        const done = d.achievements.includes(a.id), prog = Math.min(a.goal, this.save.achievementProgress(a)); total++; if (done) got++;
-        const ACH_ICO = { kills: 'skull', bossKills: 'crown', towersBuilt: 'cannon', legendaries: 'star', wins: 'trophy', perfectWins: 'heart', heroicWins: 'crown', bestEndless: 'infinity', earlyStarts: 'bolt', games: 'playgold', bestScore: 'trophy', chests: 'chest' };
-        grid.append(el('div', 'ach' + (done ? ' done' : ''), `<span class="ach-ico">${icon(ACH_ICO[a.stat] || 'medal', a.stat === 'legendaries' ? 'gold' : '')}${done ? `<i>${icon('check')}</i>` : ''}</span><span class="ach-t"><b>${a.name}</b><small>${a.desc}</small><span class="qbar"><i style="width:${(prog / a.goal) * 100}%"></i></span></span><span class="val">${done ? icon('check') : `${short(prog)}/${short(a.goal)}`}<em>+${a.gems}${gem()}</em></span>`));
+      // Succès : par catégorie ; chaque succès montre son palier (bronze / argent / or), sa barre vers l'étape suivante,
+      // la récompense et le bouton « Récupérer » quand une étape atteinte n'a pas encore été récupérée
+      const sv = this.save, claimed = d.ach.claimed, steps = sv.achievementSteps(), reached = new Set(steps.map((x) => x.key));
+      total = sv.achievementTotal(); got = reached.size;
+      const ready = steps.filter((x) => !claimed.includes(x.key)).length;
+      grid.append(el('div', 'ach-sum', `<span class="ach-big">${icon('medal')}</span><div><b>${got}/${total}</b><small>étapes de succès débloquées</small><span class="qbar"><i style="width:${(got / total) * 100}%"></i></span></div>${ready ? `<em>${ready} à récupérer</em>` : ''}`));
+      for (const [cid, cat] of Object.entries(ACH_CATS)) {
+        const list = ACHIEVEMENTS.filter((a) => a.cat === cid); if (!list.length) continue;
+        const n = list.reduce((k, a) => k + a.tiers.filter((t, i) => reached.has(a.id + ':' + i)).length, 0), m = list.reduce((k, a) => k + a.tiers.length, 0);
+        grid.append(el('h3', 'ach-cat', `${icon(cat.icon)}<span>${cat.name}</span><small>${n}/${m}</small>`));
+        for (const a of list) {
+          const prog = sv.achievementProgress(a), T = a.tiers, nTier = T.length;
+          const todo = T.findIndex((t, i) => reached.has(a.id + ':' + i) && !claimed.includes(a.id + ':' + i));   // étape à récupérer
+          const next = T.findIndex((t) => prog < t.goal), cur = todo >= 0 ? todo : next >= 0 ? next : nTier - 1, goal = T[cur].goal, done = next < 0 && todo < 0;
+          const tierInfo = nTier > 1 ? ACH_TIERS[cur] : null;
+          const row = el('div', 'ach' + (done ? ' done' : '') + (todo >= 0 ? ' ready' : '') + (tierInfo ? ' t-' + tierInfo.id : ''), `<span class="ach-ico" style="--tc:${tierInfo ? tierInfo.color : '#ffd23f'}">${icon(a.icon || 'medal')}${done ? `<i>${icon('check')}</i>` : ''}</span>
+            <span class="ach-t"><b></b><small></small>${nTier > 1 ? `<span class="ach-pips">${T.map((t, i) => `<i class="${reached.has(a.id + ':' + i) ? 'on' : ''}" style="--tc:${ACH_TIERS[i].color}"></i>`).join('')}</span>` : ''}<span class="qbar"><i style="width:${Math.min(100, (prog / goal) * 100)}%"></i><em>${short(Math.min(prog, goal))}/${short(goal)}</em></span></span>
+            <span class="ach-r"></span>`);
+          $('b', row).textContent = a.name + (tierInfo ? ' · ' + tierInfo.name : ''); $('small', row).textContent = a.desc.replace('{n}', short(goal));
+          const rr = $('.ach-r', row);
+          if (todo >= 0) {
+            const key = a.id + ':' + todo, btn = el('button', 'btn sm green cta', 'Récupérer');
+            btn.onclick = () => { const res = sv.claimAchievement(key); if (!res) return; this.audio.play('chest'); this.haptics.pulse(2); row.classList.add('claiming'); if (this.flyRewards) this.flyRewards(btn, res.reward); this.refreshWallet(); this.toast('Récompense récupérée', res.text, icon('medal')); setTimeout(() => this.renderCollection(), 650); };
+            rr.append(el('span', 'ach-rw', rewardChips(T[todo].reward)), btn);
+          } else if (!done) rr.append(el('span', 'ach-rw', rewardChips(T[cur].reward)));
+          else rr.append(el('span', 'owned', icon('check')));
+          grid.append(row);
+        }
       }
     }
     $('#col-count').innerHTML = `${icon('book')}<b>${got}/${total}</b>`;

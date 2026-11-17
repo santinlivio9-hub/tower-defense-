@@ -1,11 +1,12 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, SEASON, PROFILE, seasonOf, premiumReward, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, SEASON, PROFILE, seasonOf, premiumReward, ACHIEVEMENTS, ACH_LEGACY, ACH_TIERS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 import { setTierCap } from './castle.js';
 
 // date locale « AAAA-MM-JJ » (le jour change à minuit, heure du téléphone)
 export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fmtN = (n) => new Intl.NumberFormat('fr-FR').format(n);
 const mondayOf = (d = new Date()) => { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return today(m); };
 
 const KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
@@ -34,7 +35,8 @@ const defaults = () => ({
   privacy: { asked: false },       // fenêtre de consentement (RGPD) déjà montrée
   legacyStars: 0, notice: null,
   achievements: [],
-  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0, rebirths: 0 },
+  stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0, rebirths: 0, bestCombo: 0, coinsEarned: 0, maxed: [] },
+  ach: { claimed: [], seen: [] },   // succès : étapes récompensées, étapes déjà annoncées
   settings: { muted: false, sfxVol: 0.7, musicVol: 0.6, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
 });
 
@@ -70,7 +72,9 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth', 'iap', 'ads', 'privacy', 'profile']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth', 'iap', 'ads', 'privacy', 'profile', 'ach']) d[k] = { ...def[k], ...raw[k] };
+    if (!Array.isArray(d.stats.maxed)) d.stats.maxed = []; for (const k of ['claimed', 'seen']) if (!Array.isArray(d.ach[k])) d.ach[k] = [];
+    if (!raw.ach) for (const old of d.achievements || []) if (ACH_LEGACY[old]) { d.ach.claimed.push(ACH_LEGACY[old]); d.ach.seen.push(ACH_LEGACY[old]); }   // anciens succès déjà payés
     for (const k of ['claimed', 'pclaimed', 'missions']) if (!Array.isArray(d.pass[k])) d.pass[k] = [];
     for (const k of ['frames', 'titles', 'fxs']) if (!Array.isArray(d.profile[k])) d.profile[k] = [...def.profile[k]];
     if (!Array.isArray(d.iap.owned)) d.iap.owned = []; if (!Array.isArray(d.iap.orders)) d.iap.orders = [];
@@ -297,7 +301,7 @@ export class Save {
   // Applique une récompense { gems, talent, chest, boosts } ; renvoie sa description
   grant(r) {
     const d = this.data, out = [];
-    if (r.coins) { d.coins = (d.coins || 0) + r.coins; out.push(`${r.coins} pièces`); }
+    if (r.coins) { d.coins = (d.coins || 0) + r.coins; d.stats.coinsEarned = (d.stats.coinsEarned || 0) + r.coins; out.push(`${r.coins} pièces`); }
     if (r.gems) { d.gems += r.gems; out.push(`${r.gems} gemmes`); }
     if (r.talent) { d.talentPts += r.talent; out.push(r.talent > 1 ? `${r.talent} points de talent` : '1 point de talent'); }
     if (r.chest) { d.chests[r.chest]++; out.push(CHESTS[r.chest].name); }
@@ -439,16 +443,38 @@ export class Save {
   claimMission(m) { const def = this.missionDef(m); if (m.claimed || m.prog < def.n) return 0; m.claimed = true; this.addPass(def.pts); this.persist(); return def.pts; }
   dailyCount() { return (this.calendarReady() ? 1 : 0) + this.questsReady() + (this.wheelReady() ? 1 : 0) + this.passReady() + this.premiumReady() + this.missionsReady(); }
 
-  // ------------------------------------------------------------- succès
-  // Vérifie les succès ; renvoie la liste des succès nouvellement débloqués.
-  checkAchievements() {
-    const got = [];
-    for (const a of ACHIEVEMENTS) {
-      if (this.data.achievements.includes(a.id)) continue;
-      if (this.achievementProgress(a) >= a.goal) { this.data.achievements.push(a.id); this.data.gems += a.gems; got.push(a); }
-    }
-    if (got.length) this.persist();
+  // ------------------------------------------------------------- succès (étapes « id:palier »)
+  achievementProgress(a, live = null) {
+    const d = this.data, st = d.stats, L = live || {};
+    if (a.special === 'stars') return this.campaignStars();
+    if (a.special === 'progress') return this.progress();
+    if (a.special === 'castle') return this.castleSum();
+    if (a.special === 'skins') return d.skins.length;
+    if (a.special === 'enemies') return d.seen.enemies.length;
+    if (a.special === 'maxed') return st.maxed.includes(a.type) || (L.maxed && L.maxed.includes(a.type)) ? 1 : 0;
+    const v = st[a.stat] || 0;
+    if (a.stat === 'bestCombo') return Math.max(v, L.bestCombo || 0);
+    return v + (L[a.stat] || 0);
+  }
+  // étapes atteintes : [{ a, k (palier), key, reward }]
+  achievementSteps(live = null) {
+    const out = [];
+    for (const a of ACHIEVEMENTS) { const v = this.achievementProgress(a, live); a.tiers.forEach((t, k) => { if (v >= t.goal) out.push({ a, k, key: a.id + ':' + k, reward: t.reward }); }); }
+    return out;
+  }
+  achievementTotal() { return ACHIEVEMENTS.reduce((n, a) => n + a.tiers.length, 0); }
+  achievementsReady() { const c = this.data.ach.claimed; return this.achievementSteps().filter((s) => !c.includes(s.key)).length; }
+  // Nouvelles étapes atteintes (pas encore annoncées) : marquées « vues » et renvoyées pour une notification discrète.
+  // live = statistiques de la partie en cours (annonce en jeu, avant l'enregistrement de fin de partie).
+  checkAchievements(live = null) {
+    const seen = this.data.ach.seen, got = [];
+    for (const s of this.achievementSteps(live)) if (!seen.includes(s.key)) { seen.push(s.key); got.push({ name: s.a.name, desc: s.a.desc.replace('{n}', fmtN(s.a.tiers[s.k].goal)), tier: s.a.tiers.length > 1 ? ACH_TIERS[s.k] : null, key: s.key }); }
     return got;
   }
-  achievementProgress(a) { return a.special === 'stars' ? this.totalStars() : a.special === 'progress' ? this.progress() : (this.data.stats[a.stat] || 0); }
+  claimAchievement(key) {
+    const st = this.achievementSteps().find((s) => s.key === key), c = this.data.ach.claimed;
+    if (!st || c.includes(key)) return null;
+    c.push(key); if (!this.data.ach.seen.includes(key)) this.data.ach.seen.push(key);
+    const text = this.grant(st.reward); this.persist(); return { text, reward: st.reward };
+  }
 }

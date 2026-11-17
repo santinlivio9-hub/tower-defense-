@@ -69,6 +69,13 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
     ok(n === 14 && d.talents.slot === 1 && s.mods().slots === 1 && d.talentPts === 2, 'talents : points déjà placés conservés (Sacoche comprise)');
     ok(s.respec() === 14 && d.talentPts === 16 && d.gems === 20 && s.talentsSpent() === 0, 'respécialisation : 14 points rendus contre 50 gemmes');
     d.talents = { dmg: 1 }; ok(s.respec() === 0 && d.talents.dmg === 1 && d.gems === 20, 'respécialisation refusée sans assez de gemmes, rien de perdu'); }
+  // succès : anciens succès (déjà payés) conservés comme étapes récupérées ; les autres étapes atteintes sont à récupérer
+  { s = fresh({ v: 2, lpw: 10, gems: 40, achievements: ['kills1000', 'boss1', 'win1'], stats: { kills: 12000, bossKills: 3, chests: 6 } });
+    const d = s.data;
+    ok(d.ach.claimed.includes('kills:0') && d.ach.claimed.includes('bosses:0') && !d.ach.claimed.includes('kills:1'), 'succès : anciens succès repris comme étapes déjà récompensées');
+    const ready = s.achievementsReady(), g0 = d.gems, c0 = d.coins, r = s.claimAchievement('kills:1');
+    ok(ready >= 2 && r && d.gems === g0 + 8 && d.coins === c0 + 600 && !s.claimAchievement('kills:1') && !s.claimAchievement('kills:2'), `succès : étape argent récupérée une seule fois (${ready} à récupérer), étape non atteinte refusée`);
+    ok(s.achievementTotal() >= 48 && s.achievementTotal() <= 60, `succès : ${s.achievementTotal()} étapes au total`); }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;
