@@ -7,6 +7,7 @@ const CONFETTI = ['#ff5e7e', '#ffd23f', '#4cd137', '#3d9dfc', '#b05cff', '#ff9f1
 
 export class Fx {
   constructor() {
+    this.dim = null;   // zones du menu ouvert (terrain) où les textes flottants sont atténués
     this.p = []; this.tracers = []; this.rings = []; this.texts = []; this.coins = [];
     this.coinTarget = { x: 120, y: -10 };
     this.onCoinArrive = null;
@@ -182,7 +183,7 @@ export class Fx {
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
     for (const t of this.texts) {
       const k = t.life / t.max, pop = 1 + Math.max(0, k - 0.8) * 2.5, jx = t.shake ? Math.sin(t.life * 90) * 2.5 : 0;
-      c.globalAlpha = Math.min(1, k * 2.5);
+      c.globalAlpha = Math.min(1, k * 2.5) * (this.dim && this.dim.some((d) => t.x > d.l - 20 && t.x < d.r + 20 && t.y > d.t - 14 && t.y < d.b + 14) ? 0.15 : 1);
       c.font = `700 ${Math.round(t.size * pop)}px Fredoka, ui-rounded, system-ui, sans-serif`;
       c.lineWidth = Math.max(4, t.size * 0.28); c.strokeStyle = '#3d2c4e'; c.strokeText(t.text, t.x + jx, t.y);
       c.fillStyle = t.color; c.fillText(t.text, t.x + jx, t.y);

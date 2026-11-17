@@ -382,7 +382,7 @@ export class UI {
     tip.onclick = close; setTimeout(close, 3600);
     $('#screen-game').append(tip);
   }
-  closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
+  closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; g.fx.dim = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
   // Éléments du menu : { key, cls, art, label, price, info, preview, tap (immédiat) ou confirm (2e toucher) }
   toLogical(e) {
     const r = this.canvas.getBoundingClientRect(), v = this.view;

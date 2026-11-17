@@ -1937,3 +1937,42 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .wheel.n9 .wl .wl-art { height: 24px; } .wheel.n9 .wl .wl-art .chest-svg { width: 26px; height: 24px; }
 /* pastille de couleur signature de la tourelle (menu de pose) */
 #radial .rb .tdot { position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #3d2c4e; box-shadow: 0 1px 0 rgba(0,0,0,.35); pointer-events: none; }
+
+/* ---- Menus en partie (pose compacte, rangée défilante, barre d'amélioration, panneau immédiat) ---- */
+#radial.build .rb { width: 50px; height: 50px; margin: -25px 0 0 -25px; } #radial.build .rb img { width: 40px; height: 40px; }
+#radial .rb { width: 52px; height: 52px; margin: -26px 0 0 -26px; } #radial .rb img { width: 42px; height: 42px; } #radial .rb > .ico { width: 26px; height: 26px; }
+#radial .rb.up.br { width: 54px; height: 54px; margin: -27px 0 0 -27px; }
+#radial .rb.armed { transform: scale(1.06); }
+#radial .rb .lab.name { max-width: 100px; font-size: 12px; }
+/* rangée défilante (plus de 6 tourelles) */
+#radial .rsheet { position: absolute; left: 0; right: 0; pointer-events: auto; padding: 6px 0 8px; background: linear-gradient(180deg, rgba(36, 26, 62, .94), rgba(28, 20, 50, .97)); border-top: 2.5px solid rgba(255, 255, 255, .22); border-bottom: 2.5px solid rgba(255, 255, 255, .12); box-shadow: 0 -6px 18px rgba(0, 0, 0, .35); animation: rs-in .18s ease-out; }
+#radial .rsheet.top { box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+@keyframes rs-in { from { opacity: 0; transform: translateY(14px); } }
+#radial .rs-scroll { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 4px 10px 2px; touch-action: pan-x; scrollbar-width: none; }
+#radial .rs-scroll::-webkit-scrollbar { display: none; }
+#radial .rb.tile { position: relative; flex: none; left: auto; top: auto; margin: 0; width: 70px; height: 92px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; padding-top: 4px; scroll-snap-align: start; animation: none; }
+#radial .rb.tile img { width: 40px; height: 40px; }
+#radial .rb.tile .lab.sname { position: static; transform: none; background: none; padding: 0; font-size: 12px; max-width: 66px; overflow: hidden; text-overflow: ellipsis; color: #fff; text-shadow: var(--ol); }
+#radial .rb.tile .price { position: static; transform: none; margin-top: 1px; }
+#radial .rb.tile .tdot { left: 5px; top: 5px; }
+#radial .rb.tile .snew { position: absolute; top: -6px; right: -4px; padding: 1px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; color: #fff; background: #e8283f; border: 2px solid var(--ink); }
+#radial .rb.tile.armed { transform: translateY(-3px); outline-offset: -2px; }
+#radial .rb.tile .ok { right: -4px; top: -4px; }
+/* panneau immédiat : en-tête de la tourelle, branches */
+.upp-hdr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; padding-bottom: 3px; border-bottom: 1.5px solid rgba(255, 255, 255, .14); }
+.upp-hdr > b { font-size: 15px; text-shadow: var(--ol); }
+.upp-hdr .lv { display: inline-flex; gap: 2px; } .upp-hdr .lv i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .2); } .upp-hdr .lv i.on { background: var(--rar); }
+.upp-hdr small { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; color: var(--text-soft); font-size: 13px; } .upp-hdr small .ico { width: 13px; height: 13px; } .upp-hdr small b { color: #fff; margin-right: 4px; }
+.upp-sub { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-soft); }
+.upp-br { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 12px; background: rgba(255, 255, 255, .07); }
+.upp-br .bi { flex: none; width: 34px; height: 34px; } .upp-br .bi img { width: 34px; height: 34px; }
+.upp-br .bt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; } .upp-br .bt b { font-size: 13.5px; color: #fff; } .upp-br .bt small { font-size: 12px; color: var(--text-soft); }
+.upp-br .bp { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.upp-br .bp em { font-style: normal; font-size: 13px; font-weight: 700; color: #8dffae; line-height: 1; } .upp-br .bp em small { margin-left: 2px; font-size: 10px; }
+.upp-br .upp-cost { font-size: 13px; padding: 1px 7px; } .upp-br .upp-cost.poor { color: #ffb3bd; background: #6a1426; }
+.upp-br.locked { opacity: .75; } .upp-br .bp .ico { width: 20px; height: 20px; }
+.upp-max { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--gold); } .upp-max .ico { width: 16px; height: 16px; }
+.upp.list { width: 286px; }
+@media (max-height: 700px) { .upp-br .bt small { font-size: 11.5px; } .upp-br { padding: 3px 5px; } }
+#radial.measure .rsheet { animation: none !important; }
+#radial .rb.tile.armed .lab.sname { display: block; }
