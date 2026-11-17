@@ -220,6 +220,7 @@ export const Daily = {
       const tick = setInterval(() => { if (!tm.isConnected) { clearInterval(tick); return; } if (sv.wheelReady()) { clearInterval(tick); if (!spinning) this.openDaily('wheel'); return; } $('b', tm).textContent = untilMs(sv.wheelLeft()); }, 1000);
       const bonus = this.buyButton(DAILY.wheelExtraCost, 'gems', 'Tour bonus', () => { if (spinning) return false; bonus.disabled = true; spin(false); return false; }, 'pink');
       bonus.classList.add('wide'); foot.append(bonus);
+      const ad = this.adButton('Tour bonus', 'un tour de roue', () => { if (spinning) return; ad.disabled = true; spin(false); }, 'wide'); foot.append(ad);
     }
     m.append(foot);
   },

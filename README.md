@@ -4,7 +4,7 @@ Tower defense 2D en format portrait, jouable dans le navigateur et installable s
 crabe-casserole…) suivent un chemin vers ta base ; tu les arrêtes avec des tourelles en forme d'armes,
 améliorables et classées par rareté (gris → vert → bleu → violet → doré).
 
-HTML5 Canvas + JavaScript vanilla (modules ES), **aucune dépendance, aucun build**. Tous les visuels sont
+HTML5 Canvas + JavaScript vanilla (modules ES), **aucune dépendance, aucun build** pour la version web (les apps Android / iOS emballent les mêmes fichiers avec Capacitor, voir plus bas). Tous les visuels sont
 dessinés en code (formes géométriques) et tous les sons sont synthétisés avec la Web Audio API.
 
 ## Lancer le jeu
@@ -18,6 +18,79 @@ npx serve .
 ```
 
 Puis ouvrir <http://localhost:8000>. N'importe quel hébergement statique (GitHub Pages, Netlify…) fonctionne aussi tel quel.
+
+## Apps Android et iOS (Capacitor)
+
+Le même code sert à la version web (GitHub Pages, sans build) et aux apps : `tools/build-www.cjs` copie simplement
+le jeu dans `www/`, que [Capacitor](https://capacitorjs.com) emballe dans les projets natifs `android/` et `ios/`
+(déjà générés et configurés dans ce dépôt). Identifiant de l'app : `com.brainrottd.game` (dans `capacitor.config.json`).
+
+### Ce que tu dois fournir (une seule fois)
+
+| Quoi | Où | Pour quoi faire |
+| --- | --- | --- |
+| Compte développeur Google Play (25 $, une fois) | <https://play.google.com/console> | publier sur Android |
+| Compte Apple Developer (99 $ par an) | <https://developer.apple.com/programs/> | publier sur iOS |
+| Compte AdMob (gratuit) : 1 app Android + 1 app iOS, et 1 bloc « Récompensé » pour chacune | <https://admob.google.com> | remplacer les identifiants de TEST |
+| Nom d'éditeur et e-mail de contact | `privacy.html` (remplacer `[Nom de l'éditeur]` et `[adresse e-mail de contact]`) | politique de confidentialité exigée par les stores |
+| Clé de signature Android (fichier `.jks`, à garder précieusement, jamais dans Git) | Android Studio → *Build › Generate Signed App Bundle* | signer l'app |
+
+L'URL de la politique de confidentialité à donner aux stores : `https://<ton-compte>.github.io/tower-defense-/privacy.html`.
+
+### Préparer (à refaire après chaque modification du jeu)
+
+```bash
+npm install          # première fois seulement (Capacitor + plugins AdMob et achats)
+npm run sync         # copie le jeu dans www/ puis dans android/ et ios/
+```
+
+### Android (Android Studio)
+
+1. Installe [Android Studio](https://developer.android.com/studio) puis, dans le dossier du projet : `npm run android` (ouvre le projet).
+2. Laisse Gradle se synchroniser, branche ton téléphone (mode développeur + débogage USB) et clique ▶ *Run* : le jeu se lance avec des pubs de TEST.
+3. Pour publier : *Build › Generate Signed App Bundle* → *Android App Bundle* → crée ta clé (`.jks`) → variante *release*. Le fichier `.aab` est dans `android/app/release/`.
+4. Dans Google Play Console : crée l'app, remplis la fiche avec `store/fiche-fr.md` (et `fiche-en.md`), les captures `store/screenshots/*-1080x1920-*.jpg`, l'icône `store/icon-1024.png` (redimensionnée en 512×512 par la console) et le visuel `store/feature-1024x500.png`.
+5. Remplis *Contenu de l'app* : politique de confidentialité (URL ci-dessus), *Contient des annonces : oui*, classification du contenu, public cible (pas « enfants » seulement), *Sécurité des données* (identifiant publicitaire collecté par AdMob, aucune donnée personnelle par le jeu).
+6. *Monétiser › Produits intégrés* : crée les produits avec **exactement** ces identifiants : `gems_small`, `gems_medium`, `gems_large` (consommables), `remove_ads`, `starter_pack` (achats uniques). Les prix se règlent dans la console.
+7. Envoie le `.aab` en *Tests internes*, teste les achats avec un compte testeur, puis passe en production.
+8. À chaque nouvelle version : augmente `versionCode` (et `versionName`) dans `android/app/build.gradle`.
+
+### iOS (Xcode sur Mac, ou Codemagic sans Mac)
+
+**Avec un Mac** : installe Xcode, puis `npm install && npm run ios`. Dans Xcode : *Signing & Capabilities* → choisis ton équipe Apple, ajoute la capacité *In-App Purchase*, branche ton iPhone et ▶. Pour publier : *Product › Archive* → *Distribute App* → App Store Connect.
+
+**Sans Mac (Codemagic)** : crée un compte sur <https://codemagic.io>, connecte ce dépôt GitHub, ajoute dans *Team settings › Integrations* une clé API App Store Connect, puis lance le workflow `ios-release` du fichier `codemagic.yaml` : il installe les dépendances, synchronise Capacitor, signe et envoie l'app sur TestFlight.
+
+Dans App Store Connect : crée l'app (Bundle ID `com.brainrottd.game`), remplis la fiche (textes de `store/`, captures `store/screenshots/*-1290x2796-*.jpg`, icône `store/icon-1024.png`), les *Informations de confidentialité* (identifiant publicitaire et données d'usage via AdMob, utilisées pour la publicité tierce), et crée les 5 achats intégrés avec les mêmes identifiants qu'Android.
+
+### Passer des pubs de TEST aux vraies pubs (juste avant de publier)
+
+1. `js/config.js` → `MONETIZATION.admob` : mets tes identifiants de blocs « Récompensé » (`rewardedAndroid`, `rewardedIos`) et `testing: false`.
+2. `android/app/src/main/AndroidManifest.xml` → `com.google.android.gms.ads.APPLICATION_ID` : ton identifiant d'app AdMob Android (`ca-app-pub-…~…`).
+3. `ios/App/App/Info.plist` → `GADApplicationIdentifier` : ton identifiant d'app AdMob iOS, et complète `SKAdNetworkItems` avec la liste fournie par Google.
+4. Dans AdMob : *Confidentialité et messages* → crée un message RGPD (le jeu l'affiche au premier lancement) et un message ATT pour iOS.
+5. `npm run sync`, puis nouvelle version.
+
+### Monétisation (js/monetization.js)
+
+Une interface unique : `showRewardedAd(reason)`, `buy(productId)`, `restorePurchases()`, `hasRemoveAds()`.
+Version web : pub factice de 3 s et achats fictifs (rien n'est facturé). Apps : AdMob (pubs récompensées uniquement,
+non personnalisées par défaut, consentement Google UMP au premier lancement, demande ATT sur iOS) et
+cordova-plugin-purchase. Pubs proposées uniquement par un bouton (doubler les pièces de fin de niveau, tour de roue,
+réanimation une fois par partie, construction −30 min), 10 par jour au plus ; avec « Sans pubs », ces bonus sont
+gratuits. Aucun achat n'est nécessaire pour finir le jeu. Réglages : `MONETIZATION` dans `js/config.js`.
+
+### Éléments de la fiche store (dossier `store/`)
+
+Textes FR et EN (`fiche-fr.md`, `fiche-en.md`), 6 captures portrait en 1290×2796 et 1080×1920 (FR et EN),
+icône 1024×1024, visuel de présentation 1024×500. Pour les régénérer :
+
+```bash
+python3 -m http.server 8123 &
+NODE_PATH=$(npm root -g) node tools/store-shots.cjs           # captures + visuel
+NODE_PATH=$(npm root -g) node tools/make-icons.mjs --store    # icône 1024
+python3 tools/native-assets.py                                # icônes et écrans de démarrage Android + iOS
+```
 
 ## Commandes
 

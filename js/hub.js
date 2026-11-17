@@ -1,6 +1,6 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
-import { HUD_FX, GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, abilityDef } from './config.js';
+import { HUD_FX, GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, MONETIZATION, abilityDef } from './config.js';
 import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -253,7 +253,10 @@ export const Hub = {
     if (d.build && d.build.id === id) {
       const b = el('button', 'btn sm blue speed' + big, `<span class="sp-t">${icon('hourglass')}<span class="bt-left">${this.buildLeft()}</span></span><span class="sp-c">Finir ${gem()}<b class="sp-n">${sv.speedCost()}</b></span>`);
       b.onclick = (e) => { e.stopPropagation(); const c = sv.speedCost(); if (d.gems < c) { this.audio.play('error'); this.toast('Pas assez de gemmes', `Il faut ${c} gemmes pour finir tout de suite`, gem()); return; } const done = sv.speedUp(); if (done) { if (sheet) this.closeOverlay(); this.onBuildDone(done); } };
-      return b;
+      if (!sheet) return b;
+      const mins = MONETIZATION.rewards.speedMinutes, w = el('div', 'speed-wrap');
+      w.append(b, this.adButton(`${mins} min de moins`, `construction accélérée de ${mins} min`, () => { const done = sv.speedBy(mins * 60000); this.closeOverlay(); if (done) this.onBuildDone(done); else { this.toast('Construction accélérée', `${mins} minutes de moins`, icon('hourglass')); this.show(this.screen, true); } }, 'wide'));
+      return w;
     }
     if (lvl >= cap) return el('span', 'btn sm locked' + big, `${icon('lock')}Rang ${cap} max · bats le boss ${sv.worldReached()}`);
     if (d.castleFree > 0) return this.castleFreeBtn(id, sheet);

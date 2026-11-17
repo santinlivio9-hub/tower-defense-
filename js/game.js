@@ -461,6 +461,8 @@ export class Game {
     if (this.lives <= 0) {
       const rv = this.boosts.find((b) => b && b.id === 'revive' && !b.used);
       if (rv) { this.revive(rv); return; }
+      // pub récompensée : réanimation proposée une fois par partie (le jeu attend la réponse du joueur)
+      if (!this.adRevived && this.onReviveOffer && this.onReviveOffer()) { this.lives = 0; this.adRevived = true; this.awaitRevive = true; this.paused = true; return; }
       this.lives = 0; this.end(false);
     }
   }
@@ -578,6 +580,11 @@ export class Game {
     this.flashScreen(rgb, 0.55); this.audio.play('boost'); this.shake(4); this.onEvent('haptic', 2);
     this.showBanner(C.name.toUpperCase(), '', C.color, 1.3);
     this.onEvent('boost', b.id);
+  }
+  // réponse à l'offre de réanimation : ok = pub regardée
+  reviveAnswer(ok) {
+    if (!this.awaitRevive) return; this.awaitRevive = false; this.paused = false;
+    if (ok) this.revive({ id: 'revive', free: true }); else this.end(false);
   }
   revive(b) {
     this.lives = Math.max(1, Math.ceil(this.maxLives / 2));

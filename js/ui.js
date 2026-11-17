@@ -19,6 +19,7 @@ import { waveSummary, levelEnemies } from './waves.js';
 import { enemyImg, towerImg, preloadSprites, enemyFrames, towerSprite, skinFinish } from './sprites.js';
 import { icon, hydrateIcons, coin, gem } from './icons.js';
 import { Haptics } from './haptics.js';
+import { Monetization, isNative } from './monetization.js';
 import { fit, ROT_QUERY } from './viewport.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -52,6 +53,8 @@ export class UI {
     this.haptics = new Haptics(save.data.settings, audio);
     this.music = new Music(audio, save.data.settings);
     this.shopTab = 'chests';
+    this.mon = new Monetization(save); this.mon.init().catch(() => {});
+    this.mon.onGrant = () => { this.refreshGems(); if (this.screen === 'shop') this.renderShop(); };
     this.canvas = $('#game'); this.cache = {}; this.last = 0; this.simulating = false;
     this.down = null; this.armed = null; this.tutStep = -1; this.flying = 0; this.shown = { money: 0, score: 0 };
 
@@ -138,6 +141,7 @@ export class UI {
     this.refreshGems();
     if (this.shopTab === 'chests') { if (this.shopDaily) this.shopDaily(grid); this.renderShopChests(grid); return; }
     if (this.shopTab === 'boosts') { this.renderShopBoosts(grid); return; }
+    if (this.shopTab === 'gems') { this.renderShopGems(grid); return; }
     const owned = (txt) => el('span', 'owned', icon('check') + txt);
     const g = el('div', 'cgrid');
     for (const s of SHOP.skins) {
@@ -152,6 +156,46 @@ export class UI {
       g.append(card);
     }
     grid.append(g, el('p', 'hint', 'Une finition s\'applique à toutes tes armes.'));
+  }
+
+  // Bouton « pub récompensée » : toujours un choix du joueur ; avec « Sans pubs », le bonus est gratuit.
+  adButton(label, reason, onReward, cls = '') {
+    const m = this.mon, left = m.adsLeft(), free = m.hasRemoveAds();
+    const b = el('button', 'btn sm adbtn ' + cls + (left ? '' : ' locked'), left ? `${icon(free ? 'gift' : 'play')}<span>${label}</span><em>${free ? 'GRATUIT' : 'PUB'}</em>` : `${icon('hourglass')}<span>Plus de pubs aujourd'hui</span>`);
+    b.onclick = async (e) => {
+      e.stopPropagation(); if (!m.adsLeft() || b.disabled) { this.audio.play('error'); return; }
+      b.disabled = true; this.music.duck && this.music.duck(true);
+      const ok = await m.showRewardedAd(reason);
+      this.music.duck && this.music.duck(false); b.disabled = false;
+      if (ok) { this.audio.play('buy'); this.haptics.pulse(1); onReward(); } else this.toast('Pas de récompense', 'La pub n\'a pas été regardée jusqu\'au bout', icon('play'));
+    };
+    return b;
+  }
+  // Défaite : réanimation contre une pub (une fois par partie)
+  reviveOffer(g) {
+    if (this.game !== g || !g.awaitRevive) return;
+    this.closeMenu();
+    const m = el('div', 'panel glass ask revive-ask', `<h2 class="lose">CHÂTEAU DÉTRUIT</h2><p class="sub">Réanime ton château : il repart à moitié de ses PV et les brainrots sont balayés. Une fois par partie.</p>`);
+    const go = this.adButton('Réanimer', 'réanimation du château', () => { this.closeOverlay(); g.reviveAnswer(true); }, 'big green');
+    const no = el('button', 'btn ghost', 'Non merci'); no.onclick = () => { this.closeOverlay(); g.reviveAnswer(false); };
+    m.append(go, no); this.openOverlay(m);
+  }
+  // Boutique → Gemmes : achats intégrés (aucun n'est nécessaire pour finir le jeu)
+  renderShopGems(grid) {
+    const m = this.mon, P = (id) => m.product(id), list = el('div', 'iap-list');
+    const card = (id, cls = '') => {
+      const p = P(id), owned = p.type !== 'consumable' && m.owns(id);
+      const c = el('div', 'iap ' + cls + (owned ? ' owned' : ''), `<span class="iap-art">${p.gems && !p.desc ? gem('big') : icon(id === 'remove_ads' ? 'shield' : 'gift')}</span><span class="iap-txt"><b></b><small></small></span>${p.tag ? `<em class="xch-tag">${p.tag}</em>` : ''}`);
+      $('b', c).textContent = p.name; $('small', c).textContent = p.desc || `${p.gems} gemmes`;
+      if (owned) c.append(el('span', 'owned', icon('check') + 'Acheté'));
+      else { const b = el('button', 'btn sm green', m.price(id) || '—'); b.disabled = !m.canBuy(id); b.onclick = async () => { b.disabled = true; const ok = await m.buy(id); b.disabled = false; if (ok) { this.audio.play('legendary'); this.haptics.pulse(2); this.toast('Merci !', p.name + ' : c\'est dans ton inventaire', gem()); this.refreshGems(); this.renderShop(); } }; c.append(b); }
+      return c;
+    };
+    if (!m.owns('starter_pack')) list.append(card('starter_pack', 'starter'));
+    list.append(card('gems_small'), card('gems_medium'), card('gems_large'), card('remove_ads', 'noads'));
+    grid.append(list);
+    const rs = el('button', 'btn ghost sm', icon('restart') + 'Restaurer mes achats'); rs.onclick = async () => { const n = await m.restorePurchases(); this.toast(n ? 'Achats restaurés' : 'Aucun achat à restaurer', '', icon('check')); this.renderShop(); };
+    grid.append(rs, el('p', 'hint', isNative() ? 'Aucun achat n\'est nécessaire pour finir le jeu. Les pubs ne sont jamais imposées.' : 'Version web : les achats sont simulés, rien n\'est facturé. Aucun achat n\'est nécessaire pour finir le jeu.'));
   }
 
   switchRow(label, sub, ico, key, after) {
@@ -196,6 +240,14 @@ export class UI {
       const ub = el('button', 'btn sm green', 'Restaurer'); ub.onclick = () => { if (this.save.restoreUndo()) { sync(); this.toast('Progression restaurée', '', icon('check')); } };
       un.append(ub); box.append(un);
     }
+    // achats, confidentialité
+    const rp = el('div', 'setting', `<span class="lab">${icon('restart')}<span>Restaurer mes achats<small>Sans pubs, Pack de démarrage</small></span></span>`);
+    const rpb = el('button', 'btn sm ghost', 'Restaurer'); rpb.onclick = async () => { rpb.disabled = true; const n = await this.mon.restorePurchases(); rpb.disabled = false; this.toast(n ? 'Achats restaurés' : 'Aucun achat à restaurer', n ? `${n} achat${n > 1 ? 's' : ''} rétabli${n > 1 ? 's' : ''}` : '', icon('check')); };
+    rp.append(rpb); box.append(rp);
+    const pv = el('div', 'setting', `<span class="lab">${icon('shield')}<span>Confidentialité<small>Politique de confidentialité${isNative() ? ' et choix pour les pubs' : ''}</small></span></span>`);
+    const pg = el('span', 'set-btns'), pl = el('a', 'btn sm ghost', 'Lire'); pl.href = 'privacy.html'; pl.target = '_blank'; pl.rel = 'noopener'; pg.append(pl);
+    if (isNative()) { const po = el('button', 'btn sm ghost', 'Pubs'); po.onclick = async () => { if (!(await this.mon.privacyOptions())) this.toast('Rien à modifier', 'Aucun choix de confidentialité requis ici', icon('shield')); }; pg.append(po); }
+    pv.append(pg); box.append(pv);
     box.append(el('p', 'hint', 'Astuce : ajoute le jeu à ton écran d\'accueil (Partager → « Sur l\'écran d\'accueil ») pour y jouer en plein écran et hors ligne.<br>Clavier : 1-8 choix du menu · Espace vague · P pause · Échap fermer.'));
     box.append(el('p', 'hint version', `Version ${window.__version || 'locale'} · 5 tapes sur le logo de l'accueil : mode debug affichage`));
   }
@@ -263,6 +315,7 @@ export class UI {
     this.lastArgs = [n, heroic, endless, challenge];
     this.cache = {}; this.armed = null; this.shown = { money: g.money, score: 0 }; this.aiming = null;
     // un souci d'affichage (pièces qui volent, bulle d'info...) ne doit jamais interrompre la partie
+    g.onReviveOffer = () => { if (this.simulating || g.endless || g.challenge || !this.mon.canReward()) return false; setTimeout(() => this.reviveOffer(g), 350); return true; };
     g.onEvent = (name, data) => { try { this.onGameEvent(name, data, g); } catch (e) { console.error(e); if (name === 'end') this.endFallback(data); } };
     Object.defineProperty(g, 'simulating', { get: () => this.simulating });
     this.closeOverlay(); this.closeMenu();
@@ -450,6 +503,7 @@ export class UI {
   // Pause : toujours accessible. Partie finie sans écran de fin (anomalie) : on affiche l'écran de fin de secours.
   togglePause() {
     const g = this.game; if (!g) return;
+    if (g.awaitRevive) return;   // offre de réanimation affichée
     if (g.over) { if (!this.endVisible()) this.endFallback(g.result); return; }
     if (this.introOpen) { if ($('#overlay.show .intro')) return; this.introOpen = false; }   // carte de présentation fermée par autre chose
     g.paused = !g.paused;

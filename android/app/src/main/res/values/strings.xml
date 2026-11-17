@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Brainrot TD</string>
+    <string name="title_activity_main">Brainrot TD</string>
+    <string name="package_name">com.brainrottd.game</string>
+    <string name="custom_url_scheme">com.brainrottd.game</string>
+</resources>
