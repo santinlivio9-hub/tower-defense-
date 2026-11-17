@@ -213,7 +213,7 @@ Object.assign(TOWERS, {
 
 export const BOSS_ORDER = ['boss1', 'boss2', 'boss3', 'boss4', 'boss5', 'boss6', 'boss7', 'boss8'];
 // noms courts (rangée de choix en partie)
-export const TOWER_SHORT = { assault: 'Fusil', smg: 'Mitraillette', shotgun: 'Pompe', sniper: 'Sniper', rocket: 'Roquettes', minigun: 'Minigun', cryo: 'Cryo', laser: 'Laser', tesla: 'Tesla', plasma: 'Plasma', drone: 'Drone', mine: 'Mine' };
+export const TOWER_SHORT = { assault: 'Fusil', smg: 'Mitrail.', shotgun: 'Pompe', sniper: 'Sniper', rocket: 'Roquettes', minigun: 'Minigun', cryo: 'Cryo', laser: 'Laser', tesla: 'Tesla', plasma: 'Plasma', drone: 'Drone', mine: 'Mine' };
 export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'laser', 'tesla', 'plasma', 'drone', 'mine'];
 
 // Vitesse de rotation (rad/s) et distance de la bouche du canon (px) par tourelle
@@ -566,8 +566,13 @@ export const SCORE = {
 // Étoiles : part des PV restants nécessaire
 // Menu radial d'un emplacement (px écran)
 export const RADIAL = {
-  ringMax: 6,        // choix de tourelle : anneau jusqu'à 6 tourelles, au-delà rangée défilante en bas de l'écran
-  rRing: 76,         // rayon fixe de l'anneau de choix (px écran)
+  ringMax: 6,        // choix de tourelle : un anneau jusqu'à 6 tourelles, au-delà deux anneaux concentriques
+  rRing: 76,         // rayon de départ de l'anneau (px écran), agrandi juste assez pour que rien ne se touche
+  rInner: 64, ringStep: 92,   // deux anneaux : rayon de départ de l'anneau intérieur, écart avec l'anneau extérieur
+  buildGap: 82,      // distance minimale entre deux boutons voisins d'un même anneau (px)
+  slotClear: 14,     // marge (px) entre l'emplacement touché et les boutons qui l'entourent
+  buildBox: { w: 38, up: 29, down: 63 },
+  buildBox2: { w: 33, up: 25, down: 55 }, buildGap2: 70, ringStep2: 80,   // deux anneaux : boutons compacts (icône 44 px)   // emprise d'un bouton de pose autour de son centre (icône 50 px, nom, prix)
   cell: 62, cellBranch: 104, barGap: 6,   // barre d'amélioration : largeur d'une case (px), d'une case de branche, écart
   towerR: 34,        // rayon de la tourelle (unités du terrain) que les boutons et le panneau ne recouvrent pas
   ringPad: 44,       // marge autour des boutons (prix, libellés) que le panneau ne recouvre pas

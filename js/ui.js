@@ -701,9 +701,12 @@ export class UI {
     const sg = $('#screen-game').getBoundingClientRect(), hudB = $('#hud').getBoundingClientRect().bottom, inDock = !!target.closest && !!target.closest('#dock');
     box.style.left = '0px'; box.style.top = '0px'; box.className = 'placed';
     const bw = box.offsetWidth, bh = box.offsetHeight, cx = r.left + r.width / 2, rr = Math.max(r.width, r.height) / 2 + 14;
-    const avoid = $$('#radial .upp, #radial .info, .tower-tip, #goals:not([hidden])').map((e) => e.getBoundingClientRect()).filter((q) => q.width);
+    const avoid = $$('#radial .upp, #radial .info, .tower-tip, #goals:not([hidden]), #radial .rb, #radial .rb .lab, #radial .rb .price').map((e) => e.getBoundingClientRect()).filter((q) => q.width);
     const x = Math.max(sg.left + 10, Math.min(sg.right - bw - 10, cx - bw / 2)), low = inDock ? sg.bottom : $('#dock').getBoundingClientRect().top;
-    const cands = [['up', r.top + r.height / 2 - rr - 12 - bh], ['down', r.top + r.height / 2 + rr + 12]].map(([side, y]) => {
+    // cible dans le menu de pose : la bulle se place au-dessus ou au-dessous de TOUT le menu (à l'opposé du cercle)
+    if (g.menuSlot) { const q = this.toScreen(g.menuSlot.x, g.menuSlot.y), m = 34; avoid.push({ left: q.x - m, right: q.x + m, top: q.y - m, bottom: q.y + m }); }   // l'emplacement touché reste visible
+    const inMenu = !!target.closest && !!target.closest('#radial'), mb = inMenu ? $$('#radial .rb, #radial .rb .lab, #radial .rb .price').map((e) => e.getBoundingClientRect()).reduce((m, q) => ({ t: Math.min(m.t, q.top), b: Math.max(m.b, q.bottom) }), { t: 1e9, b: -1e9 }) : null;
+    const cands = (inMenu ? [['up', mb.t - 14 - bh], ['down', mb.b + 14]] : [['up', r.top + r.height / 2 - rr - 12 - bh], ['down', r.top + r.height / 2 + rr + 12]]).map(([side, y]) => {
       let score = y < hudB + 4 || y + bh > low - 4 ? 1000 : 0;
       for (const q of avoid) if (x < q.right && x + bw > q.left && y < q.bottom && y + bh > q.top) score += 500;
       return { side, y, score: score + (side === 'up' ? 0 : 1) };
