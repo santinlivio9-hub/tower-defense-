@@ -25,7 +25,8 @@ let grads = null, finish = 'classic', OL = INK, SIG = new Set();
 // Un skin ne change que les DÉTAILS : la couleur signature du type (corps, socle) garde sa teinte et reçoit
 // seulement une bande de la couleur d'accent du skin ; le métal et les pièces secondaires prennent la finition.
 const ACCENT = { camo: '#5d7a3a', neon: '#00f0ff', lava: '#ff8a1a', candy: '#ff8fc7', gold: '#f5b83d', emerald: '#2fbf63', royal: '#ffd23f', obsidian: '#2f2a44',
-  frost: '#e6f8ff', galaxy: '#b05cff', chrome: '#eef6ff', nebula: '#ff5dc8', glitchy: '#3ff0ff', phoenix: '#ff7a3c', prism: '#ffd23f' };
+  frost: '#e6f8ff', galaxy: '#b05cff', chrome: '#eef6ff', nebula: '#ff5dc8', glitchy: '#3ff0ff', phoenix: '#ff7a3c', prism: '#ffd23f',
+  pizza: '#ffd23f', toxic: '#c8ff5a', arcade: '#5ff0ff', sakura: '#ffffff' };
 const sigGrad = (id, hex) => { const a = ACCENT[finish] || '#ffffff', a2 = finish === 'prism' ? '#5ff0ff' : finish === 'glitchy' ? '#ff3fb4' : shade(a, -0.25);
   return linear(id, [[0, shade(hex, 0.55)], [0.18, shade(hex, 0.22)], [0.46, hex], [0.46, a], [0.58, a], [0.58, hex], [0.63, hex], [0.63, a2], [0.69, a2], [0.69, shade(hex, -0.12)], [0.86, shade(hex, -0.22)], [1, shade(hex, -0.38)]]); };
 const paint = (hex) => { if (!grads || hex[0] !== '#') return hex; grads.add(hex); return `url(#g${hex.slice(1)})`; };
@@ -45,7 +46,7 @@ const gradDefs = () => [...grads].map((hex) => {
   if (finish === 'chrome') { const l = luma(hex); return linear(id, [[0, '#ffffff'], [0.22, mix('#c9d6e8', hex, 0.15)], [0.45, mix('#6f7f99', hex, 0.2)], [0.55, '#e9f4ff'], [0.8, mix('#8fa2bd', hex, 0.25 + l * 0.1)], [1, '#3d4a63']]); }
   if (finish === 'nebula') return linear(id, [[0, '#9ff6ff'], [0.25, mix(hex, '#5f3fd8', 0.65)], [0.55, mix(hex, '#2a1d6e', 0.75)], [0.8, mix(hex, '#ff5dc8', 0.55)], [1, '#140d3a']]);
   if (finish === 'glitchy') { const base = mix(hex, '#2a1d52', 0.35); return linear(id, [[0, '#ff3fb4'], [0.18, '#ff3fb4'], [0.19, shade(base, 0.3)], [0.5, base], [0.51, '#3ff0ff'], [0.62, '#3ff0ff'], [0.63, shade(base, -0.2)], [1, shade(base, -0.45)]]); }
-  const TINT = { emerald: '#2fbf63', royal: '#7a3fd8', obsidian: '#2f2a44', frost: '#8fd8f5', galaxy: '#3a2a86' };
+  const TINT = { emerald: '#2fbf63', royal: '#7a3fd8', obsidian: '#2f2a44', frost: '#8fd8f5', galaxy: '#3a2a86', pizza: '#e8452c', toxic: '#3fae2b', arcade: '#3a2aff', sakura: '#ff9ccf' };
   if (TINT[finish]) { // finitions exclusives des boss : teinte + reflet doré (royal) ou étoilé (galaxie)
     const base = mix(hex, TINT[finish], finish === 'frost' ? 0.55 : 0.7), l = luma(hex);
     if (finish === 'royal') return linear(id, [[0, '#fff6c8'], [0.18, shade(base, 0.35)], [0.5, base], [0.62, l > 0.6 ? '#ffd23f' : shade(base, -0.2)], [1, shade(base, -0.45)]]);

@@ -546,6 +546,11 @@ export const SHOP = {
     // skins de Renaissance (boutique d'éclats) : finition + aura autour des tourelles
     { id: 'phoenix',  name: 'Phénix',     cost: 0, finish: 'phoenix', rebirth: true, aura: '#ff7a3c' },
     { id: 'prism',    name: 'Prisme',     cost: 0, finish: 'prism', rebirth: true, aura: '#b05cff' },
+    // skins de saison : dernier palier de la piste premium du pass (voir SEASON)
+    { id: 'pizza',    name: 'Pizza Party', cost: 0, finish: 'pizza', season: true },
+    { id: 'toxic',    name: 'Toxique',     cost: 0, finish: 'toxic', season: true },
+    { id: 'arcade',   name: 'Arcade',      cost: 0, finish: 'arcade', season: true },
+    { id: 'sakura',   name: 'Sakura',      cost: 0, finish: 'sakura', season: true },
   ],
 };
 
@@ -879,6 +884,80 @@ export const MONETIZATION = {
     { id: 'gems_medium', type: 'consumable', name: 'Sac de gemmes', gems: 450, tag: '+12 %', price: '4,99 €' },
     { id: 'gems_large', type: 'consumable', name: 'Coffre de gemmes', gems: 1000, tag: '+25 %', price: '9,99 €' },
     { id: 'remove_ads', type: 'nonconsumable', name: 'Sans pubs + bonus', desc: 'Les bonus des pubs deviennent gratuits (sans pub), + 100 gemmes', gems: 100, price: '3,99 €' },
+    { id: 'season_pass', type: 'consumable', name: 'Pass premium de la saison', desc: 'Piste premium de la saison en cours (paliers déjà atteints compris)', pass: true, price: '4,99 €' },
     { id: 'starter_pack', type: 'nonconsumable', name: 'Pack de démarrage', desc: '200 gemmes, 2 000 pièces, un coffre doré et 5 boosts rares', gems: 200, coins: 2000, chest: 'gold', boosts: { shield: 2, revive: 1, over: 2 }, price: '1,99 €' },
   ],
 };
+
+// ----------------------------------------------------------------------------
+//  PROFIL (cosmétiques) : cadre autour du badge de niveau, titre, effet de victoire. Gagnés avec le pass de saison et
+//  les succès ; ils ne changent rien au jeu.
+// ----------------------------------------------------------------------------
+export const PROFILE = {
+  frames: {
+    none:    { name: 'Aucun' },
+    bronze:  { name: 'Bronze', c: ['#f0b27a', '#9a5a2c'] },
+    silver:  { name: 'Argent', c: ['#ffffff', '#8d9bb4'] },
+    gold:    { name: 'Or', c: ['#fff1a8', '#e09600'] },
+    pizza:   { name: 'Pizza Party', c: ['#ffd23f', '#e8452c'] },
+    toxic:   { name: 'Toxique', c: ['#c8ff5a', '#2fae2b'] },
+    arcade:  { name: 'Arcade', c: ['#5ff0ff', '#ff3fb4'] },
+    sakura:  { name: 'Sakura', c: ['#ffffff', '#ff8fc7'] },
+    legend:  { name: 'Légende', c: ['#fff6c8', '#b05cff'] },
+  },
+  titles: {
+    rookie: 'Recrue', pizzaiolo: 'Pizzaïolo légendaire', slime: 'Roi du slime', arcade: 'Champion d\'arcade', spring: 'Maître du printemps',
+    slayer: 'Exterminateur', bossHunter: 'Chasseur de boss', architect: 'Architecte', tycoon: 'Magnat', collector: 'Collectionneur', hero: 'Héros', phoenix: 'Phénix', legend: 'Légende vivante',
+  },
+  fx: {
+    classic: { name: 'Confettis', cols: ['#ff5e7e', '#ffd23f', '#4cd137', '#3d9dfc', '#b05cff', '#ff9f1a', '#ffffff'] },
+    gold:    { name: 'Pluie d\'or', cols: ['#ffd23f', '#ffb21f', '#fff3a8', '#e09600'] },
+    pizza:   { name: 'Pizza', cols: ['#e8452c', '#ffd23f', '#3fae4a', '#fff3d6'] },
+    toxic:   { name: 'Slime', cols: ['#c8ff5a', '#7dff3a', '#2fae2b', '#b05cff'] },
+    arcade:  { name: 'Néons', cols: ['#5ff0ff', '#ff3fb4', '#ffd23f', '#7a5cff'] },
+    sakura:  { name: 'Pétales', cols: ['#ffd1e8', '#ff8fc7', '#ffffff', '#ffb3d9'] },
+  },
+};
+
+// ----------------------------------------------------------------------------
+//  PASS DE SAISON : saisons de 30 jours, chacune avec un thème. Piste GRATUITE (PASS : récompenses de toujours) et piste
+//  PREMIUM en parallèle (achat « season_pass », voir MONETIZATION) : surtout du cosmétique et du confort, rien
+//  d'indispensable pour finir la campagne. Les paliers déjà atteints se débloquent à l'achat.
+//  Fin de saison : les récompenses atteintes et non récupérées sont données automatiquement.
+// ----------------------------------------------------------------------------
+export const SEASON = {
+  epoch: Date.UTC(2026, 10, 1), days: 30,   // saison 1 : à partir du 1er novembre 2026
+  themes: [
+    { id: 'pizza', name: 'Pizza Party', color: '#ff7a3c', skin: 'pizza', frame: 'pizza', title: 'pizzaiolo', fx: 'pizza' },
+    { id: 'toxic', name: 'Toxique', color: '#7dff3a', skin: 'toxic', frame: 'toxic', title: 'slime', fx: 'toxic' },
+    { id: 'arcade', name: 'Arcade', color: '#ff3fb4', skin: 'arcade', frame: 'arcade', title: 'arcade', fx: 'arcade' },
+    { id: 'sakura', name: 'Sakura', color: '#ff8fc7', skin: 'sakura', frame: 'sakura', title: 'spring', fx: 'sakura' },
+  ],
+  premium: {
+    cycle: [{ gems: 6 }, { chest: 'wood' }, { boosts: 2 }, { coins: 300 }],
+    every5: { chest: 'gold', gems: 10 },
+    special: { 10: 'frame', 20: 'fx', 25: 'title', 30: 'skin' },   // palier -> cosmétique du thème de la saison
+    final: { chest: 'legend', gems: 30 },
+  },
+  missionsPerWeek: 3,          // missions de saison (hebdomadaires) : des points de pass en plus
+  missions: [
+    { id: 'wins', text: 'Gagne {n} niveaux', n: 8, icon: 'trophy', pts: 900 },
+    { id: 'kills', text: 'Élimine {n} brainrots', n: 2000, icon: 'skull', pts: 800 },
+    { id: 'stars', text: 'Gagne {n} étoiles', n: 15, icon: 'star', pts: 900 },
+    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 3, icon: 'crown', pts: 1000 },
+    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 40, icon: 'arrowup', pts: 700 },
+    { id: 'boosts', text: 'Utilise {n} boosts', n: 8, icon: 'bolt', pts: 700 },
+    { id: 'waves', text: 'Termine {n} vagues', n: 120, icon: 'wave', pts: 800 },
+    { id: 'built', text: 'Pose {n} tourelles', n: 60, icon: 'cannon', pts: 700 },
+  ],
+};
+export const seasonOf = (t = Date.now()) => Math.floor((t - SEASON.epoch) / (SEASON.days * 86400000)) + 1;
+export const seasonTheme = (n) => SEASON.themes[(((n - 1) % SEASON.themes.length) + SEASON.themes.length) % SEASON.themes.length];
+export const seasonEnd = (n) => SEASON.epoch + n * SEASON.days * 86400000;
+// récompense premium d'un palier pour la saison n
+export function premiumReward(tier, n) {
+  const P = SEASON.premium, th = seasonTheme(n), sp = P.special[tier];
+  const base = tier === PASS.tiers ? { ...P.final } : tier % 5 === 0 ? { ...P.every5 } : { ...P.cycle[(tier - 1) % P.cycle.length] };
+  if (sp === 'skin') base.skin = th.skin; else if (sp === 'frame') base.frame = th.frame; else if (sp === 'title') base.title = th.title; else if (sp === 'fx') base.fx = th.fx;
+  return base;
+}

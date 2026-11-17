@@ -1,7 +1,7 @@
 // Séquence de fin de niveau, une étape à la fois (toucher l'écran accélère l'étape en cours) :
 // 1. bannière + étoiles  2. score (+ « NOUVEAU RECORD ! »)  3. gemmes / XP qui s'envolent,
 // montées de niveau  4. succès  5. écran final compact (MVP, 3 stats, boutons).
-import { TOWERS, ENEMIES, LEVELS, XP, END, CAMPAIGN } from './config.js';
+import { TOWERS, ENEMIES, LEVELS, XP, END, CAMPAIGN, PROFILE } from './config.js';
 import { icon, gem, coin } from './icons.js';
 import { towerImg, enemyImg } from './sprites.js';
 import { chestSvg } from './loot.js';
@@ -24,7 +24,7 @@ class Sparkle {
     requestAnimationFrame(tick);
   }
   resize() { const r = this.cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); this.w = r.width; this.h = r.height; this.cv.width = r.width * d; this.cv.height = r.height * d; this.c.setTransform(d, 0, 0, d, 0, 0); }
-  rain(n) { for (let i = 0; i < n; i++) this.p.push({ x: Math.random() * this.w, y: -20 - Math.random() * this.h * 0.6, vx: (Math.random() - 0.5) * 60, vy: 90 + Math.random() * 120, g: 40, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 10, s: 6 + Math.random() * 6, col: pick(CONF), life: 5, k: 'r' }); }
+  rain(n, cols = CONF) { for (let i = 0; i < n; i++) this.p.push({ x: Math.random() * this.w, y: -20 - Math.random() * this.h * 0.6, vx: (Math.random() - 0.5) * 60, vy: 90 + Math.random() * 120, g: 40, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 10, s: 6 + Math.random() * 6, col: pick(CONF), life: 5, k: 'r', col: pick(cols) }); }
   burst(x, y, n = 26, cols = CONF, speed = 420) {
     for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = speed * (0.35 + Math.random() * 0.65); this.p.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, g: 520, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 16, s: 5 + Math.random() * 6, col: pick(cols), life: 1.2 + Math.random() * 0.6, k: Math.random() < 0.35 ? 'c' : 'r' }); }
   }
@@ -101,7 +101,7 @@ export const End = {
         const sub = `${this.levelLabel(g)} · vague ${r.wavesDone}${g.endless ? '' : '/' + g.totalWaves}`;
         stage.innerHTML = `<div class="es-banner"><b>${title}</b></div><p class="es-sub">${sub}</p>`;
         this.haptics.pulse(win ? 2 : 1);
-        if (win) { fx.rain(90); await wait(650); shake(); }
+        if (win) { fx.rain(90, (PROFILE.fx[d.profile.fx] || PROFILE.fx.classic).cols); await wait(650); shake(); }
         else await wait(800);
         if (win) {
           const row = el('div', 'es-stars', [0, 1, 2].map(() => `<span>${icon('star')}</span>`).join('')); stage.append(row);
@@ -204,7 +204,7 @@ export const End = {
       // compteurs du haut : valeurs finales, quelle que soit l'étape où la séquence s'est arrêtée
       try { gemsB.textContent = fmt(d.gems); coinsB.textContent = fmt(d.coins || 0); xpUI.level = d.level; xpUI.xp = d.xp; xpUI.bar.style.transition = 'none'; showXp(); } catch (e) { /* facultatif */ }
       try { this.esFinal(root, stage, r, g, badges); } catch (e) { console.error(e); this.endFallback(r); return; }
-      try { if (win) fx.rain(40); } catch (e) { /* facultatif */ }
+      try { if (win) fx.rain(40, (PROFILE.fx[this.save.data.profile.fx] || PROFILE.fx.classic).cols); } catch (e) { /* facultatif */ }
     };
     run().catch((e) => { if (e !== ABORT) { console.error(e); if (alive()) this.endFallback(r); } });
     this.refreshGems();

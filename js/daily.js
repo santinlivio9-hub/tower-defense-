@@ -1,6 +1,6 @@
 // Raisons de revenir : cadeau du jour (calendrier de 7 jours + série), quêtes du jour et de la semaine,
 // roue de la chance, défi du jour, passe de progression. Méthodes ajoutées à la classe UI.
-import { DAILY, PASS, passReward, LEVELS, WORLDS, CAMPAIGN, BOOSTS } from './config.js';
+import { DAILY, PASS, passReward, LEVELS, WORLDS, CAMPAIGN, BOOSTS, SEASON, PROFILE, SHOP, seasonTheme, seasonEnd, premiumReward } from './config.js';
 import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { icon, coin, gem } from './icons.js';
 import { chestSvg } from './loot.js';
@@ -39,10 +39,21 @@ export function rewardChips(r) {
   if (typeof r.boosts === 'object') for (const [id, n] of Object.entries(r.boosts)) out.push(`<span class="rw">${icon(BOOSTS[id].icon)}<b>×${n}</b></span>`);
   else if (r.boosts) out.push(`<span class="rw">${icon('boost')}<b>×${r.boosts}</b></span>`);
   if (r.talent) out.push(`<span class="rw">${icon('talent')}<b>${r.talent}</b></span>`);
+  if (r.skin) out.push(`<span class="rw cos">${icon('star')}<b>Skin</b></span>`);
+  if (r.frame) out.push(`<span class="rw cos">${icon('medal')}<b>Cadre</b></span>`);
+  if (r.title) out.push(`<span class="rw cos">${icon('crown')}<b>Titre</b></span>`);
+  if (r.fx) out.push(`<span class="rw cos">${icon('flame')}<b>Effet</b></span>`);
   return out.join('');
 }
 // Grande illustration d'une récompense
-function rewardArt(r) {
+// aperçu d'un cosmétique : cadre (badge de niveau encadré), titre (bandeau), effet de victoire (confettis)
+export function frameArt(id, lvl = '') { const f = PROFILE.frames[id] || {}; return `<span class="fr-prev${f.c ? ' on' : ''}" style="--f1:${(f.c || [])[0] || '#6a5a8f'};--f2:${(f.c || [])[1] || '#3d2c4e'}"><b>${lvl}</b></span>`; }
+export function fxArt(id) { const c = (PROFILE.fx[id] || PROFILE.fx.classic).cols; return `<span class="fx-prev">${c.slice(0, 4).map((x, i) => `<i style="background:${x};--k:${i}"></i>`).join('')}</span>`; }
+export function rewardArt(r) {
+  if (r.skin) return towerImg('assault', 60, r.skin, 4, 0).outerHTML;
+  if (r.frame) return frameArt(r.frame, '');
+  if (r.title) return `<span class="ttl-prev">${icon('crown')}</span>`;
+  if (r.fx) return fxArt(r.fx);
   if (r.chest) return chestSvg(r.chest);
   if (typeof r.boosts === 'object') return boostArt(Object.keys(r.boosts)[0]);
   if (r.boosts) return `<span class="ra-ico">${icon('boost')}</span>`;
@@ -250,38 +261,66 @@ export const Daily = {
     m.append(go);
   },
 
-  // ------------------------------------------------------------------ passe de progression
+  // ------------------------------------------------------------------ pass de saison
+  // Saison (thème, fin), aperçu des meilleures récompenses, bouton premium, deux pistes parallèles (gratuite en haut,
+  // premium en bas avec cadre doré et cadenas) qui défilent horizontalement, puis les missions de la semaine.
   daily_pass(m) {
-    const sv = this.save, P = sv.data.pass, tier = sv.passTier(), into = P.pts - tier * PASS.perTier, maxed = tier >= PASS.tiers;
-    m.append(el('h2', 'win', 'PASSE DE PROGRESSION'));
+    const sv = this.save; sv.seasonTick();
+    const P = sv.data.pass, n = P.season, th = seasonTheme(n), tier = sv.passTier(), into = P.pts - tier * PASS.perTier, maxed = tier >= PASS.tiers;
+    m.style.setProperty('--sc', th.color);
+    const left = Math.max(0, seasonEnd(n) - Date.now()), dd = Math.floor(left / 86400000), hh = Math.floor((left % 86400000) / 3600000);
+    m.append(el('div', 'ss-head', `<small>SAISON ${n}</small><h2>${th.name}</h2><span class="timer">${icon('hourglass')}Fin dans <b>${dd ? dd + ' j ' : ''}${hh} h</b></span>`));
     m.append(el('div', 'pass-head', `<span class="pt">${icon('ticket')}</span><div class="ph-bar"><div class="ph-top"><b>Palier ${tier}</b><span>${icon('ticket')}${fmt(P.pts)} pts</span></div>
-      <div class="qbar"><i style="width:${maxed ? 100 : (into / PASS.perTier) * 100}%"></i><em>${maxed ? 'Passe terminé !' : `${fmt(into)} / ${PASS.perTier}`}</em></div></div>`));
-    m.append(el('p', 'sub', 'Des points avec l\'XP, les étoiles, les quêtes et le défi du jour.'));
-    const ready = sv.passReady();
+      <div class="qbar"><i style="width:${maxed ? 100 : (into / PASS.perTier) * 100}%"></i><em>${maxed ? 'Pass terminé !' : `${fmt(into)} / ${PASS.perTier}`}</em></div></div>`));
+    if (!P.premium) {
+      const buy = el('button', 'btn primary big ss-buy', `${icon('crown')}<span>Débloquer le pass premium – ${this.mon ? this.mon.price('season_pass') : '4,99 €'}</span>`);
+      buy.onclick = async () => { if (!this.mon) return; buy.disabled = true; const ok = await this.mon.buy('season_pass'); buy.disabled = false; if (ok) { this.audio.play('legendary'); this.haptics.pulse(2); this.toast('Pass premium débloqué !', tier ? `${tier} palier${tier > 1 ? 's' : ''} premium à récupérer` : 'Bonne saison !', icon('crown')); this.openDaily('pass'); } };
+      m.append(buy, el('p', 'sub ss-note', 'Cosmétiques et confort uniquement : rien d\'indispensable pour finir la campagne.'));
+    } else m.append(el('div', 'ss-active', `${icon('crown')}Pass premium actif pour cette saison`));
+    const ready = sv.passReady() + sv.premiumReady();
     if (ready > 1) {
       const all = el('button', 'btn green cta', icon('gift') + `Tout récupérer (${ready})`);
-      all.onclick = () => { const r = {}; let k = 0; for (let i = 1; i <= tier; i++) { const pr = passReward(i); if (sv.claimPass(i)) { k++; for (const key of ['coins', 'gems']) if (pr[key]) r[key] = (r[key] || 0) + pr[key]; if (pr.chest) r.chest = pr.chest; if (pr.boosts) r.boosts = 1; } }
-        this.audio.play('chest'); this.haptics.pulse(2); this.flyRewards(all, r); this.tabBadges(); this.toast(`${k} paliers récupérés`, '', icon('pass')); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 900); };
+      all.onclick = () => { const r = {}; let k = 0; for (let i = 1; i <= tier; i++) for (const [ok, rw] of [[sv.claimPass(i), passReward(i)], [sv.claimPremium(i), premiumReward(i, n)]]) if (ok) { k++; for (const key of ['coins', 'gems']) if (rw[key]) r[key] = (r[key] || 0) + rw[key]; if (rw.chest) r.chest = rw.chest; if (rw.boosts) r.boosts = 1; }
+        this.audio.play('chest'); this.haptics.pulse(2); this.flyRewards(all, r); this.tabBadges(); this.refreshWallet(); this.toast(`${k} récompenses récupérées`, '', icon('pass')); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 900); };
       m.append(all);
     }
-    // piste verticale : rail qui se remplit jusqu'au palier actuel, cartes illustrées, paliers spéciaux plus gros
-    const track = el('div', 'pass-track');
+    // deux pistes parallèles, défilement horizontal, une colonne par palier
+    const track = el('div', 'ss-track'), labels = el('div', 'ss-col ss-lab', `<span class="ss-n"></span><span class="ss-rl">GRATUIT</span><span class="ss-rl prem">${icon(P.premium ? 'crown' : 'lock')}PREMIUM</span>`);
+    track.append(labels);
     let focus = null;
+    const cell = (i, rw, prem) => {
+      const got = prem ? P.pclaimed.includes(i) : P.claimed.includes(i), open = i <= tier, can = open && !got && (!prem || P.premium);
+      const c = el('button', 'ss-cell' + (prem ? ' prem' : '') + (got ? ' got' : can ? ' ready' : ' locked') + (prem && !P.premium ? ' shut' : '') + (i % 5 === 0 ? ' big' : ''), `<span class="ss-art">${rewardArt(rw)}</span><span class="ss-rw">${rewardChips(rw)}</span>${got ? `<i class="ss-ok">${icon('check')}</i>` : prem && !P.premium ? `<i class="ss-lock">${icon('lock')}</i>` : ''}`);
+      c.onclick = () => {
+        if (!can) { this.audio.play('error'); if (prem && !P.premium) this.toast('Piste premium', 'Débloque le pass premium pour récupérer cette récompense', icon('lock')); return; }
+        if (!(prem ? sv.claimPremium(i) : sv.claimPass(i))) return;
+        this.audio.play('chest'); this.haptics.pulse(2); c.classList.add('claiming'); this.flyRewards(c, rw); this.refreshWallet(); this.tabBadges();
+        setTimeout(() => { if (m.isConnected) { const sl = track.scrollLeft; this.openDaily('pass'); const t2 = $('#overlay .ss-track'); if (t2) t2.scrollLeft = sl; } }, 700);
+      };
+      return c;
+    };
     for (let i = 1; i <= PASS.tiers; i++) {
-      const r = passReward(i), got = P.claimed.includes(i), open = i <= tier, big = i % 5 === 0;
-      const fill = open ? 1 : i === tier + 1 ? into / PASS.perTier : 0;
-      const row = el('div', 'ptier' + (got ? ' got' : open ? ' ready' : ' locked') + (big ? ' big' : '') + (i === PASS.tiers ? ' final' : ''), `<span class="rail" style="--f:${fill}"></span><span class="pn">${i}</span>
-        <div class="pcard"><span class="pc-art">${rewardArt(r)}</span><span class="pc-rw">${rewardChips(r)}</span></div>`);
-      if (got) row.append(el('span', 'owned', icon('check')));
-      else if (open) {
-        const b = el('button', 'btn sm green cta', 'Récupérer');
-        b.onclick = () => { if (!sv.claimPass(i)) return; b.disabled = true; b.classList.remove('cta'); this.audio.play('chest'); this.haptics.pulse(2); row.classList.add('claiming'); this.flyRewards($('.pcard', row), r); this.tabBadges(); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 900); };
-        row.append(b); if (!focus) focus = row;
-      } else row.append(el('span', 'lockpts', `${icon('lock')}<b>${fmt(i * PASS.perTier)}</b><small>pts</small>`));
-      if (!focus && !open) focus = row;
-      track.append(row);
+      const col = el('div', 'ss-col' + (i <= tier ? ' open' : '') + (i === tier + 1 ? ' next' : ''), `<span class="ss-n">${i}</span>`);
+      col.append(cell(i, passReward(i), false), cell(i, premiumReward(i, n), true));
+      if (!focus && (i > tier || !P.claimed.includes(i) || (P.premium && !P.pclaimed.includes(i)))) focus = col;
+      track.append(col);
     }
     m.append(track);
-    requestAnimationFrame(() => { if (focus) track.scrollTop = focus.offsetTop - track.offsetTop - 70; });
+    // aperçu des meilleures récompenses premium de la saison
+    const best = el('div', 'ss-best', `<small>Récompenses premium de la saison</small><div class="ss-best-row"></div>`), row = $('.ss-best-row', best);
+    const skin = SHOP.skins.find((k) => k.id === th.skin);
+    for (const [art, label] of [[towerImg('assault', 58, th.skin, 4, 0).outerHTML, `Skin ${skin ? skin.name : ''}`], [frameArt(th.frame, sv.data.level), `Cadre ${PROFILE.frames[th.frame].name}`], [`<span class="ttl-prev">${icon('crown')}</span>`, `Titre « ${PROFILE.titles[th.title]} »`], [fxArt(th.fx), `Effet ${PROFILE.fx[th.fx].name}`]]) row.append(el('div', 'ss-b', `<span class="ss-b-art">${art}</span><b>${label}</b>`));
+    m.append(best);
+    requestAnimationFrame(() => { if (focus) track.scrollLeft = Math.max(0, focus.offsetLeft - track.offsetLeft - 80); });
+    // missions de saison (hebdomadaires)
+    const ms = el('div', 'ss-missions', `<h3>${icon('target')}Missions de la semaine</h3>`);
+    for (const q of sv.seasonMissions()) {
+      const d = sv.missionDef(q), done = q.prog >= d.n, row = el('div', 'ss-m' + (q.claimed ? ' got' : done ? ' ready' : ''), `<span class="ss-mi">${icon(d.icon)}</span><span class="ss-mt"><b>${d.text.replace('{n}', fmt(d.n))}</b><span class="qbar"><i style="width:${Math.min(100, (q.prog / d.n) * 100)}%"></i><em>${fmt(Math.min(q.prog, d.n))} / ${fmt(d.n)}</em></span></span>`);
+      if (q.claimed) row.append(el('span', 'owned', icon('check')));
+      else if (done) { const b = el('button', 'btn sm green cta', `+${fmt(d.pts)} pts`); b.onclick = () => { const k = sv.claimMission(q); if (k) { this.audio.play('chest'); this.haptics.pulse(2); this.flyRewards(b, {}, k); this.tabBadges(); setTimeout(() => { if (m.isConnected) this.openDaily('pass'); }, 700); } }; row.append(b); }
+      else row.append(el('span', 'ss-pts', `${icon('ticket')}<b>+${fmt(d.pts)}</b>`));
+      ms.append(row);
+    }
+    m.append(ms);
   },
 };

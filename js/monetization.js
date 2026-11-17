@@ -138,6 +138,7 @@ export class Monetization {
     const p = this.product(id); if (!p) return;
     const d = this.save.data, first = p.type === 'consumable' || !d.iap.owned.includes(id);
     if (p.type !== 'consumable' && !d.iap.owned.includes(id)) d.iap.owned.push(id);
+    if (p.pass) { this.save.unlockPremium(); return; }   // pass premium de la saison en cours
     if (first) this.save.grant({ gems: p.gems, coins: p.coins, chest: p.chest, boosts: p.boosts });
   }
   canBuy(id) { const p = this.product(id); return !!p && !this.busy && (p.type === 'consumable' || !this.owns(id)) && (!isNative() || !!this.store); }
