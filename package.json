@@ -1,0 +1,23 @@
+{
+  "name": "brainrot-td",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Brainrot TD : tower defense mobile (version web GitHub Pages + apps Android et iOS via Capacitor)",
+  "scripts": {
+    "www": "node tools/build-www.cjs",
+    "sync": "node tools/build-www.cjs && npx cap sync",
+    "android": "node tools/build-www.cjs && npx cap sync android && npx cap open android",
+    "ios": "node tools/build-www.cjs && npx cap sync ios && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "8.4.2",
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2",
+    "cordova-plugin-purchase": "13.20.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}

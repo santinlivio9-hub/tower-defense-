@@ -2001,3 +2001,35 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .btn.reset.armed { background: linear-gradient(180deg, #ff9a9a, #f0485a); color: #fff; }
 .btn.reset .gem-ico { width: 15px; height: 15px; margin: 0 2px; }
 .thint.small { font-size: 13px; opacity: .8; margin-top: 4px; }
+/* Pubs récompensées (toujours au choix du joueur) */
+.btn.adbtn { gap: 6px; background: linear-gradient(180deg, #8fd2ff, #3d9dfc); color: #fff; box-shadow: 0 4px 0 #1b64b3, inset 0 2px 0 rgba(255, 255, 255, .5); text-shadow: var(--ol); }
+.btn.adbtn.gold { background: linear-gradient(180deg, #ffe680, #ffb21f); color: var(--btn-ink); box-shadow: 0 4px 0 #b86f00, inset 0 2px 0 rgba(255, 255, 255, .6); text-shadow: none; }
+.btn.adbtn.green { background: linear-gradient(180deg, var(--green-1), var(--green-2)); box-shadow: 0 4px 0 var(--green-edge), inset 0 2px 0 rgba(255, 255, 255, .6); }
+.btn.adbtn em { font-style: normal; font-size: 13px; font-weight: 700; padding: 1px 6px; border-radius: 7px; background: rgba(0, 0, 0, .28); color: #fff; text-shadow: none; letter-spacing: .04em; }
+.btn.adbtn.locked { filter: grayscale(.8); opacity: .75; }
+.btn.adbtn .ico { width: 18px; height: 18px; }
+.es-main .adbtn { margin-top: 6px; }
+.speed-wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.revive-ask { display: flex; flex-direction: column; gap: 10px; align-items: stretch; text-align: center; }
+.revive-ask h2.lose { color: #ff5d6c; }
+/* pub factice et achat fictif (version web) */
+.fakead { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 16px; background: rgba(10, 6, 24, .86); opacity: 0; transition: opacity .2s; }
+.fakead.on { opacity: 1; }
+.fa-box { width: min(320px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 16px; border-radius: 22px; text-align: center; color: #fff; background: linear-gradient(180deg, #4a2f86, #24164a); border: 2px solid rgba(255, 255, 255, .25); box-shadow: 0 6px 0 var(--edge), 0 14px 30px rgba(0, 0, 0, .5); }
+.fa-box small { font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--text-soft); }
+.fa-box b { font-size: 24px; text-shadow: var(--ol); }
+.fa-box p { margin: 0; font-size: 14px; color: var(--text-soft); }
+.fa-bar { width: 100%; height: 10px; border-radius: 6px; background: rgba(255, 255, 255, .15); overflow: hidden; } .fa-bar i { display: block; width: 0; height: 100%; background: var(--gold); transition: width linear; }
+.fa-t { font-size: 28px; font-weight: 700; color: var(--gold); }
+.fa-btns { display: flex; gap: 8px; width: 100%; } .fa-btns .btn { flex: 1; }
+/* Boutique → Gemmes */
+.iap-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.iap { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border); box-shadow: 0 4px 0 var(--edge), var(--shadow); }
+.iap.starter { border-color: var(--gold); background: linear-gradient(180deg, rgba(255, 210, 63, .22), rgba(255, 210, 63, .06)); }
+.iap.noads { border-color: #5fd8ff; }
+.iap-art { flex: none; width: 46px; height: 46px; display: grid; place-items: center; } .iap-art .ico, .iap-art .gem-ico { width: 40px; height: 40px; }
+.iap-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; } .iap-txt b { font-size: 16px; } .iap-txt small { font-size: 14px; color: var(--text-soft); line-height: 1.2; }
+.iap .btn { flex: none; min-width: 84px; }
+.iap .xch-tag { right: 8px; }
+#shop-tabs button { min-width: 0; }
+.setting a.btn { text-decoration: none; }

@@ -294,6 +294,10 @@ export const End = {
     else if (canNext) { const nx = el('button', 'btn primary big', icon('play') + 'Niveau suivant'); nx.onclick = () => { this.clearGame(); this.playLevel(nextN); }; main.append(nx); }
     else if (!win && !r.endless) { const rt = el('button', 'btn green big', icon('restart') + 'Réessayer'); rt.onclick = () => this.replay(); main.append(rt); }
     else { const rp = el('button', 'btn primary big', icon('restart') + 'Rejouer'); rp.onclick = () => this.replay(); main.append(rp); }
+    if (win && r.coins > 0 && !r.doubled && !this.simulating) {   // pub récompensée : pièces de fin de niveau doublées
+      const db = this.adButton(`Doubler les pièces (+${fmt(r.coins)})`, `+${fmt(r.coins)} pièces`, () => { r.doubled = true; this.save.grant({ coins: r.coins }); this.save.persist(); const cb = $('.es-coins b', root); if (cb) cb.textContent = fmt(this.save.data.coins); db.replaceWith(el('span', 'owned wide', icon('check') + `Pièces doublées : +${fmt(r.coins)}`)); }, 'wide gold');
+      main.append(db);
+    }
     const round = $('.es-round', f);
     const rb = (ico, label, fn, cls = '') => { const b = el('button', 'rbtn ' + cls, `<span>${icon(ico)}</span><small>${label}</small>`); b.onclick = fn; round.append(b); };
     if (canNext) rb('restart', 'Rejouer', () => this.replay());
@@ -302,7 +306,7 @@ export const End = {
     rb('map', 'Carte', leave('world'));
     rb('home', 'Menu', leave('menu'));
     if (r.towers && r.towers.length && !r._introDone) {
-      const nav = [...main.querySelectorAll('button'), ...[...round.querySelectorAll('.rbtn')].filter((b) => !b.classList.contains('pink') && !b.classList.contains('blue'))];
+      const nav = [...main.querySelectorAll('button:not(.adbtn)'), ...[...round.querySelectorAll('.rbtn')].filter((b) => !b.classList.contains('pink') && !b.classList.contains('blue'))];
       for (const b of nav) { const fn = b.onclick; b.onclick = (e) => { if (r._introDone) { fn(e); return; } r._introDone = true; this.weaponReveal(r.towers, () => fn(e)); }; }
       main.prepend(el('div', 'es-newgun', `${icon('star')}Nouvelle arme débloquée !`));
     }

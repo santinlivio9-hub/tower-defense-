@@ -28,6 +28,9 @@ const defaults = () => ({
   starChests: {}, hintTowers: [], placedTypes: [], castleFree: 0, pendingWorld: null, skinShown: [],
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
   pass: { pts: 0, claimed: [] },
+  iap: { owned: [], orders: [] },   // achats intégrés : produits non consommables possédés, commandes déjà créditées
+  ads: { day: '', n: 0 },          // pubs récompensées (ou bonus gratuits) du jour
+  privacy: { asked: false },       // fenêtre de consentement (RGPD) déjà montrée
   legacyStars: 0, notice: null,
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0, rebirths: 0 },
@@ -66,7 +69,8 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth', 'iap', 'ads', 'privacy']) d[k] = { ...def[k], ...raw[k] };
+    if (!Array.isArray(d.iap.owned)) d.iap.owned = []; if (!Array.isArray(d.iap.orders)) d.iap.orders = [];
     if (!Array.isArray(d.rebirth.owned)) d.rebirth.owned = []; if (!Array.isArray(d.rebirth.history)) d.rebirth.history = []; for (const k of ['rank', 'shards']) if (!Number.isFinite(d.rebirth[k]) || d.rebirth[k] < 0) d.rebirth[k] = 0;
     this.normSettings(raw.settings);
     if ((raw.lpw || 6) !== PER_WORLD) this.relayout(raw.lpw || 6);
@@ -123,7 +127,7 @@ export class Save {
     this.saveFailed = !ls.set(KEY, txt); return !this.saveFailed;
   }
   // Réinitialisation : l'état d'avant est gardé pour pouvoir l'annuler (restoreUndo)
-  reset() { ls.set(UNDO, JSON.stringify(this.data)); this.data = defaults(); this.persist(); }
+  reset() { ls.set(UNDO, JSON.stringify(this.data)); const iap = this.data.iap; this.data = defaults(); this.data.iap = iap; this.persist(); }   // les achats restent acquis
   hasUndo() { return !!parse(ls.get(UNDO)); }
   restoreUndo() { const raw = parse(ls.get(UNDO)); if (!raw) return false; return this.load(raw, false); }
   // Remplace la progression par un objet de sauvegarde (import, annulation) ; renvoie false s'il n'est pas valide
@@ -208,6 +212,7 @@ export class Save {
     this.data.castle[b.id]++; this.data.build = null; this.syncTierCap(); this.persist(); return b.id;
   }
   speedCost() { const b = this.data.build; if (!b) return 0; return Math.max(1, Math.ceil(((b.end - Date.now()) / 60000) * CASTLE.speedGemsPerMin)); }
+  speedBy(ms) { const b = this.data.build; if (!b) return null; b.end -= ms; this.persist(); return this.checkBuild(); }   // pub : construction raccourcie
   speedUp() { const c = this.speedCost(); if (!this.data.build || !this.spend(c, 'gems')) return false; this.data.build.end = Date.now(); return this.checkBuild(); }
   syncTierCap() { setTierCap(this.worldsDone()); }
 

@@ -1,0 +1,35 @@
+# Codemagic : construit l'app iOS sans Mac et l'envoie sur TestFlight (voir README, « iOS »).
+# Pré-requis dans Codemagic : une intégration « App Store Connect » (clé API) nommée codemagic_asc.
+workflows:
+  ios-release:
+    name: iOS – TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic_asc
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.brainrottd.game
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Dépendances et synchronisation Capacitor
+        script: |
+          npm ci
+          npm run sync
+      - name: Profils de signature
+        script: xcode-project use-profiles
+      - name: Numéro de build
+        script: |
+          cd ios/App
+          agvtool new-version -all $(($BUILD_NUMBER + 1))
+      - name: Construction de l'archive
+        script: |
+          xcode-project build-ipa --project "ios/App/App.xcodeproj" --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integrations
+        submit_to_testflight: true

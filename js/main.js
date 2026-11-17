@@ -20,7 +20,8 @@ window.addEventListener('unhandledrejection', (e) => ui.crash(e.reason, 'promess
 
 // PWA : service worker (jeu jouable hors ligne, fichiers toujours de la même version : voir sw.js).
 // Quand une nouvelle version a pris la main, la page se recharge dès qu'on n'est plus en partie (voir ui.tick).
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+// (pas de service worker dans les apps Android / iOS : les fichiers sont déjà dans l'app)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
   const sw = navigator.serviceWorker, had = !!sw.controller;
   sw.addEventListener('message', (e) => { if (e.data && e.data.version) window.__version = e.data.version; });
   sw.addEventListener('controllerchange', () => { if (had) window.__updateReady = true; if (sw.controller) sw.controller.postMessage('version'); });

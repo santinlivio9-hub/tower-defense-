@@ -846,3 +846,34 @@ export const PASS = {
   final: { coins: 1500, gems: 12, chest: 'legend' },
 };
 export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);
+
+// ----------------------------------------------------------------------------
+//  MONÉTISATION (voir js/monetization.js). Aucun achat n'est nécessaire pour finir le jeu : les pubs et les achats
+//  ne donnent que des raccourcis, l'équilibrage du joueur gratuit est celui de tools/progression.cjs.
+// ----------------------------------------------------------------------------
+export const MONETIZATION = {
+  adsPerDay: 10,              // plafond de pubs récompensées par jour (et de bonus gratuits avec « Sans pubs »)
+  webAdSeconds: 3,            // version web : pub factice de 3 s
+  // Identifiants AdMob de TEST fournis par Google : à remplacer par les tiens avant la publication (voir README)
+  admob: {
+    testing: true,
+    rewardedAndroid: 'ca-app-pub-3940256099942544/5224354917',
+    rewardedIos: 'ca-app-pub-3940256099942544/1712485313',
+  },
+  // Récompenses des pubs (toujours proposées par un bouton, jamais imposées)
+  rewards: {
+    endDouble: 1,             // fin de niveau : pièces doublées (une fois par partie gagnée)
+    wheelSpin: 1,             // roue : un tour bonus
+    revive: 1,                // défaite : réanimation une fois par partie (château à moitié, ennemis balayés)
+    speedMinutes: 30,         // construction du château : 30 minutes de moins
+  },
+  // Achats intégrés (identifiants à créer à l'identique dans Google Play Console et App Store Connect).
+  // price = prix affiché en version web uniquement ; dans les apps, le prix vient du store (devise locale).
+  products: [
+    { id: 'gems_small', type: 'consumable', name: 'Poignée de gemmes', gems: 80, price: '0,99 €' },
+    { id: 'gems_medium', type: 'consumable', name: 'Sac de gemmes', gems: 450, tag: '+12 %', price: '4,99 €' },
+    { id: 'gems_large', type: 'consumable', name: 'Coffre de gemmes', gems: 1000, tag: '+25 %', price: '9,99 €' },
+    { id: 'remove_ads', type: 'nonconsumable', name: 'Sans pubs + bonus', desc: 'Les bonus des pubs deviennent gratuits (sans pub), + 100 gemmes', gems: 100, price: '3,99 €' },
+    { id: 'starter_pack', type: 'nonconsumable', name: 'Pack de démarrage', desc: '200 gemmes, 2 000 pièces, un coffre doré et 5 boosts rares', gems: 200, coins: 2000, chest: 'gold', boosts: { shield: 2, revive: 1, over: 2 }, price: '1,99 €' },
+  ],
+};
