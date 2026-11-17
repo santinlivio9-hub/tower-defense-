@@ -2027,3 +2027,14 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 #radial.build.two .rb .lab.bname { font-size: 11px; max-width: 62px; padding: 0 5px; top: calc(100% + 2px); }
 #radial.build.two .rb .price { top: calc(100% + 18px); font-size: 12px; padding: 0 6px; }
 #radial.build.two .rb .tdot { width: 11px; height: 11px; }
+
+/* Bouton de pub : bouton SECONDAIRE (petit, violet, icône vidéo, gain affiché), jamais confondu avec le bouton principal */
+.btn.adbtn { align-self: center; width: auto; min-height: 40px; padding: 5px 10px 5px 6px; gap: 7px; font-size: 14px; color: #fff; text-shadow: var(--ol);
+  background: linear-gradient(180deg, #b98cff, #7a3fd8); box-shadow: 0 3px 0 #4b228c, inset 0 2px 0 rgba(255, 255, 255, .45); border-radius: 14px; }
+.btn.adbtn .adv { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; background: rgba(20, 8, 46, .45); }
+.btn.adbtn .adv .ico { width: 18px; height: 18px; }
+.btn.adbtn .adg { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px; font-size: 14px; color: var(--gold); background: rgba(20, 8, 46, .55); text-shadow: none; }
+.btn.adbtn .adg .coin-ico { width: 13px; height: 13px; }
+.btn.adbtn em { font-size: 11px; padding: 1px 5px; border-radius: 6px; background: rgba(255, 255, 255, .22); }
+.speed-wrap .adbtn, .wheel-foot .adbtn, .revive-ask .adbtn { margin-top: 2px; }
+.es-main .btn.adbtn { margin-top: 12px; }
