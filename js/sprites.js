@@ -68,10 +68,27 @@ const shine = (x, y, w, h, rot = -20, op = 0.55) => `<ellipse cx="${x}" cy="${y}
 const limb = (d, w, color) => `<path d="${d}" ${line(w + 7)}/><path d="${d}" ${line(w, color)}/>`;
 
 // Assemble un SVG complet (vb = demi-taille de la vue, px = taille de rendu)
-function build(body, vb, px) {
-  const defs = gradDefs();
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-vb} ${-vb} ${vb * 2} ${vb * 2}" width="${px}" height="${px}"><defs>${defs}</defs>${body}</svg>`;
+function build(body, vb, px, box = null) {
+  const defs = gradDefs(), v = box ? `${box.x} ${box.y} ${box.s} ${box.s}` : `${-vb} ${-vb} ${vb * 2} ${vb * 2}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${v}" width="${px}" height="${px}"><defs>${defs}</defs>${body}</svg>`;
 }
+// Cadrage exact d'une miniature : boîte englobante réelle du dessin (mesurée une fois dans le DOM), carrée,
+// avec une marge pour le contour et la lueur : aucun canon n'est jamais coupé.
+const fitCache = new Map();
+function fitBox(key, body, margin) {
+  if (fitCache.has(key)) return fitCache.get(key);
+  let b = { x: -90, y: -90, width: 180, height: 180 };
+  try {
+    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden';
+    const g = document.createElementNS(NS, 'g'); g.innerHTML = body; svg.append(g); document.body.append(svg);
+    const r = g.getBBox(); svg.remove(); if (r.width > 0) b = r;
+  } catch (e) { /* hors navigateur : cadrage par défaut */ }
+  const s = Math.max(b.width, b.height) + margin * 2, box = { x: b.x + b.width / 2 - s / 2, y: b.y + b.height / 2 - s / 2, s };
+  fitCache.set(key, box); return box;
+}
+// skins lumineux : la miniature reçoit un fond sombre (comme le terrain), sinon la lueur paraît délavée
+const DARK_ICON = new Set(['neon', 'nebula', 'galaxy', 'glitchy']);
 
 // ------------------------------------------------------------------ visages
 // v : 0 yeux ouverts, 1 clignement, 2 touché (> <)
@@ -717,13 +734,15 @@ export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 2
   let body, vb = TVB;
   if (part === 'base') body = base;
   else if (part === 'head') body = head;
-  else { // icône : tête tournée vers le haut-droite, cadrage serré
-    const still = type === 'cryo' || type === 'mine' || type === 'tesla' || type === 'drone', long = type === 'sniper' ? 0.74 : type === 'minigun' || type === 'assault' || type === 'shotgun' ? 0.86 : 0.95;
-    body = `<g transform="scale(${still ? (type === 'mine' ? 1.45 : 1.2) : long})">${base}<g transform="rotate(${still ? 0 : -50}) translate(${still ? 0 : type === 'sniper' ? -22 : -8} 0)">${head}</g></g>`;
-    vb = 84;
+  let box = null;
+  if (part === 'icon') { // miniature : le MÊME dessin qu'en jeu (socle + tête tournée vers le haut-droite), cadré sans rien couper
+    const still = type === 'cryo' || type === 'mine' || type === 'tesla' || type === 'drone';
+    body = `${base}<g transform="rotate(${still ? 0 : -45})">${head}</g>`;
+    box = fitBox(`${type}|${level}|${branch}`, body, 9);
+    if (DARK_ICON.has(fin)) { const c = box.s / 2; body = `<circle cx="${box.x + c}" cy="${box.y + c}" r="${c * 0.93}" fill="#1d1534"/>` + body; }
   }
   const glow = fin === 'neon' ? `<filter id="nf" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` : '';
-  const svg = build(glow ? `<g filter="url(#nf)">${body}</g>` : body, vb, px);
+  const svg = build(glow ? `<g filter="url(#nf)">${body}</g>` : body, vb, px, box);
   return glow ? svg.replace('<defs>', '<defs>' + glow) : svg;
 }
 export const skinFinish = (skinId) => (SHOP.skins.find((s) => s.id === skinId) || {}).finish || 'classic';
