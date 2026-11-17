@@ -21,12 +21,19 @@ const mix = (a, b, t) => {
 const luma = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255)) / 255; };
 
 // ------------------------------------------------------------------ dégradés / finitions
-let grads = null, finish = 'classic', OL = INK;
+let grads = null, finish = 'classic', OL = INK, SIG = new Set();
+// Un skin ne change que les DÉTAILS : la couleur signature du type (corps, socle) garde sa teinte et reçoit
+// seulement une bande de la couleur d'accent du skin ; le métal et les pièces secondaires prennent la finition.
+const ACCENT = { camo: '#5d7a3a', neon: '#00f0ff', lava: '#ff8a1a', candy: '#ff8fc7', gold: '#f5b83d', emerald: '#2fbf63', royal: '#ffd23f', obsidian: '#2f2a44',
+  frost: '#e6f8ff', galaxy: '#b05cff', chrome: '#eef6ff', nebula: '#ff5dc8', glitchy: '#3ff0ff', phoenix: '#ff7a3c', prism: '#ffd23f' };
+const sigGrad = (id, hex) => { const a = ACCENT[finish] || '#ffffff', a2 = finish === 'prism' ? '#5ff0ff' : finish === 'glitchy' ? '#ff3fb4' : shade(a, -0.25);
+  return linear(id, [[0, shade(hex, 0.55)], [0.18, shade(hex, 0.22)], [0.46, hex], [0.46, a], [0.58, a], [0.58, hex], [0.63, hex], [0.63, a2], [0.69, a2], [0.69, shade(hex, -0.12)], [0.86, shade(hex, -0.22)], [1, shade(hex, -0.38)]]); };
 const paint = (hex) => { if (!grads || hex[0] !== '#') return hex; grads.add(hex); return `url(#g${hex.slice(1)})`; };
 const linear = (id, stops) => `<linearGradient id="${id}" x1="0" y1="0" x2="0.25" y2="1">` + stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('') + '</linearGradient>';
 const vinyl = (id, hex) => linear(id, [[0, shade(hex, 0.55)], [0.18, shade(hex, 0.22)], [0.55, hex], [0.86, shade(hex, -0.22)], [1, shade(hex, -0.38)]]);
 const gradDefs = () => [...grads].map((hex) => {
   const id = 'g' + hex.slice(1);
+  if (finish !== 'classic' && SIG.has(hex)) return sigGrad(id, hex);
   if (finish === 'neon') { const d = mix(hex, '#0a0d1c', 0.8); return linear(id, [[0, shade(d, 0.35)], [0.3, d], [1, shade(d, -0.4)]]); }
   if (finish === 'gold') { const g = shade('#f2b51d', (luma(hex) - 0.5) * 0.7); return linear(id, [[0, '#fffbe6'], [0.2, shade(g, 0.45)], [0.42, g], [0.55, shade(g, -0.3)], [0.7, shade(g, 0.25)], [1, shade(g, -0.45)]]); }
   if (finish === 'lava') { const l = luma(hex); return linear(id, [[0, '#ffe27a'], [0.22, mix('#ff8a1a', '#ffd23f', l * 0.6)], [0.6, mix('#b81d12', '#ff5a1f', l)], [1, '#3a0d0d']]); }
@@ -443,7 +450,7 @@ function eyeBall(x, y, r, e) {
 
 const EVB = 96; // demi-vue des brainrots (le rayon de collision vaut 50)
 export function enemySvg(type, expr = 0, step = 0, px = 192) {
-  grads = new Set(); finish = 'classic'; OL = INK;
+  grads = new Set(); finish = 'classic'; OL = INK; SIG = new Set();
   const body = ENEMY_ART[type](expr, step);
   return build(body, EVB, px);
 }
@@ -470,6 +477,7 @@ function basePlate(L, R, M) {
   if (L >= 3) s += poly(Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * TAU + 0.39; return [(Math.cos(a) * (r + 5)).toFixed(1), (Math.sin(a) * (r + 5)).toFixed(1)]; }), A);
   else s += circ(0, 0, r, A);
   if (L >= 4) s += [45, 135, 225, 315].map((a) => `<rect x="${r - 6}" y="-9" width="14" height="18" rx="4" transform="rotate(${a})" ${st(M, 4)}/>`).join('');
+  s += `<circle r="${r - 0.5}" fill="none" stroke="${M}" stroke-width="3.5"/>`;
   s += `<circle r="${r - 9}" fill="${shade(A, -0.25)}" stroke="${R}" stroke-width="6"/>`;
   if (L >= 2) s += bolts(L >= 3 ? 8 : 4, r - 3.5);
   s += `<path d="M${-r + 8} -14 A${r - 4} ${r - 4} 0 0 1 -14 ${-r + 8}" ${line(3.5, 'rgba(255,255,255,.4)')}/>`;
@@ -699,6 +707,7 @@ const TVB = 130; // demi-vue des tourelles (260 unités = 130 px de jeu)
 export function towerSvg(type, level = 1, branch = null, fin = 'classic', px = 260, part = 'icon') {
   grads = new Set(); finish = fin; OL = fin === 'neon' ? '#0a0d1c' : INK;
   const R = RARITY[level - 1].color, M = TOWER_COLOR[type];
+  SIG = new Set([M, shade(M, -0.3)]);
   const base = type === 'mine' ? '' : (type === 'sniper' ? tripod(level) : '') + basePlate(type === 'sniper' ? Math.max(1, level - 1) : level, R, M)
     + (type === 'drone' ? `<path d="M-12 -14 V14 M12 -14 V14 M-12 0 H12" ${line(6, '#FFD23F')}/>` : '');
   let head = HEAD[type](level, branch, R, M);
