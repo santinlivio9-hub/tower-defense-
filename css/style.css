@@ -1944,20 +1944,6 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 #radial .rb.up.br { width: 54px; height: 54px; margin: -27px 0 0 -27px; }
 #radial .rb.armed { transform: scale(1.06); }
 #radial .rb .lab.name { max-width: 100px; font-size: 12px; }
-/* rangée défilante (plus de 6 tourelles) */
-#radial .rsheet { position: absolute; left: 0; right: 0; pointer-events: auto; padding: 6px 0 8px; background: linear-gradient(180deg, rgba(36, 26, 62, .94), rgba(28, 20, 50, .97)); border-top: 2.5px solid rgba(255, 255, 255, .22); border-bottom: 2.5px solid rgba(255, 255, 255, .12); box-shadow: 0 -6px 18px rgba(0, 0, 0, .35); animation: rs-in .18s ease-out; }
-#radial .rsheet.top { box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
-@keyframes rs-in { from { opacity: 0; transform: translateY(14px); } }
-#radial .rs-scroll { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 4px 10px 2px; touch-action: pan-x; scrollbar-width: none; }
-#radial .rs-scroll::-webkit-scrollbar { display: none; }
-#radial .rb.tile { position: relative; flex: none; left: auto; top: auto; margin: 0; width: 70px; height: 92px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; padding-top: 4px; scroll-snap-align: start; animation: none; }
-#radial .rb.tile img { width: 40px; height: 40px; }
-#radial .rb.tile .lab.sname { position: static; transform: none; background: none; padding: 0; font-size: 12px; max-width: 66px; overflow: hidden; text-overflow: ellipsis; color: #fff; text-shadow: var(--ol); }
-#radial .rb.tile .price { position: static; transform: none; margin-top: 1px; }
-#radial .rb.tile .tdot { left: 5px; top: 5px; }
-#radial .rb.tile .snew { position: absolute; top: -6px; right: -4px; padding: 1px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; color: #fff; background: #e8283f; border: 2px solid var(--ink); }
-#radial .rb.tile.armed { transform: translateY(-3px); outline-offset: -2px; }
-#radial .rb.tile .ok { right: -4px; top: -4px; }
 /* panneau immédiat : en-tête de la tourelle, branches */
 .upp-hdr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; padding-bottom: 3px; border-bottom: 1.5px solid rgba(255, 255, 255, .14); }
 .upp-hdr > b { font-size: 15px; text-shadow: var(--ol); }
@@ -1974,8 +1960,6 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .upp-max { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--gold); } .upp-max .ico { width: 16px; height: 16px; }
 .upp.list { width: 286px; }
 @media (max-height: 700px) { .upp-br .bt small { font-size: 11.5px; } .upp-br { padding: 3px 5px; } }
-#radial.measure .rsheet { animation: none !important; }
-#radial .rb.tile.armed .lab.sname { display: block; }
 /* Boutique : échange gemmes → pièces, lot de boosts */
 .shop-h { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; font-size: 16px; color: #fff; text-shadow: var(--ol); } .shop-h .ico { width: 20px; height: 20px; }
 .xch-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -2033,3 +2017,13 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .iap .xch-tag { right: 8px; }
 #shop-tabs button { min-width: 0; }
 .setting a.btn { text-decoration: none; }
+
+/* Menu de pose en anneaux : icône 50 px, nom court puis prix sous l'icône */
+#radial.build .rb .lab.bname { top: calc(100% + 3px); bottom: auto; max-width: 70px; padding: 1px 6px; font-size: 12px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; background: rgba(28, 18, 52, .92); box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .25); }
+#radial.build .rb .price { top: calc(100% + 21px); bottom: auto; }
+#radial.build .rb.armed .lab.bname { display: inline-flex; background: var(--green-2); color: #0c4a22; }
+#radial.build .rb .snew { position: absolute; top: -8px; right: -10px; padding: 1px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; color: #fff; background: #e8283f; border: 2px solid var(--ink); pointer-events: none; }
+#radial.build.two .rb { width: 44px; height: 44px; margin: -22px 0 0 -22px; } #radial.build.two .rb img { width: 36px; height: 36px; }
+#radial.build.two .rb .lab.bname { font-size: 11px; max-width: 62px; padding: 0 5px; top: calc(100% + 2px); }
+#radial.build.two .rb .price { top: calc(100% + 18px); font-size: 12px; padding: 0 6px; }
+#radial.build.two .rb .tdot { width: 11px; height: 11px; }

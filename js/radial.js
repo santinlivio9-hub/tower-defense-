@@ -222,20 +222,17 @@ export const Radial = {
     const ups = items.filter((i) => !i.side);
     const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 6, bot = $('#dock').getBoundingClientRect().top - host.top - 6;
     const tx = p.x - host.left, ty = p.y - host.top, W = host.width;
-    const sheet = !t && n > RADIAL.ringMax;
-    box.classList.toggle('build', !t); box.classList.toggle('sheet', sheet);
+    box.classList.toggle('build', !t); box.classList.toggle('two', !t && n > RADIAL.ringMax);   // deux anneaux : boutons compacts
     const btns = {}, pos = [];
-    // un bouton : mêmes écouteurs partout (pointerdown puis pointerup sur le même bouton ; un glissement de plus de
-    // 10 px — défilement de la rangée — n'est pas un toucher ; clic clavier en secours)
+    // un bouton : mêmes écouteurs partout (pointerdown puis pointerup sur le même bouton ; clic clavier en secours)
     const make = (it, i, cls) => {
       const b = el('button', 'rb ' + (it.cls || '') + (cls ? ' ' + cls : ''));
       b.style.setProperty('--i', i);
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
-      if (sheet) { const nm = el('span', 'lab sname', ''); nm.textContent = it.short || it.label || ''; b.append(nm); }
+      if (!t) { const nm = el('span', 'lab bname', ''); nm.textContent = it.short || ''; b.append(nm); if (it.label === 'NOUVEAU') b.append(el('span', 'snew', 'NOUVEAU')); }
       else if (it.isBranch) b.append(el('span', 'lab name', it.label));
       else if (it.label) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
       if (it.dot) { const d = el('i', 'tdot'); d.style.background = it.dot; b.append(d); }
-      if (sheet && it.label === 'NOUVEAU') b.append(el('span', 'snew', 'NOUVEAU'));
       if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
       if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
       b.append(el('span', 'ok', icon('check')));
@@ -247,19 +244,65 @@ export const Radial = {
       b.addEventListener('click', (e) => { if (e.detail === 0) this.radialTap(it); });   // clavier (touches 1 à 9)
       btns[it.key] = b; return b;
     };
-    if (sheet) {
-      // plus de 6 tourelles : rangée défilante en bas de la zone de jeu (en haut si l'emplacement est en bas)
-      const sh = el('div', 'rsheet'), sc = el('div', 'rs-scroll');
-      items.forEach((it, i) => sc.append(make(it, i, 'tile')));
-      sh.append(sc); box.append(sh);
-      const hh = sh.offsetHeight, atTop = ty + 60 > bot - hh;
-      sh.style.top = (atTop ? top : bot - hh) + 'px'; sh.classList.toggle('top', atTop);
-    } else if (!t) {
-      // 6 tourelles ou moins : anneau de taille fixe, décalé d'un bloc pour rester dans l'écran
-      const R = RADIAL.rRing, e = { w: 30, up: 30, down: 42 };
-      items.forEach((it, i) => { const a = ((n === 1 ? -90 : -90 + (360 / n) * i) * Math.PI) / 180; pos[i] = { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e }; });
-      const o = pos.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - q.e.w)), r: Math.max(o.r, q.x + q.e.w - (W - 6)), t: Math.max(o.t, top - (q.y - q.e.up)), b: Math.max(o.b, q.y + q.e.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
-      for (const q of pos) { q.x += o.l - o.r; q.y += o.t - o.b; }
+    if (!t) {
+      // Choix d'une tourelle : boutons de taille fixe sur un anneau (6 tourelles ou moins) ou sur deux anneaux
+      // concentriques (au-delà), le nom court et le prix sous chaque icône. Les rayons grandissent juste assez pour
+      // qu'aucun bouton ni étiquette ne se touche ; l'ensemble est ensuite décalé d'un bloc pour rester dans la zone
+      // de jeu (l'anneau devient un arc autour d'un emplacement proche d'un bord).
+      const E = n > RADIAL.ringMax ? RADIAL.buildBox2 : RADIAL.buildBox, boxOf = (q) => ({ l: q.x - E.w, r: q.x + E.w, t: q.y - E.up, b: q.y + E.down });
+      const hit = (P) => { for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) { const a = boxOf(P[i]), c = boxOf(P[j]); if (a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b) return true; } return false; };
+      const inZone = (q) => q.x - E.w >= 6 && q.x + E.w <= W - 6 && q.y - E.up >= top && q.y + E.down <= bot;
+      // k boutons sur le cercle de centre (cx, cy) et de rayon r, uniquement sur la partie du cercle qui tient dans
+      // l'écran (un ou plusieurs arcs), espacés régulièrement ; null si ça ne tient pas
+      const onCircle = (cx, cy, k, r, a0 = -90, ry = r) => {
+        const at = (deg) => ({ x: cx + Math.cos((deg * Math.PI) / 180) * r, y: cy + Math.sin((deg * Math.PI) / 180) * ry });
+        const STEP = 3, N = 360 / STEP, ok = Array.from({ length: N }, (_, i) => inZone(at(a0 + i * STEP)));
+        if (ok.every(Boolean)) return Array.from({ length: k }, (_, i) => at(a0 + (360 * i) / k));
+        const gapDeg = (2 * Math.asin(Math.min(1, (n > RADIAL.ringMax ? RADIAL.buildGap2 : RADIAL.buildGap) / (2 * Math.min(r, ry)))) * 180) / Math.PI;
+        const safeDeg = (2 * Math.asin(Math.min(1, Math.hypot(2 * E.w, E.up + E.down) / (2 * Math.min(r, ry)))) * 180) / Math.PI;   // écart sûr, quel que soit l'angle
+        const runs = []; const st = ok.indexOf(false);
+        for (let i = 1, cur = null; i <= N; i++) { const j = (st + i) % N; if (ok[j]) { if (!cur) runs.push((cur = { s: j, len: 0 })); cur.len++; } else cur = null; }
+        const cap = runs.map((u) => Math.floor(((u.len - 1) * STEP) / gapDeg) + 1);
+        if (cap.reduce((x, y) => x + y, 0) < k) return null;
+        // répartition des boutons entre les arcs, au prorata de leur longueur
+        const nb = runs.map(() => 0); for (let i = 0; i < k; i++) { let best = -1, sc = -1; runs.forEach((u, j) => { if (nb[j] < cap[j]) { const v = u.len / (nb[j] + 1); if (v > sc) { sc = v; best = j; } } }); nb[best]++; }
+        const out = []; runs.forEach((u, j) => { const m = nb[j]; if (!m) return; const span = Math.min((u.len - 1) * STEP, (m - 1) * safeDeg), s0 = a0 + u.s * STEP + ((u.len - 1) * STEP - span) / 2; for (let i = 0; i < m; i++) out.push(at(s0 + (m > 1 ? (span * i) / (m - 1) : 0))); });
+        return out;
+      };
+      // l'emplacement reste visible : aucun bouton ni étiquette ne le recouvre
+      const clear = (P) => P.every((q) => { const c = boxOf(q), m = RADIAL.slotClear; return tx < c.l - m || tx > c.r + m || ty < c.t - m || ty > c.b + m; });
+      const good = (P) => P && !hit(P) && clear(P);
+      const layout = (cx, cy) => {
+        if (n <= RADIAL.ringMax) { for (let r = RADIAL.rRing; r <= 170; r += 6) { const c = onCircle(cx, cy, n, r); if (good(c)) return c; } return null; }
+        for (const k1 of [4, 3, 5]) for (let r1 = RADIAL.rInner; r1 <= 128; r1 += 8) {
+          const inner = onCircle(cx, cy, k1, r1); if (!good(inner)) continue;
+          // anneau extérieur : cercle, ou ellipse plus haute que large quand l'écran est étroit
+          const rxMax = (W - 12) / 2 - E.w;
+          for (let r2 = r1 + RADIAL.ringStep2; r2 <= 220; r2 += 8) { const rx = Math.min(r2, Math.max(r1 + 50, rxMax)); const outer = onCircle(cx, cy, n - k1, rx, -90 + 180 / (n - k1), r2); if (outer && good(inner.concat(outer))) return inner.concat(outer); }
+        }
+        return null;
+      };
+      // centre des anneaux : l'emplacement, sinon légèrement décalé (l'emplacement reste dans le trou de l'anneau)
+      let P = null;
+      for (const d of [0, 14, 28, 42, 56, 70]) { for (let k = 0; k < (d ? 8 : 1) && !P; k++) { const a = (k * Math.PI) / 4; P = layout(tx + Math.cos(a) * d, ty + Math.sin(a) * d); } if (P) break; }
+      // près d'un bord : arcs concentriques remplis de l'intérieur vers l'extérieur (autant de boutons que chaque arc
+      // en accepte), toujours autour de l'emplacement
+      const arcs = (cx, cy) => {
+        const out = []; let left = n;
+        for (let r = n <= RADIAL.ringMax ? RADIAL.rRing : RADIAL.rInner, ring = 0; left > 0 && ring < 5; r += Math.hypot(2 * E.w, E.up + E.down), ring++) {   // écart entre arcs : aucun chevauchement, quel que soit l'angle
+          let best = null; for (let m = left; m >= 1 && !best; m--) for (const a0 of [-90 + ring * 17, -60 + ring * 17, -120 + ring * 17]) { const c = onCircle(cx, cy, m, r, a0); if (c && good(out.concat(c))) { best = c; break; } }
+          if (best) { out.push(...best); left -= best.length; }
+        }
+        return left ? null : out;
+      };
+      for (const d of [0, 20, 40, 60]) { for (let k = 0; k < (d ? 8 : 1) && !P; k++) { const a = (k * Math.PI) / 4; P = arcs(tx + Math.cos(a) * d, ty + Math.sin(a) * d); } if (P) break; }
+      this._radMode = P ? 'ok' : 'secours';
+      if (!P) {   // secours (écran minuscule) : un seul anneau décalé d'un bloc pour rester dans la zone de jeu
+        const r = RADIAL.rRing + 20; P = Array.from({ length: n }, (_, i) => { const a = ((-90 + (360 * i) / n) * Math.PI) / 180; return { x: tx + Math.cos(a) * r, y: ty + Math.sin(a) * r }; });
+        const o = P.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - E.w)), r: Math.max(o.r, q.x + E.w - (W - 6)), t: Math.max(o.t, top - (q.y - E.up)), b: Math.max(o.b, q.y + E.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
+        for (const q of P) { q.x += o.l - o.r; q.y += o.t - o.b; }
+      }
+      P.forEach((q, i) => { pos[i] = { x: q.x, y: q.y, e: E }; });
     } else {
       // Tourelle posée : une barre groupée, toujours dans le même ordre (ciblage, améliorations, vente), juste sous la
       // tourelle (au-dessus si elle est trop bas). Si la barre est trop large (3 branches), ciblage et vente passent
@@ -279,16 +322,16 @@ export const Radial = {
         y += below ? h : -h;
       }
     }
-    if (!sheet) items.forEach((it, i) => { const b = make(it, i); b.style.left = pos[i].x + 'px'; b.style.top = pos[i].y + 'px'; box.append(b); });
+    items.forEach((it, i) => { const b = make(it, i); b.style.left = pos[i].x + 'px'; b.style.top = pos[i].y + 'px'; box.append(b); });
     const cx = tx, cy = ty;
     // emprise réelle de chaque bouton (nom, prix) ou de la rangée, mesurée une fois affichée, pour placer le panneau
     box.classList.add('measure');
     const rel = (q) => ({ l: q.left - host.left - 3, r: q.right - host.left + 3, t: q.top - host.top - 3, b: q.bottom - host.top + 3 });
-    const boxes = sheet ? [rel($('.rsheet', box).getBoundingClientRect())] : Object.values(btns).map((b) => { const qs = [b, ...b.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width); return rel({ left: Math.min(...qs.map((q) => q.left)), right: Math.max(...qs.map((q) => q.right)), top: Math.min(...qs.map((q) => q.top)), bottom: Math.max(...qs.map((q) => q.bottom)) }); });
+    const boxes = Object.values(btns).map((b) => { const qs = [b, ...b.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width); return rel({ left: Math.min(...qs.map((q) => q.left)), right: Math.max(...qs.map((q) => q.right)), top: Math.min(...qs.map((q) => q.top)), bottom: Math.max(...qs.map((q) => q.bottom)) }); });
     box.classList.remove('measure');
     const tr0 = RADIAL.towerR * this.view.s + 4; boxes.push({ l: tx - tr0, r: tx + tr0, t: ty - tr0, b: ty + tr0 });   // la tourelle reste visible
-    const Rn = sheet ? 0 : Math.max(30, ...pos.map((q) => Math.hypot(q.x - tx, q.y - ty) - 20));
-    this._rad = { items, btns, slot, cx, cy, R: Rn, host, boxes, panelKey: null, panel: null, money: null, sheet };
+    const Rn = Math.max(30, ...pos.map((q) => Math.hypot(q.x - tx, q.y - ty) - 20));
+    this._rad = { items, btns, slot, cx, cy, R: Rn, host, boxes, panelKey: null, panel: null, money: null };
     this.radialPanel(); this.radialLive(true);
   },
   // 1er toucher : choisit (aperçu) ; 2e toucher sur le même bouton : valide
