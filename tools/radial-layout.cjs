@@ -19,13 +19,38 @@ const { chromium } = require('playwright');
         const g = __ui.game, out = [], wait = () => new Promise((r) => setTimeout(r, 60));
         g.money = 1e6;
         const slots = g.slots.filter((s) => s.kind === 'tower');
+        const hud = document.querySelector('#hud').getBoundingClientRect().bottom, dock = document.querySelector('#dock').getBoundingClientRect().top;
+        // 1) choix d'une tourelle sur chaque emplacement vide (anneau ou rangée défilante)
+        g.money = 200;
+        for (const s of slots) {
+          __ui.openMenu(s); __ui.updateRadial(); await wait();
+          const issues = [], tw = __ui.toScreen(s.x, s.y), sh = document.querySelector('#radial .rsheet');
+          const first = document.querySelector('#radial .rb'); if (first) { first.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 0 })); first.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 0 })); await wait(); }
+          const rects = [];
+          if (sh) {
+            const q = sh.getBoundingClientRect(); if (q.top < hud - 1 || q.bottom > dock + 1) issues.push('rangée hors zone');
+            if (tw.y > q.top - 10 && tw.y < q.bottom + 10) issues.push('rangée sur l\'emplacement');
+            rects.push({ l: q.left, r: q.right, t: q.top, b: q.bottom, k: 'rangée' });
+          } else for (const btn of document.querySelectorAll('#radial .rb')) {
+            const parts = [btn, ...btn.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width);
+            const r = { l: Math.min(...parts.map((q) => q.left)), r: Math.max(...parts.map((q) => q.right)), t: Math.min(...parts.map((q) => q.top)), b: Math.max(...parts.map((q) => q.bottom)), k: 'pose ' + btn.className };
+            if (r.l < 0 || r.r > innerWidth || r.t < hud - 1 || r.b > dock + 1) issues.push('hors zone : ' + r.k);
+            rects.push(r);
+          }
+          for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) { const a = rects[i], q = rects[j]; if (a.l < q.r - 2 && q.l < a.r - 2 && a.t < q.b - 2 && q.t < a.b - 2) issues.push('chevauchement : ' + a.k + ' / ' + q.k); }
+          const pn = document.querySelector('#radial .rpanel'); if (pn) { const q = pn.getBoundingClientRect(); for (const r of rects) if (q.left < r.r - 2 && r.l < q.right - 2 && q.top < r.b - 2 && r.t < q.bottom - 2) issues.push('panneau sur ' + r.k); if (q.top < hud - 1 || q.bottom > dock + 1 || q.left < 0 || q.right > innerWidth) issues.push('panneau hors zone'); }
+          out.push({ lvl: 0, issues, si: g.slots.indexOf(s), sheet: !!sh, n: document.querySelectorAll('#radial .rb').length });
+        }
+        // 2) tourelles posées (une sur deux améliorée jusqu'au choix de branche)
+        g.money = 1e6;
         for (const [i, s] of slots.entries()) { g.placeTower('assault', s); if (i % 2 === 0) { g.upgradeTower(s.tower, s.tower.upgradeOptions()[0]); g.upgradeTower(s.tower, s.tower.upgradeOptions()[0]); } }
         document.querySelectorAll('.tower-tip, #toasts > *').forEach((e) => e.remove());
         g.money = 200;   // pas assez pour tout : prix en rouge
-        const hud = document.querySelector('#hud').getBoundingClientRect().bottom, dock = document.querySelector('#dock').getBoundingClientRect().top;
+        // le panneau s'affiche tout de suite (avant tout toucher) : prix et infos
+        for (const s of slots.slice(0, 2)) { __ui.openMenu(s); __ui.updateRadial(); await wait(); if (!document.querySelector('#radial .rpanel .upp-cost, #radial .rpanel .upp-max')) out.push({ lvl: s.tower.level, issues: ['panneau sans prix ni infos avant le 1er toucher'], si: g.slots.indexOf(s) }); if (/Touche UP pour voir/.test(document.querySelector('#radial').textContent)) out.push({ lvl: s.tower.level, issues: ['ancien texte « Touche UP pour voir » encore présent'], si: g.slots.indexOf(s) }); }
         for (const s of slots) {
           __ui.openMenu(s); __ui.updateRadial(); await wait();
-          const up = document.querySelector('#radial .rb.up:not(.locked)'); if (up) { up.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); up.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); await wait(); }
+          const up = document.querySelector('#radial .rb.up:not(.locked)'); if (up) { up.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 0 })); up.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 0 })); await wait(); }
           const tw = __ui.toScreen(s.x, s.y), rects = [], issues = [];
           for (const btn of document.querySelectorAll('#radial .rb')) {
             const parts = [btn, ...btn.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width);
@@ -43,7 +68,8 @@ const { chromium } = require('playwright');
         __ui.openMenu(null);
         return out;
       }, lv);
-      for (const r of res) { n++; if (r.issues.length) { bad++; console.log(`KO  ${W}×${H} niveau ${lv}, tourelle niv. ${r.lvl} (emplacement ${r.si}) : ${r.issues.join(' ; ')}`); if (process.env.SHOT) { await p.evaluate(async (si) => { const g = __ui.game; __ui.openMenu(g.slots[si]); __ui.updateRadial(); await new Promise((r) => setTimeout(r, 60)); const up = document.querySelector('#radial .rb.up:not(.locked)'); up.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); up.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); }, r.si); await p.waitForTimeout(150); await p.screenshot({ path: `${process.env.SHOT}/ko-${W}-${lv}-${r.si}.png` }); } } }
+      const bs = res.filter((r) => r.lvl === 0); console.log(`${W}×${H} niveau ${lv} : ${bs.length} menus de pose (${bs[0] ? bs[0].n : 0} tourelles, ${bs.some((r) => r.sheet) ? 'rangée défilante' : 'anneau'})`);
+      for (const r of res) { n++; if (r.issues.length) { bad++; console.log(`KO  ${W}×${H} niveau ${lv}, ${r.lvl ? 'tourelle niv. ' + r.lvl : 'menu de pose'} (emplacement ${r.si}) : ${r.issues.join(' ; ')}`); if (process.env.SHOT) { await p.evaluate(async (si) => { const g = __ui.game; __ui.openMenu(g.slots[si]); __ui.updateRadial(); await new Promise((r) => setTimeout(r, 60)); const up = document.querySelector('#radial .rb.up:not(.locked)'); up.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); up.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); }, r.si); await p.waitForTimeout(150); await p.screenshot({ path: `${process.env.SHOT}/ko-${W}-${lv}-${r.si}.png` }); } } }
     }
     if (errs.length) { bad++; console.log('ERREURS', errs.join(' | ')); }
     await ctx.close();

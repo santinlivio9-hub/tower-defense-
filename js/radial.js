@@ -2,7 +2,7 @@
 // tourelle actuelle → niveau suivant, 3 barres de stats (gain en vert brillant) et badge « +68 % DPS ».
 // Le panneau se place automatiquement là où il ne recouvre ni la tourelle, ni les boutons, ni le chemin proche.
 // Méthodes ajoutées à la classe UI.
-import { TOWERS, RARITY, LEVELS, UNLOCKS, RADIAL } from './config.js';
+import { TOWERS, TOWER_SHORT, RARITY, LEVELS, UNLOCKS, RADIAL } from './config.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
 import { towerImg, TOWER_COLOR } from './sprites.js';
 import { icon, coin } from './icons.js';
@@ -62,7 +62,7 @@ export const Radial = {
       for (const type of g.buildable(slot)) {
         const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
         const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
-        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, dot: TOWER_COLOR[type], art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
+        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, dot: TOWER_COLOR[type], short: TOWER_SHORT[type], art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
           panel: { kind: 'build', type, cur: st, name: cfg.name, desc: cfg.desc, poor: g.money < cost, cost },
           preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
           confirm: () => { if (g.money < g.costOf(type)) { this.audio.play('error'); this.haptics.pulse(1); this.radialLive(true); return; } if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
@@ -72,7 +72,7 @@ export const Radial = {
     for (const o of t.upgradeOptions()) {
       if (o.locked) { // amélioration légendaire pas encore débloquée par la campagne
         const n = UNLOCKS.legend[t.type], at = LEVELS[Math.max(0, n - 2)].id;
-        items.push({ key: 'lock', cls: 'up br locked', isBranch: true, art: towerImg(t.type, 42, skin, o.level, o.branch), label: 'Légendaire', tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
+        items.push({ key: 'lock', cls: 'up br locked', isBranch: true, art: towerImg(t.type, 42, skin, o.level, o.branch), label: 'Légendaire', lockText: `Bats le niveau ${at} pour la débloquer`, lockName: o.name, tap: () => { this.audio.play('error'); this.toast(`${o.name} : verrouillée`, `Bats le niveau ${at} pour débloquer les améliorations légendaires`, icon('lock')); } });
         continue;
       }
       const ns = computeStats(t.type, o.level, o.branch, g.mods);
@@ -99,7 +99,8 @@ export const Radial = {
     const skin = this.save.data.skin, g = this.game, ref = barRef(p.type, g.mods);
     const cur = barStats(p.type, p.cur), next = p.next ? barStats(p.type, p.next) : null;
     const gain = p.next ? mainGain(p.type, p.cur, p.next) : null;
-    const box = el('div', 'upp' + (p.kind === 'up' ? ' up' : ' build') + (p.poor ? ' poor' : ''));
+    const box = el('div', 'upp' + (p.kind === 'up' ? ' up' : ' build') + (p.poor ? ' poor' : '') + (p.idle ? ' idle' : ''));
+    if (p.hdr) box.append(this.towerHdr(p.hdr));
     // ligne du haut : dessins (avant → après) à gauche, nom et badge à droite
     const head = el('div', 'upp-head', `<div class="upp-art"></div><div class="upp-title"><b></b>${gain ? `<span class="upp-badge">+${gain.pct} %<small>${gain.label}</small></span>` : p.kind === 'up' ? '<span class="upp-badge new">Nouveau<small>pouvoir</small></span>' : ''}</div>`);
     $('b', head).textContent = p.name; box.append(head);
@@ -122,11 +123,45 @@ export const Radial = {
     box.append(foot); box.dataset.cost = p.cost; this.panelMoney(box);
     return box;
   },
+  // en-tête d'une tourelle posée : nom (couleur de rareté), niveau, dégâts infligés et kills (mis à jour sur place)
+  towerHdr(t) {
+    const rar = RARITY[t.level - 1];
+    return el('div', 'upp-hdr', `<b style="color:${rar.color}">${t.label}</b><span class="lv">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= t.level ? 'on' : ''}" style="--rar:${rar.color}"></i>`).join('')}</span><small>${icon('sword')}<b class="dmg">${short(t.dmg)}</b>${icon('skull')}<b class="kills">${t.kills}</b></small>`);
+  },
+  // Panneau affiché dès qu'on touche une tourelle (rien de choisi) : niveau suivant (barres, gain, prix), liste des
+  // branches (nom, effet, prix, gain principal) ou stats au niveau maximum
+  towerPanel(t, items) {
+    const ups = items.filter((i) => i.panel && i.panel.kind === 'up'), lock = items.find((i) => i.key === 'lock');
+    if (ups.length === 1 && !ups[0].isBranch && !lock) return this.upgradePanel({ ...ups[0].panel, hdr: t, idle: true });
+    const skin = this.save.data.skin, g = this.game;
+    const box = el('div', 'upp up list'); box.append(this.towerHdr(t));
+    if (!ups.length && !lock) {
+      const ref = barRef(t.type, g.mods), bars = el('div', 'upp-bars');
+      for (const [i, c] of barStats(t.type, t.stats).entries()) bars.append(el('div', 'upp-row', `<span class="k">${c.k}</span><span class="bar"><i class="base" style="width:${Math.min(100, (c.v / ref[i]) * 100)}%"></i></span><span class="v"><b>${c.t}</b></span>`));
+      box.append(bars, el('div', 'upp-max', `${icon('crown')}Niveau maximum`));
+      return box;
+    }
+    box.append(el('div', 'upp-sub', 'Choisis une spécialisation'));
+    for (const it of [...ups, ...(lock ? [lock] : [])]) {
+      const row = el('div', 'upp-br' + (it === lock ? ' locked' : '')), art = el('span', 'bi');
+      art.append(it === lock ? towerImg(t.type, 34, skin, 5, 0) : towerImg(t.type, 34, skin, it.panel.to[0], it.panel.to[1]));
+      const txt = el('span', 'bt', '<b></b><small></small>');
+      $('b', txt).textContent = it === lock ? it.lockName || 'Légendaire' : it.panel.name; $('small', txt).textContent = it === lock ? it.lockText : it.panel.desc;
+      row.append(art, txt);
+      if (it === lock) row.append(el('span', 'bp', icon('lock')));
+      else { const gn = mainGain(t.type, it.panel.cur, it.panel.next); row.append(el('span', 'bp', `${gn ? `<em>+${gn.pct} %<small>${gn.label}</small></em>` : ''}<b class="upp-cost" data-cost="${it.cost}">${coin()}<span>${it.cost}</span></b>`)); }
+      box.append(row);
+    }
+    box.dataset.list = 1; this.panelMoney(box);
+    return box;
+  },
   // pied du panneau selon l'argent du moment : prix rouge et « Il manque X », ou « Touche encore pour valider »
   panelMoney(box) {
-    const g = this.game, cost = +box.dataset.cost, poor = g.money < cost, ok = $('.upp-ok', box);
+    const g = this.game;
+    if (box.dataset.list) { for (const c of box.querySelectorAll('.upp-cost[data-cost]')) c.classList.toggle('poor', g.money < +c.dataset.cost); return; }
+    const cost = +box.dataset.cost, poor = g.money < cost, ok = $('.upp-ok', box);
     box.classList.toggle('poor', poor);
-    const html = poor ? `Il manque ${Math.ceil(cost - g.money)} pièces` : `${icon('check')}Touche encore pour valider`;
+    const html = poor ? `Il manque ${Math.ceil(cost - g.money)} pièces` : box.classList.contains('idle') ? `${icon('up')}Touche UP 2 fois pour améliorer` : `${icon('check')}Touche encore pour valider`;
     if (ok._h !== html) { ok._h = html; ok.innerHTML = html; }
   },
 
@@ -166,101 +201,94 @@ export const Radial = {
   // Menu radial : le DOM est construit UNE fois par structure (emplacement, niveau / branche / ciblage de la
   // tourelle, options proposées). Ensuite on ne fait que mettre à jour ce qui change (argent, choix en cours) sur les
   // mêmes éléments : un toucher commencé sur un bouton n'est jamais perdu.
+  // zone du menu ouvert (boutons + panneau), en coordonnées du terrain : les textes flottants y sont atténués
+  menuDim() {
+    const R0 = this._rad, g = this.game; if (!g) return;
+    if (!R0) { g.fx.dim = null; return; }
+    const q = R0.panel ? R0.panel.getBoundingClientRect() : null, H = R0.host;
+    const all = R0.boxes.map((b) => ({ l: b.l + H.left, r: b.r + H.left, t: b.t + H.top, b: b.b + H.top }));
+    if (q) all.push({ l: q.left, r: q.right, t: q.top, b: q.bottom });
+    const c = this.canvas.getBoundingClientRect(), v = this.view, w = (x, y) => ({ x: (x - c.left - v.ox) / v.s, y: (y - c.top - v.oy) / v.s });
+    g.fx.dim = all.map((b) => { const a = w(b.l, b.t), z = w(b.r, b.b); return { l: a.x, t: a.y, r: z.x, b: z.y }; });
+  },
   renderRadial() {
     const g = this.game, box = $('#radial'), slot = g && g.menuSlot;
-    this._rad = null;
+    this._rad = null; if (g) g.fx.dim = null;
     if (!slot || g.over) { box.hidden = true; box.innerHTML = ''; return; }
     const items = this.menuItems(slot), t = slot.tower;
     box.hidden = false; box.innerHTML = '';
+    document.querySelectorAll('.tower-tip').forEach((e) => e.remove());   // la bulle « Nouvelle arme » ne cache pas le menu
     const host = box.getBoundingClientRect(), p = this.toScreen(slot.x, slot.y), n = items.length;
     const ups = items.filter((i) => !i.side);
-    // rayon : juste ce qu'il faut pour que les boutons (et les noms des branches) ne se touchent pas
-    const R = t ? (ups.length > 2 ? RADIAL.rTower3 : ups.length > 1 ? RADIAL.rTower2 : RADIAL.rTower) : Math.max(RADIAL.rBuild, (n * RADIAL.buildGap) / (2 * Math.PI));
     const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 6, bot = $('#dock').getBoundingClientRect().top - host.top - 6;
-    box.classList.toggle('build', !t);
-    // angles : UP en haut, ciblage à gauche, vente en bas ; « spread » écarte les branches sur les côtés
-    const ang = (it, i, spread) => {
-      if (!t) return n === 1 ? -90 : -90 + (360 / n) * i;
-      if (it.side === 'left') return spread ? 135 : 158; if (it.side === 'bottom') return 90;
-      const k = ups.indexOf(it);
-      if (ups.length === 1) return -90;
-      if (ups.length === 3) return spread ? [-170, -90, -10][k] : [-150, -90, -30][k];
-      return spread ? [-168, -12][k] : [-140, -40][k];
-    };
-    // encombrement de chaque bouton autour de son centre (nom au-dessus, prix ou libellé au-dessous)
-    const ext = (it) => (it.isBranch ? { w: 56, up: 54, down: 40 } : { w: 40, up: it.label && !it.side ? 44 : 36, down: 44 });
-    const tx = p.x - host.left, ty = p.y - host.top;
-    const fits = (x, y, e) => x - e.w >= 6 && x + e.w <= host.width - 6 && y - e.up >= top && y + e.down <= bot;
-    let pos;
-    if (!t) {
-      // choix d'une tourelle sur un emplacement vide : cercle complet, décalé pour tenir dans l'écran
-      pos = items.map((it, i) => { const a = (ang(it, i) * Math.PI) / 180; return { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e: ext(it) }; });
-      const o = pos.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - q.e.w)), r: Math.max(o.r, q.x + q.e.w - (host.width - 6)), t: Math.max(o.t, top - (q.y - q.e.up)), b: Math.max(o.b, q.y + q.e.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
-      for (const q of pos) { q.x += o.l - o.r; q.y += o.t - o.b; }
-    } else {
-      // Tourelle posée : le cercle reste centré sur elle, aucun bouton ne la recouvre.
-      // 1) disposition habituelle (UP en haut, ciblage à gauche, vente en bas) si elle tient dans l'écran ;
-      pos = items.map((it, i) => { const a = (ang(it, i) * Math.PI) / 180; return { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e: ext(it) }; });
-      if (!pos.every((q) => fits(q.x, q.y, q.e))) {
-        // 2) sinon (bord de l'écran) : les boutons, dans le même ordre (ciblage, améliorations, vente), se répartissent
-        //    sur l'arc de cercle libre le plus grand ; le rayon grandit si l'arc est trop court.
-        const order = [...items.filter((i) => i.side === 'left'), ...ups, ...items.filter((i) => i.side === 'bottom')];
-        const big = { w: 56, up: 54, down: 44 };
-        const gap = (a, b) => (a.isBranch && b.isBranch ? 142 : a.isBranch || b.isBranch ? 114 : 100);   // distance mini entre deux voisins, nom et prix compris (px)
-        let done = false;
-        for (let RR = R; RR <= R + 130 && !done; RR += 10) {
-          const ok = []; for (let d = 0; d < 360; d += 4) { const a = (d * Math.PI) / 180; ok.push(fits(tx + Math.cos(a) * RR, ty + Math.sin(a) * RR, big)); }
-          // plus grand arc libre (en degrés), en tenant compte du passage 359 → 0
-          let bestS = -1, bestL = 0;
-          for (let st = 0; st < 90; st++) { if (!ok[st] || ok[(st + 89) % 90]) continue; let L = 0; while (L < 90 && ok[(st + L) % 90]) L++; if (L > bestL) { bestL = L; bestS = st; } }
-          if (ok.every(Boolean)) { bestS = 0; bestL = 90; }
-          const need = order.slice(1).reduce((acc, it, k) => acc + (2 * Math.asin(Math.min(1, gap(order[k], it) / (2 * RR))) * 180) / Math.PI, 0);
-          if (bestS < 0 || bestL * 4 < need) continue;
-          let a = bestS * 4 + (bestL * 4 - need) / 2;
-          pos = new Array(items.length);
-          order.forEach((it, k) => {
-            if (k) a += (2 * Math.asin(Math.min(1, gap(order[k - 1], it) / (2 * RR))) * 180) / Math.PI;
-            const r = (a * Math.PI) / 180; pos[items.indexOf(it)] = { x: tx + Math.cos(r) * RR, y: ty + Math.sin(r) * RR, e: ext(it) };
-          });
-          done = true;
-        }
-        // 3) aucun arc ne suffit (coin de l'écran, petit téléphone) : deux rangées sous la tourelle (ou au-dessus si
-        //    elle est en bas) — améliorations d'abord, puis ciblage et vente
-        if (!done) {
-          const down = ty < (top + bot) / 2, dir = down ? 1 : -1, row1 = ty + dir * (down ? 26 + 54 + 8 : 26 + 44 + 8), row2 = row1 + dir * 112;
-          const clampX = (x, e) => Math.max(6 + e.w, Math.min(host.width - 6 - e.w, x));
-          ups.forEach((it, k) => { const e = ext(it); pos[items.indexOf(it)] = { x: clampX(tx + (k - (ups.length - 1) / 2) * 118, e), y: row1, e }; });
-          const side = items.filter((i) => i.side);
-          side.forEach((it, k) => { const e = ext(it); pos[items.indexOf(it)] = { x: clampX(tx + (side.length === 1 ? 0 : k ? 52 : -52), e), y: row2, e }; });
-          // si la 1re rangée a été poussée contre un bord, la 2e se cale dessous sans la chevaucher
-        }
-      }
-    }
-    const cx = tx, cy = ty, Rn = Math.max(R, ...pos.map((q) => Math.hypot(q.x - tx, q.y - ty)));
-    const btns = {};
-    items.forEach((it, i) => {
-      const b = el('button', 'rb ' + (it.cls || ''));
-      b.style.cssText = `left:${pos[i].x}px;top:${pos[i].y}px;--i:${i}`;
+    const tx = p.x - host.left, ty = p.y - host.top, W = host.width;
+    const sheet = !t && n > RADIAL.ringMax;
+    box.classList.toggle('build', !t); box.classList.toggle('sheet', sheet);
+    const btns = {}, pos = [];
+    // un bouton : mêmes écouteurs partout (pointerdown puis pointerup sur le même bouton ; un glissement de plus de
+    // 10 px — défilement de la rangée — n'est pas un toucher ; clic clavier en secours)
+    const make = (it, i, cls) => {
+      const b = el('button', 'rb ' + (it.cls || '') + (cls ? ' ' + cls : ''));
+      b.style.setProperty('--i', i);
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
-      if (it.isBranch) b.append(el('span', 'lab name', it.label));   // nom de la branche, toujours visible
+      if (sheet) { const nm = el('span', 'lab sname', ''); nm.textContent = it.short || it.label || ''; b.append(nm); }
+      else if (it.isBranch) b.append(el('span', 'lab name', it.label));
       else if (it.label) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
-      if (it.dot) { const d = el('i', 'tdot'); d.style.background = it.dot; b.append(d); }   // pastille de couleur signature
+      if (it.dot) { const d = el('i', 'tdot'); d.style.background = it.dot; b.append(d); }
+      if (sheet && it.label === 'NOUVEAU') b.append(el('span', 'snew', 'NOUVEAU'));
       if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
       if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
       b.append(el('span', 'ok', icon('check')));
-      // pointerdown puis pointerup sur le même bouton (éléments stables) ; clic clavier en secours
-      b.addEventListener('pointerdown', (e) => { this._rbDown = it.key; b.classList.add('press'); e.stopPropagation(); });
-      b.addEventListener('pointerup', (e) => { b.classList.remove('press'); if (this._rbDown !== it.key) return; this._rbDown = null; e.preventDefault(); this.radialTap(it); });
+      let x0 = 0;
+      b.addEventListener('pointerdown', (e) => { this._rbDown = it.key; x0 = e.clientX; b.classList.add('press'); e.stopPropagation(); });
+      b.addEventListener('pointerup', (e) => { b.classList.remove('press'); if (this._rbDown !== it.key) return; this._rbDown = null; if (Math.abs(e.clientX - x0) > 10) return; e.preventDefault(); this.radialTap(it); });
       b.addEventListener('pointercancel', () => { b.classList.remove('press'); this._rbDown = null; });
       b.addEventListener('pointerleave', () => b.classList.remove('press'));
       b.addEventListener('click', (e) => { if (e.detail === 0) this.radialTap(it); });   // clavier (touches 1 à 9)
-      box.append(b); btns[it.key] = b;
-    });
-    // emprise réelle de chaque bouton (nom sur 2 lignes, prix), mesurée une fois affiché, pour placer le panneau
-    box.classList.add('measure');   // mesure sans l'animation d'apparition (taille finale)
-    const boxes = Object.values(btns).map((b) => { const qs = [b, ...b.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width); return { l: Math.min(...qs.map((q) => q.left)) - host.left - 3, r: Math.max(...qs.map((q) => q.right)) - host.left + 3, t: Math.min(...qs.map((q) => q.top)) - host.top - 3, b: Math.max(...qs.map((q) => q.bottom)) - host.top + 3 }; });
+      btns[it.key] = b; return b;
+    };
+    if (sheet) {
+      // plus de 6 tourelles : rangée défilante en bas de la zone de jeu (en haut si l'emplacement est en bas)
+      const sh = el('div', 'rsheet'), sc = el('div', 'rs-scroll');
+      items.forEach((it, i) => sc.append(make(it, i, 'tile')));
+      sh.append(sc); box.append(sh);
+      const hh = sh.offsetHeight, atTop = ty + 60 > bot - hh;
+      sh.style.top = (atTop ? top : bot - hh) + 'px'; sh.classList.toggle('top', atTop);
+    } else if (!t) {
+      // 6 tourelles ou moins : anneau de taille fixe, décalé d'un bloc pour rester dans l'écran
+      const R = RADIAL.rRing, e = { w: 30, up: 30, down: 42 };
+      items.forEach((it, i) => { const a = ((n === 1 ? -90 : -90 + (360 / n) * i) * Math.PI) / 180; pos[i] = { x: tx + Math.cos(a) * R, y: ty + Math.sin(a) * R, e }; });
+      const o = pos.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - q.e.w)), r: Math.max(o.r, q.x + q.e.w - (W - 6)), t: Math.max(o.t, top - (q.y - q.e.up)), b: Math.max(o.b, q.y + q.e.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
+      for (const q of pos) { q.x += o.l - o.r; q.y += o.t - o.b; }
+    } else {
+      // Tourelle posée : une barre groupée, toujours dans le même ordre (ciblage, améliorations, vente), juste sous la
+      // tourelle (au-dessus si elle est trop bas). Si la barre est trop large (3 branches), ciblage et vente passent
+      // sur une 2e rangée.
+      const order = [...items.filter((i) => i.side === 'left'), ...ups, ...items.filter((i) => i.side === 'bottom')];
+      const cw = (it) => (it.isBranch ? RADIAL.cellBranch : RADIAL.cell), gap = RADIAL.barGap;
+      const tr = RADIAL.towerR * this.view.s;
+      let rows = [order]; const wOf = (r) => r.reduce((a, it) => a + cw(it), 0) + gap * (r.length - 1);
+      if (wOf(order) > W - 12) rows = [ups, order.filter((i) => i.side)];
+      const rowH = (r) => (r.some((i) => i.isBranch) ? 104 : 86);
+      const below = ty + tr + rows.reduce((a, r) => a + rowH(r), 0) <= bot;
+      let y = below ? ty + tr : ty - tr;
+      for (const r of rows) {
+        const h = rowH(r), cy = below ? y + h / 2 + (r.some((i) => i.isBranch) ? 9 : 2) : y - h / 2 + (r.some((i) => i.isBranch) ? 9 : 2);
+        const w = wOf(r); let x = Math.max(6, Math.min(W - 6 - w, tx - w / 2));
+        for (const it of r) { const c = cw(it); pos[items.indexOf(it)] = { x: x + c / 2, y: cy, e: { w: c / 2, up: 0, down: 0 } }; x += c + gap; }
+        y += below ? h : -h;
+      }
+    }
+    if (!sheet) items.forEach((it, i) => { const b = make(it, i); b.style.left = pos[i].x + 'px'; b.style.top = pos[i].y + 'px'; box.append(b); });
+    const cx = tx, cy = ty;
+    // emprise réelle de chaque bouton (nom, prix) ou de la rangée, mesurée une fois affichée, pour placer le panneau
+    box.classList.add('measure');
+    const rel = (q) => ({ l: q.left - host.left - 3, r: q.right - host.left + 3, t: q.top - host.top - 3, b: q.bottom - host.top + 3 });
+    const boxes = sheet ? [rel($('.rsheet', box).getBoundingClientRect())] : Object.values(btns).map((b) => { const qs = [b, ...b.querySelectorAll('.lab, .price')].map((e) => e.getBoundingClientRect()).filter((q) => q.width); return rel({ left: Math.min(...qs.map((q) => q.left)), right: Math.max(...qs.map((q) => q.right)), top: Math.min(...qs.map((q) => q.top)), bottom: Math.max(...qs.map((q) => q.bottom)) }); });
     box.classList.remove('measure');
-    this._rad = { items, btns, slot, cx, cy, R: Rn, host, boxes, panelKey: null, panel: null, money: null };
+    const tr0 = RADIAL.towerR * this.view.s + 4; boxes.push({ l: tx - tr0, r: tx + tr0, t: ty - tr0, b: ty + tr0 });   // la tourelle reste visible
+    const Rn = sheet ? 0 : Math.max(30, ...pos.map((q) => Math.hypot(q.x - tx, q.y - ty) - 20));
+    this._rad = { items, btns, slot, cx, cy, R: Rn, host, boxes, panelKey: null, panel: null, money: null, sheet };
     this.radialPanel(); this.radialLive(true);
   },
   // 1er toucher : choisit (aperçu) ; 2e toucher sur le même bouton : valide
@@ -277,14 +305,15 @@ export const Radial = {
     if (R0.panelKey === key && R0.panel) return;
     const armed = R0.items.find((i) => i.key === this.armed);
     let node;
-    if (armed && armed.panel) node = this.upgradePanel(armed.panel);
+    if (armed && armed.panel) node = this.upgradePanel(t && !armed.isBranch ? { ...armed.panel, hdr: t } : armed.panel);
     else if (armed && armed.info) node = el('div', 'info', armed.info);
-    else if (t) { const rar = RARITY[t.level - 1]; node = el('div', 'info', `<b style="color:${rar.color}">${t.label}</b><span class="lv">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= t.level ? 'on' : ''}" style="--rar:${rar.color}"></i>`).join('')}</span><small>${icon('sword')}<b class="dmg">${short(t.dmg)}</b> dégâts · ${icon('skull')}<b class="kills">${t.kills}</b> kills</small><small class="hint">${t.upgradeOptions().length ? 'Touche UP pour voir l\'amélioration' : 'Niveau maximum'}</small>`); }
+    else if (t) node = this.towerPanel(t, R0.items);
     else node = el('div', 'info', slot.kind === 'mine' ? '<b>Zone de mine</b><small class="hint">Choisis une mine</small>' : '<b>Choisis une tourelle</b><small class="hint">Touche-la pour voir ses stats</small>');
     node.classList.add('rpanel');
     if (R0.panel) R0.panel.replaceWith(node); else $('#radial').append(node);
     R0.panel = node; R0.panelKey = key;
     this.placePanel(node, R0.cx, R0.cy, R0.R, slot, R0.host, R0.boxes);
+    this.menuDim();
     for (const [k, b] of Object.entries(R0.btns)) b.classList.toggle('armed', k === this.armed);
   },
   // ce qui change en continu (argent) : classes et textes mis à jour sur les mêmes éléments
@@ -298,12 +327,12 @@ export const Radial = {
       if (b._poor !== poor) { b._poor = poor; b.classList.toggle('poor', poor); }
       if (it.preview) it.preview.mode = poor ? 'bad' : 'ok';
     }
-    if (R0.panel && R0.panel.dataset.cost) this.panelMoney(R0.panel);
+    if (R0.panel && (R0.panel.dataset.cost || R0.panel.dataset.list)) this.panelMoney(R0.panel);
     const armed = R0.items.find((i) => i.key === this.armed); if (armed && armed.preview) g.preview = armed.preview;
   },
   updateRadial() {
     const g = this.game, slot = g.menuSlot;
-    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; $('#radial').innerHTML = ''; this._rad = null; g.menuSlot = null; } return; }
+    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; $('#radial').innerHTML = ''; this._rad = null; g.menuSlot = null; g.fx.dim = null; } return; }
     const t = slot.tower;
     // structure seulement : l'argent et le choix en cours ne reconstruisent jamais le menu
     const opts = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : o.level + ':' + (o.branch ?? ''))).join(',') : g.buildable(slot).join(',');

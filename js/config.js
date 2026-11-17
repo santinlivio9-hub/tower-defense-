@@ -212,6 +212,8 @@ Object.assign(TOWERS, {
 });
 
 export const BOSS_ORDER = ['boss1', 'boss2', 'boss3', 'boss4', 'boss5', 'boss6', 'boss7', 'boss8'];
+// noms courts (rangée de choix en partie)
+export const TOWER_SHORT = { assault: 'Fusil', smg: 'Mitraillette', shotgun: 'Pompe', sniper: 'Sniper', rocket: 'Roquettes', minigun: 'Minigun', cryo: 'Cryo', laser: 'Laser', tesla: 'Tesla', plasma: 'Plasma', drone: 'Drone', mine: 'Mine' };
 export const TOWER_ORDER = ['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'laser', 'tesla', 'plasma', 'drone', 'mine'];
 
 // Vitesse de rotation (rad/s) et distance de la bouche du canon (px) par tourelle
@@ -548,11 +550,10 @@ export const SCORE = {
 // Étoiles : part des PV restants nécessaire
 // Menu radial d'un emplacement (px écran)
 export const RADIAL = {
-  rTower: 72,        // rayon autour d'une tourelle posée (UP en haut, ciblage à gauche, vente en bas)
-  rTower2: 88,       // ...quand 2 branches sont proposées (leurs noms ne se touchent pas)
-  rTower3: 108,      // ...quand 3 branches sont proposées (Mk II de la Renaissance)
-  rBuild: 62,        // rayon minimal du choix de tourelle...
-  buildGap: 60,      // ...agrandi pour laisser cet espace entre deux boutons
+  ringMax: 6,        // choix de tourelle : anneau jusqu'à 6 tourelles, au-delà rangée défilante en bas de l'écran
+  rRing: 76,         // rayon fixe de l'anneau de choix (px écran)
+  cell: 62, cellBranch: 104, barGap: 6,   // barre d'amélioration : largeur d'une case (px), d'une case de branche, écart
+  towerR: 34,        // rayon de la tourelle (unités du terrain) que les boutons et le panneau ne recouvrent pas
   ringPad: 44,       // marge autour des boutons (prix, libellés) que le panneau ne recouvre pas
   pathNear: 260,     // le panneau évite le chemin dans ce rayon autour de l'emplacement (unités du terrain)
   pathHalf: 30,      // demi-largeur du chemin prise en compte (unités du terrain)
