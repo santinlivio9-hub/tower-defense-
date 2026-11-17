@@ -1,18 +1,25 @@
-// Arbre de talents, lu de haut en bas : le niveau du joueur en haut, puis 3 branches de 4 talents.
+// Arbre de talents, lu de haut en bas : le niveau du joueur en haut, puis 3 branches de 6 talents (le dernier : ULTIME).
 // Chaque nœud : icône illustrée, anneau qui se remplit selon les rangs, pastille « 2/5 » et nom dessous.
 // Toucher un nœud ouvre une bulle (effet actuel → effet suivant, bouton Améliorer).
-import { TALENTS, TALENT_ROWS, XP } from './config.js';
-import { icon } from './icons.js';
+import { TALENTS, TALENT_ROWS, TALENT_RESPEC, XP } from './config.js';
+import { icon, gem } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const COLS = [17, 50, 83];                     // x (%) des 3 branches
-const ROOT_Y = 40, HEAD_Y = 112, ROWS = [210, 342, 474, 606], TREE_H = 700;   // y (px)
+const ROOT_Y = 40, HEAD_Y = 112, ROWS = [210, 362, 514, 666, 818, 978], TREE_H = 1090;   // y (px)
 
 // Valeur d'un talent à un rang donné, d'après son texte « fx » (config) : {v} = per × rang (× 100 si pct)
 export function talentEffect(n, r) {
   const v = n.pct ? Math.round(n.per * r * 100) : n.per * r;
   return n.fx.replace('{v}', v);
+}
+// Effet court sous un nœud : « +4 → +6 % » (actuel → suivant), ou la valeur atteinte au rang maximum
+export function talentShort(n, r) {
+  if (n.ult) return r ? 'Actif' : 'Ultime';
+  const m = /^(.*?)\{v\}(\s?%?)/.exec(n.fx), val = (k) => (m[1] || '') + (n.pct ? Math.round(n.per * k * 100) : n.per * k), u = (m[2] || '').trim();
+  if (r >= n.max) return val(r) + (u ? ' ' + u : '');
+  return `${r ? val(r) : '0'} → ${val(r + 1)}${u ? ' ' + u : ''}`;
 }
 
 export const Talents = {
@@ -47,9 +54,9 @@ export const Talents = {
       br.nodes.forEach((n, i) => {
         const rank = sv.talent(n.id), open = sv.talentOpen(bid, n), can = sv.canTalent(bid, n), max = rank >= n.max;
         const st = max ? 'max' : !open ? 'locked' : can ? 'can' : rank ? 'has' : 'open', rowLock = !sv.talentRowOk(bid, n);
-        const b = el('button', `tn ${st}` + (this.talentSel === n.id ? ' sel' : '') + (this.talentCharge === n.id ? ' pop' : ''),
+        const b = el('button', `tn ${st}` + (n.ult ? ' ult' : '') + (this.talentSel === n.id ? ' sel' : '') + (this.talentCharge === n.id ? ' pop' : ''),
           `<span class="tn-ring"></span><span class="tn-in">${icon(n.icon)}</span>${rowLock ? `<i class="tn-badge lvl">Niv.${TALENT_ROWS[i]}</i>` : !open ? `<i class="tn-badge lock">${icon('lock')}</i>` : max ? `<i class="tn-badge star">${icon('star')}</i>` : ''}
-           <em class="tn-rk">${rank}/${n.max}</em><small class="tn-name">${n.name}</small>`);
+           <em class="tn-rk">${rank}/${n.max}</em><small class="tn-name">${n.name}<span class="tn-fx">${talentShort(n, rank)}</span></small>`);
         b.style.cssText = `left:${COLS[bi]}%;top:${ROWS[i]}px;--bc:${br.color};--p:${rank / n.max}`;
         b.setAttribute('aria-label', `${n.name}, rang ${rank} sur ${n.max}`);
         b.onclick = () => { this.talentSel = this.talentSel === n.id ? null : n.id; this.audio.play('click'); this.haptics.pulse(0); this.renderTalents(); };
@@ -59,11 +66,17 @@ export const Talents = {
     });
     box.append(tree);
     if (selNode) this.talentBubble(tree, selNode);
-    const spent = Object.values(d.talents).reduce((a, b) => a + b, 0);
+    // Respécialisation contre des gemmes : 1er toucher = demande de confirmation, 2e toucher = tous les points rendus
+    const spent = sv.talentsSpent();
     if (spent) {
-      const rs = el('button', 'btn ghost sm reset', icon('restart') + 'Récupérer mes points');
-      rs.onclick = () => { d.talentPts += spent; d.talents = {}; sv.persist(); this.talentSel = null; this.audio.play('sell'); this.renderTalents(); this.tabBadges(); };
-      box.append(rs);
+      const C = TALENT_RESPEC.gems, rs = el('button', 'btn ghost sm reset' + (d.gems < C ? ' poor' : ''), `${icon('restart')}Respécialiser · ${gem()}${C}`);
+      let armed = false;
+      rs.onclick = () => {
+        if (d.gems < C) { this.audio.play('error'); this.toast('Pas assez de gemmes', `Il en faut ${C} pour récupérer tes ${spent} points`, gem()); return; }
+        if (!armed) { armed = true; rs.classList.add('armed'); rs.innerHTML = `${icon('check')}Récupérer ${spent} points pour ${gem()}${C} ?`; this.audio.play('tick'); return; }
+        if (sv.respec()) { this.talentSel = null; this.audio.play('sell'); this.haptics.pulse(1); this.refreshGems && this.refreshGems(); this.toast('Points récupérés', `${spent} points de talent à replacer`, icon('talent')); this.renderTalents(); this.tabBadges(); }
+      };
+      box.append(rs, el('p', 'thint small', `Respécialiser rend tous tes points (${C} gemmes).`));
     }
   },
   // Bulle d'un talent : nom, effet actuel → suivant, condition ou bouton Améliorer
@@ -74,6 +87,7 @@ export const Talents = {
     const need = !sv.talentRowOk(bid, n) ? `Se débloque au niveau de joueur ${TALENT_ROWS[i]} (tu es niveau ${d.level})` : !open ? (i > 0 && !sv.talent(ns[i - 1].id) ? `Débloque d'abord « ${ns[i - 1].name} »` : `Nécessite ${n.need} pts dans la branche ${br.name}`) : '';
     const bub = el('div', 'tbubble' + (below ? '' : ' up'), `<i class="tb-arrow" style="left:${x - left}px"></i>
       <div class="tb-head"><span class="tb-ico" style="--bc:${br.color}">${icon(n.icon)}</span><span><b>${n.name}</b><small>Rang ${rank}/${n.max} · ${n.desc}${n.max > 1 ? ' par rang' : ''}</small></span></div>
+      ${n.ult ? '<em class="tb-ult">TALENT ULTIME</em>' : ''}
       <div class="fx-big">${max ? `<b>${talentEffect(n, rank)}</b>` : `<span>${rank ? talentEffect(n, rank) : 'Aucun'}</span><i>${icon('arrowup')}</i><b>${talentEffect(n, rank + 1)}</b>`}</div>
       ${need ? `<p class="tb-need">${icon('lock')}${need}</p>` : ''}`);
     bub.style.cssText = `left:${left}px;width:${bw}px;top:${below ? ROWS[i] + 76 : ROWS[i] - 52}px`;

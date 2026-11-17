@@ -1,6 +1,6 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { REBIRTH, PER_WORLD, TALENT_ROWS, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 import { setTierCap } from './castle.js';
 
@@ -225,7 +225,16 @@ export class Save {
       damage: (1 + v('attack', 'dmg')) * (1 + REBIRTH.damagePerRank * this.rank()), rate: 1 + v('attack', 'rate'), range: 1 + v('attack', 'range'), crit: v('attack', 'crit'),
       startMoney: v('economy', 'start'), coinMult: (1 + v('economy', 'kill')) * (1 + REBIRTH.coinsPerRank * this.rank()), waveBonus: 1 + v('economy', 'wave'), gemMult: 1 + v('economy', 'gems'),
       lives: v('castle', 'lives'), cdMult: 1 - v('castle', 'cd'), durMult: 1 + v('castle', 'dur'), slots: v('castle', 'slot'),
+      bossDmg: v('attack', 'boss'), double: this.talent('double') > 0, sellMult: 1 + v('economy', 'sell'),
+      interest: this.talent('interest') ? TALENTS.economy.nodes.find((n) => n.id === 'interest') : null, cannonMult: 1 + v('castle', 'gunner'), twin: this.talent('twin') > 0,
     };
+  }
+  // Respécialisation : tous les points placés sont rendus, contre des gemmes
+  talentsSpent() { return Object.values(this.data.talents || {}).reduce((a, b) => a + (b || 0), 0); }
+  respec() {
+    const d = this.data, n = this.talentsSpent();
+    if (!n || !this.spend(TALENT_RESPEC.gems, 'gems')) return 0;
+    d.talentPts += n; d.talents = {}; this.persist(); return n;
   }
   boostSlots(level) { return (level.boss ? BOOST_SLOTS.boss : BOOST_SLOTS.normal) + this.mods().slots + (this.owns('slot') ? 1 : 0); }
 

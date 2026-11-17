@@ -1989,3 +1989,15 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .bp-art { display: flex; } .bp-art .bico { margin-right: -8px; }
 .bp-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; margin-left: 8px; } .bp-txt b { font-size: 15px; } .bp-txt small { font-size: 14px; color: var(--text-soft); }
 .bpack .btn { flex: none; }
+/* Talents : effet actuel → suivant sous chaque nœud, talents ULTIMES, respécialisation */
+.tn .tn-fx { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; line-height: 1.1; color: #8dffae; text-align: center; text-shadow: var(--ol); white-space: nowrap; }
+.tn.locked .tn-fx { color: var(--text-soft); }
+.tn.ult { width: 72px; height: 72px; }
+.tn.ult .tn-ring { border-color: #ffd23f; box-shadow: 0 0 0 3px var(--ink), 0 0 18px rgba(255, 210, 63, .55); }
+.tn.ult .tn-in { background: radial-gradient(circle at 50% 30%, #ffe08a, #c97b10); }
+.tn.ult.locked .tn-in { background: radial-gradient(circle at 50% 30%, #8a7a5a, #4a3a20); }
+.tn.ult .tn-fx { color: #ffd23f; text-transform: uppercase; letter-spacing: .04em; }
+.tb-ult { display: block; margin: 2px 0; font-style: normal; font-size: 13px; font-weight: 700; letter-spacing: .08em; color: #ffd23f; text-shadow: var(--ol); }
+.btn.reset.armed { background: linear-gradient(180deg, #ff9a9a, #f0485a); color: #fff; }
+.btn.reset .gem-ico { width: 15px; height: 15px; margin: 0 2px; }
+.thint.small { font-size: 13px; opacity: .8; margin-top: 4px; }
