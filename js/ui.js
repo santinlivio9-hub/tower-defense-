@@ -149,6 +149,7 @@ export class UI {
       const card = el('div', 'ccard skin' + (on ? ' on' : ''), `<span class="cc-art"><i class="pad"></i></span><b>${s.name}</b>`);
       $('.cc-art', card).append(towerImg('assault', 84, s.id, 4, 0));   // aperçu sur une vraie tourelle, posée sur son socle
       if (on) card.append(owned('Équipé'));
+      else if (s.season && !has) { card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('crown')}Pass de saison`)); }
       else if (s.rebirth && !has) { card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('shard')}Renaissance`)); }
       else if (s.exclusive && !has) { const n = UNLOCKS.skins[s.id]; card.classList.add('excl'); card.append(el('span', 'btn sm locked', `${icon('lock')}Boss ${LEVELS[n - 2].id}`)); }
       else if (has) { const b = el('button', 'btn sm green', 'Équiper'); b.onclick = () => { d.skin = s.id; this.save.persist(); preloadSprites(s.id, d.towers); this.audio.play('upgrade'); this.renderShop(); }; card.append(b); }

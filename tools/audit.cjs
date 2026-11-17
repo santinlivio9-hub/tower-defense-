@@ -94,7 +94,8 @@ async function audit(p) {
         if (cs.display === 'none' || cs.visibility === 'hidden' || e.closest('svg') && e.tagName !== 'svg') continue;
         const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue;
         // conteneur qui peut défiler horizontalement
-        if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && e.scrollWidth > e.clientWidth + 1) issues.push(`${name(e)} défile en largeur (${e.scrollWidth} > ${e.clientWidth})`);
+        // exception voulue : la piste du pass de saison défile en largeur (ses colonnes restent dans le panneau)
+        if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && e.scrollWidth > e.clientWidth + 1 && !e.matches('.ss-track')) issues.push(`${name(e)} défile en largeur (${e.scrollWidth} > ${e.clientWidth})`);
         // élément qui sort de l'écran
         if ((r.right > W + 1 || r.left < -1) && !clipped(e) && cs.position !== 'fixed' && !e.matches('canvas, .rays, .ring, #bg *')) issues.push(`${name(e)} sort de l'écran (${Math.round(r.left)} → ${Math.round(r.right)})`);
         // texte coupé sans points de suspension voulus
@@ -186,7 +187,7 @@ async function legibility(p) {
       if (width === 390) for (const i of await legibility(p)) issues.push('lisibilité : ' + i);
       // on fait aussi défiler le contenu des panneaux pour vérifier qu'ils ne bougent pas en largeur
       await p.evaluate(() => document.querySelectorAll('#overlay.show, #overlay.show *, .screen.active .scroll').forEach((e) => { e.scrollLeft = 500; }));
-      const moved = await p.evaluate(() => [...document.querySelectorAll('#overlay.show, #overlay.show *, .screen.active, .screen.active *')].filter((e) => e.scrollLeft > 0).map((e) => e.id || e.className).slice(0, 4));
+      const moved = await p.evaluate(() => [...document.querySelectorAll('#overlay.show, #overlay.show *, .screen.active, .screen.active *')].filter((e) => e.scrollLeft > 0 && !e.matches('.ss-track')).map((e) => e.id || e.className).slice(0, 4));
       if (moved.length) issues.push('défilement horizontal possible : ' + moved.join(', '));
       total += issues.length;
       console.log(`[${width}] ${n.padEnd(10)} ${issues.length ? 'PROBLÈMES' : 'ok'}`);

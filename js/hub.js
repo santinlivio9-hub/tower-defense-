@@ -1,6 +1,7 @@
 // Hub de jeu mobile : barre de ressources, barre d'onglets (avec badges), accueil animé
 // (château au centre), écran Château, et capacités en partie. Méthodes ajoutées à la classe UI.
-import { HUD_FX, GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, MONETIZATION, abilityDef } from './config.js';
+import { HUD_FX, GAME, CASTLE, TABS, LEVELS, WORLDS, XP, BOOSTS, MONETIZATION, PROFILE, abilityDef } from './config.js';
+import { frameArt as frameArtHtml, fxArt as fxArtHtml } from './daily.js';
 import { drawCastle, drawCastleLights, drawCastleSilhouette, castleBounds, castleParts, nightLevel, CASTLE_LOOKS } from './castle.js';
 import { enemyFrames } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -38,7 +39,10 @@ export const Hub = {
     $$('.gems').forEach((g) => (g.textContent = fmt(d.gems)));
     $$('.coins').forEach((g) => (g.textContent = fmt(d.coins || 0)));
     const need = XP.need(d.level);
-    $('#resbar .lvl').textContent = d.level;
+    const lv = $('#resbar .lvl'), fr = PROFILE.frames[d.profile.frame] || {};
+    lv.textContent = d.level; lv.classList.toggle('framed', !!fr.c);
+    if (fr.c) { lv.style.setProperty('--f1', fr.c[0]); lv.style.setProperty('--f2', fr.c[1]); }
+    if (!this._profBound) { this._profBound = true; const rx = $('#resbar .res-xp'); rx.style.cursor = 'pointer'; rx.addEventListener('click', () => { this.audio.play('click'); this.openProfile(); }); }
     $('#resbar .xpbar i').style.width = (d.xp / need) * 100 + '%';
     $('#resbar .xpbar b').textContent = `${d.xp} / ${need}`;
     if (this.rankInBar) this.rankInBar();
@@ -102,7 +106,30 @@ export const Hub = {
 
   // ------------------------------------------------------------------ accueil
   nextLevel() { const p = this.save.progress(); return LEVELS[Math.min(LEVELS.length - 1, p)]; },
+  // Profil : cadre autour du badge de niveau, titre, effet de victoire (cosmétiques gagnés avec le pass et les succès)
+  openProfile() {
+    const d = this.save.data, P = d.profile;
+    const m = el('div', 'panel glass profile');
+    const x = el('button', 'icon-btn close', icon('close')); x.onclick = () => this.closeOverlay(); m.append(x);
+    const head = el('div', 'pf-head', `${frameArtHtml(P.frame, d.level)}<div><small>NIVEAU ${d.level}</small><b class="pf-title"></b></div>`);
+    $('.pf-title', head).textContent = PROFILE.titles[P.title] || ''; m.append(el('h2', 'win', 'PROFIL'), head);
+    const sec = (title, key, all, cur, art, name) => {
+      const s = el('div', 'pf-sec', `<h3>${title} <small>${P[key].length}/${Object.keys(all).length}</small></h3>`), g = el('div', 'pf-grid');
+      for (const id of Object.keys(all)) {
+        const own = P[key].includes(id), b = el('button', 'pf-item' + (own ? '' : ' locked') + (cur === id ? ' on' : ''), `<span class="pf-art">${art(id)}</span><small></small>`);
+        $('small', b).textContent = own ? name(id) : '???';
+        b.onclick = () => { if (!own) { this.audio.play('error'); this.toast('Pas encore débloqué', 'Pass de saison et succès', icon('lock')); return; } const k = { frames: 'frame', titles: 'title', fxs: 'fx' }[key]; P[k] = id; this.save.persist(); this.audio.play('upgrade'); this.haptics.pulse(1); this.refreshWallet(); this.openProfile(); };
+        g.append(b);
+      }
+      s.append(g); return s;
+    };
+    m.append(sec('Cadres', 'frames', PROFILE.frames, P.frame, (id) => frameArtHtml(id, d.level), (id) => PROFILE.frames[id].name));
+    m.append(sec('Titres', 'titles', PROFILE.titles, P.title, () => `<span class="ttl-prev">${icon('crown')}</span>`, (id) => PROFILE.titles[id]));
+    m.append(sec('Effets de victoire', 'fxs', PROFILE.fx, P.fx, (id) => fxArtHtml(id), (id) => PROFILE.fx[id].name));
+    this.openOverlay(m);
+  },
   renderHome() {
+    const sn = this.save.data.seasonNotice; if (sn) { this.save.data.seasonNotice = null; this.save.persist(); setTimeout(() => this.toast(`Saison ${sn.n} terminée`, `${sn.count} récompense${sn.count > 1 ? 's' : ''} non récupérée${sn.count > 1 ? 's' : ''} ajoutée${sn.count > 1 ? 's' : ''} à ton inventaire`, icon('pass')), 600); }
     const L = this.nextLevel(), w = WORLDS[L.world];
     $('#play-sub').textContent = `${L.boss ? 'Boss' : 'Niveau'} ${L.id} · ${w.name}`;
     $('#btn-play').onclick = () => this.playNext();

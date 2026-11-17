@@ -1,6 +1,6 @@
 // Sauvegarde automatique (localStorage) et progression persistante :
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
-import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
+import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, SEASON, PROFILE, seasonOf, premiumReward, ACHIEVEMENTS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
 import { setTierCap } from './castle.js';
 
@@ -27,7 +27,8 @@ const defaults = () => ({
   rebirth: { rank: 0, shards: 0, owned: [], history: [] },   // Renaissance : rang, éclats, achats de la boutique d'éclats
   starChests: {}, hintTowers: [], placedTypes: [], castleFree: 0, pendingWorld: null, skinShown: [],
   daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: '', chDay: '', week: '', weekly: null, popped: '', offer: '' },
-  pass: { pts: 0, claimed: [] },
+  pass: { pts: 0, claimed: [], season: 0, premium: false, pclaimed: [], mweek: '', missions: [] },
+  profile: { frame: 'none', title: 'rookie', fx: 'classic', frames: ['none'], titles: ['rookie'], fxs: ['classic'] },   // cosmétiques
   iap: { owned: [], orders: [] },   // achats intégrés : produits non consommables possédés, commandes déjà créditées
   ads: { day: '', n: 0 },          // pubs récompensées (ou bonus gratuits) du jour
   privacy: { asked: false },       // fenêtre de consentement (RGPD) déjà montrée
@@ -69,7 +70,9 @@ export class Save {
   merge(raw) {
     const d = this.data, def = defaults();
     Object.assign(d, raw);
-    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth', 'iap', 'ads', 'privacy']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['castle', 'boosts', 'chests', 'stats', 'settings', 'seen', 'viewed', 'daily', 'pass', 'rebirth', 'iap', 'ads', 'privacy', 'profile']) d[k] = { ...def[k], ...raw[k] };
+    for (const k of ['claimed', 'pclaimed', 'missions']) if (!Array.isArray(d.pass[k])) d.pass[k] = [];
+    for (const k of ['frames', 'titles', 'fxs']) if (!Array.isArray(d.profile[k])) d.profile[k] = [...def.profile[k]];
     if (!Array.isArray(d.iap.owned)) d.iap.owned = []; if (!Array.isArray(d.iap.orders)) d.iap.orders = [];
     if (!Array.isArray(d.rebirth.owned)) d.rebirth.owned = []; if (!Array.isArray(d.rebirth.history)) d.rebirth.history = []; for (const k of ['rank', 'shards']) if (!Number.isFinite(d.rebirth[k]) || d.rebirth[k] < 0) d.rebirth[k] = 0;
     this.normSettings(raw.settings);
@@ -298,6 +301,11 @@ export class Save {
     if (r.gems) { d.gems += r.gems; out.push(`${r.gems} gemmes`); }
     if (r.talent) { d.talentPts += r.talent; out.push(r.talent > 1 ? `${r.talent} points de talent` : '1 point de talent'); }
     if (r.chest) { d.chests[r.chest]++; out.push(CHESTS[r.chest].name); }
+    const P = d.profile, own = (k, id) => { if (!P[k].includes(id)) P[k].push(id); };
+    if (r.skin) { if (!d.skins.includes(r.skin)) d.skins.push(r.skin); out.push('skin ' + ((SHOP.skins.find((s) => s.id === r.skin) || {}).name || r.skin)); }
+    if (r.frame) { own('frames', r.frame); out.push('cadre ' + PROFILE.frames[r.frame].name); }
+    if (r.title) { own('titles', r.title); out.push('titre « ' + PROFILE.titles[r.title] + ' »'); }
+    if (r.fx) { own('fxs', r.fx); out.push('effet ' + PROFILE.fx[r.fx].name); }
     if (typeof r.boosts === 'object') for (const [id, n] of Object.entries(r.boosts)) { d.boosts[id] = (d.boosts[id] || 0) + n; out.push(`${n} ${BOOSTS[id].name}`); }
     else if (r.boosts) { for (let i = 0; i < r.boosts; i++) { const id = BOOST_ORDER[Math.floor(Math.random() * 4)]; d.boosts[id]++; } out.push(r.boosts > 1 ? `${r.boosts} boosts` : '1 boost'); }
     return out.join(' + ');
@@ -326,6 +334,7 @@ export class Save {
   // ------------------------------------------------------------- quotidien
   // À appeler à chaque passage sur l'accueil : nouveau jour = série, nouvelles quêtes, roue, défi
   dailyTick() {
+    this.seasonTick();
     const D = this.data.daily, now = today();
     if (D.day !== now) {
       const y = new Date(); y.setDate(y.getDate() - 1);
@@ -355,6 +364,7 @@ export class Save {
       const v = ev[q.id] || 0;
       q.prog = q.id === 'combo' ? Math.max(q.prog, v) : q.prog + v;
     }
+    for (const m of this.seasonMissions()) if (!m.claimed) m.prog += ev[m.id] || 0;
     this.persist();
   }
   questsReady() { const D = this.data.daily; return [...D.quests, D.weekly].filter((q) => q && !q.claimed && q.prog >= this.questDef(q, q === D.weekly).n).length; }
@@ -393,7 +403,41 @@ export class Save {
     const P = this.data.pass; if (tier > this.passTier() || P.claimed.includes(tier)) return null;
     P.claimed.push(tier); const text = this.grant(passReward(tier)); this.persist(); return text;
   }
-  dailyCount() { return (this.calendarReady() ? 1 : 0) + this.questsReady() + (this.wheelReady() ? 1 : 0) + this.passReady(); }
+  // ---- pass de saison : piste premium, changement de saison, missions hebdomadaires
+  premiumReady() { const P = this.data.pass; if (!P.premium) return 0; let n = 0; for (let i = 1; i <= this.passTier(); i++) if (!P.pclaimed.includes(i)) n++; return n; }
+  claimPremium(tier) {
+    const P = this.data.pass; if (!P.premium || tier > this.passTier() || P.pclaimed.includes(tier)) return null;
+    P.pclaimed.push(tier); const text = this.grant(premiumReward(tier, P.season)); this.persist(); return text;
+  }
+  unlockPremium() { this.seasonTick(); this.data.pass.premium = true; this.persist(); }
+  // Nouvelle saison : récompenses atteintes et non récupérées données automatiquement, puis remise à zéro.
+  // Anciennes sauvegardes (sans saison) : le passe en cours devient la saison actuelle, points conservés.
+  seasonTick(now = Date.now()) {
+    const P = this.data.pass, cur = seasonOf(now);
+    if (!P.season) { P.season = cur; return null; }
+    if (P.season >= cur) return null;
+    const got = [];
+    for (let i = 1; i <= this.passTier(); i++) {
+      if (!P.claimed.includes(i)) { P.claimed.push(i); got.push(this.grant(passReward(i))); }
+      if (P.premium && !P.pclaimed.includes(i)) { P.pclaimed.push(i); got.push(this.grant(premiumReward(i, P.season))); }
+    }
+    const old = P.season;
+    Object.assign(P, { pts: 0, claimed: [], season: cur, premium: false, pclaimed: [], mweek: '', missions: [] });
+    if (got.length) this.data.seasonNotice = { n: old, count: got.length };   // affiché une fois à l'accueil
+    this.persist(); return { old, count: got.length };
+  }
+  seasonMissions() {
+    const P = this.data.pass, wk = mondayOf() + '|' + P.season;
+    if (P.mweek !== wk) {
+      const rnd = mulberry32(hashStr('m' + wk)), pool = [...SEASON.missions]; P.mweek = wk; P.missions = [];
+      while (P.missions.length < SEASON.missionsPerWeek && pool.length) { const q = pool.splice(Math.floor(rnd() * pool.length), 1)[0]; P.missions.push({ id: q.id, prog: 0, claimed: false }); }
+    }
+    return P.missions;
+  }
+  missionDef(m) { return SEASON.missions.find((x) => x.id === m.id); }
+  missionsReady() { return this.seasonMissions().filter((m) => !m.claimed && m.prog >= this.missionDef(m).n).length; }
+  claimMission(m) { const def = this.missionDef(m); if (m.claimed || m.prog < def.n) return 0; m.claimed = true; this.addPass(def.pts); this.persist(); return def.pts; }
+  dailyCount() { return (this.calendarReady() ? 1 : 0) + this.questsReady() + (this.wheelReady() ? 1 : 0) + this.passReady() + this.premiumReady() + this.missionsReady(); }
 
   // ------------------------------------------------------------- succès
   // Vérifie les succès ; renvoie la liste des succès nouvellement débloqués.
