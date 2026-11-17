@@ -255,7 +255,7 @@ export const Hub = {
       b.onclick = (e) => { e.stopPropagation(); const c = sv.speedCost(); if (d.gems < c) { this.audio.play('error'); this.toast('Pas assez de gemmes', `Il faut ${c} gemmes pour finir tout de suite`, gem()); return; } const done = sv.speedUp(); if (done) { if (sheet) this.closeOverlay(); this.onBuildDone(done); } };
       if (!sheet) return b;
       const mins = MONETIZATION.rewards.speedMinutes, w = el('div', 'speed-wrap');
-      w.append(b, this.adButton(`${mins} min de moins`, `construction accélérée de ${mins} min`, () => { const done = sv.speedBy(mins * 60000); this.closeOverlay(); if (done) this.onBuildDone(done); else { this.toast('Construction accélérée', `${mins} minutes de moins`, icon('hourglass')); this.show(this.screen, true); } }, 'wide'));
+      w.append(b, this.adButton('Accélérer', `-${mins} min`, `construction accélérée de ${mins} min`, () => { const done = sv.speedBy(mins * 60000); this.closeOverlay(); if (done) this.onBuildDone(done); else { this.toast('Construction accélérée', `${mins} minutes de moins`, icon('hourglass')); this.show(this.screen, true); } }));
       return w;
     }
     if (lvl >= cap) return el('span', 'btn sm locked' + big, `${icon('lock')}Rang ${cap} max · bats le boss ${sv.worldReached()}`);

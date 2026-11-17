@@ -295,7 +295,7 @@ export const End = {
     else if (!win && !r.endless) { const rt = el('button', 'btn green big', icon('restart') + 'Réessayer'); rt.onclick = () => this.replay(); main.append(rt); }
     else { const rp = el('button', 'btn primary big', icon('restart') + 'Rejouer'); rp.onclick = () => this.replay(); main.append(rp); }
     if (win && r.coins > 0 && !r.doubled && !this.simulating) {   // pub récompensée : pièces de fin de niveau doublées
-      const db = this.adButton(`Doubler les pièces (+${fmt(r.coins)})`, `+${fmt(r.coins)} pièces`, () => { r.doubled = true; this.save.grant({ coins: r.coins }); this.save.persist(); const cb = $('.es-coins b', root); if (cb) cb.textContent = fmt(this.save.data.coins); db.replaceWith(el('span', 'owned wide', icon('check') + `Pièces doublées : +${fmt(r.coins)}`)); }, 'wide gold');
+      const db = this.adButton('Doubler', `+${fmt(r.coins)}${coin()}`, `+${fmt(r.coins)} pièces`, () => { r.doubled = true; this.save.grant({ coins: r.coins }); this.save.persist(); const cb = $('.es-coins b', root); if (cb) cb.textContent = fmt(this.save.data.coins); db.replaceWith(el('span', 'owned', icon('check') + `Pièces doublées : +${fmt(r.coins)}`)); });
       main.append(db);
     }
     const round = $('.es-round', f);

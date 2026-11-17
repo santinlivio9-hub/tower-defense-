@@ -158,10 +158,11 @@ export class UI {
     grid.append(g, el('p', 'hint', 'Une finition s\'applique à toutes tes armes.'));
   }
 
-  // Bouton « pub récompensée » : toujours un choix du joueur ; avec « Sans pubs », le bonus est gratuit.
-  adButton(label, reason, onReward, cls = '') {
+  // Bouton « pub récompensée » : toujours un choix du joueur. Bouton SECONDAIRE (petit, violet, icône vidéo, gain
+  // affiché) pour ne jamais être confondu avec le bouton principal. Avec « Sans pubs », le bonus est gratuit.
+  adButton(label, gain, reason, onReward, cls = '') {
     const m = this.mon, left = m.adsLeft(), free = m.hasRemoveAds();
-    const b = el('button', 'btn sm adbtn ' + cls + (left ? '' : ' locked'), left ? `${icon(free ? 'gift' : 'play')}<span>${label}</span><em>${free ? 'GRATUIT' : 'PUB'}</em>` : `${icon('hourglass')}<span>Plus de pubs aujourd'hui</span>`);
+    const b = el('button', 'btn sm adbtn ' + cls + (left ? '' : ' locked'), left ? `<i class="adv">${icon(free ? 'gift' : 'video')}</i><span class="adl">${label}</span><b class="adg">${gain}</b><em>${free ? 'GRATUIT' : 'PUB'}</em>` : `${icon('hourglass')}<span>Plus de pubs aujourd'hui</span>`);
     b.onclick = async (e) => {
       e.stopPropagation(); if (!m.adsLeft() || b.disabled) { this.audio.play('error'); return; }
       b.disabled = true; this.music.duck && this.music.duck(true);
@@ -176,7 +177,7 @@ export class UI {
     if (this.game !== g || !g.awaitRevive) return;
     this.closeMenu();
     const m = el('div', 'panel glass ask revive-ask', `<h2 class="lose">CHÂTEAU DÉTRUIT</h2><p class="sub">Réanime ton château : il repart à moitié de ses PV et les brainrots sont balayés. Une fois par partie.</p>`);
-    const go = this.adButton('Réanimer', 'réanimation du château', () => { this.closeOverlay(); g.reviveAnswer(true); }, 'big green');
+    const go = this.adButton('Réanimer', '50 % PV', 'réanimation du château', () => { this.closeOverlay(); g.reviveAnswer(true); });
     const no = el('button', 'btn ghost', 'Non merci'); no.onclick = () => { this.closeOverlay(); g.reviveAnswer(false); };
     m.append(go, no); this.openOverlay(m);
   }

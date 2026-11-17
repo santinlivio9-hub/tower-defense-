@@ -5,6 +5,7 @@ const F = 'fill="currentColor"';
 
 const ICONS = {
   star: `<path d="M12 2.6l2.8 5.7 6.3.9-4.6 4.4 1.1 6.3L12 16.9l-5.6 3 1.1-6.3L2.9 9.2l6.3-.9z" fill="currentColor" stroke="#3d2c4e" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.6 9.6l1.6-.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,
+  video: `<rect x="2.5" y="6" width="13" height="12" rx="3" ${F}/><path d="M16.5 10.2l5-3.1v9.8l-5-3.1z" ${F}/>`,
   play: `<path d="M8 5.5v13l11-6.5z" ${F} stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>`,
   pause: `<rect x="6.5" y="5" width="3.8" height="14" rx="1.9" ${F}/><rect x="13.7" y="5" width="3.8" height="14" rx="1.9" ${F}/>`,
   back: `<path d="M14.5 5.5L8 12l6.5 6.5" ${S}/>`,
