@@ -61,7 +61,7 @@ export const Hub = {
     set('talents', d.talentPts || 0);
     set('shop', sv.chestCount());
     set('castle', this.castleAffordable() + (d.castleFree || 0));
-    set('collection', sv.collectionNew());
+    set('collection', sv.collectionNew() + sv.achievementsReady());
     set('menu', this.dailyBadge ? this.dailyBadge('menu') : 0);
       // priorité : récompenses à récupérer (chiffre rouge), 3 badges chiffrés au plus ; le reste = petit point discret
     const order = ['menu', 'shop', 'talents', 'castle', 'collection'], soft = ['castle', 'collection'];

@@ -335,7 +335,7 @@ export class Game {
     for (let i = 0; i < 8; i++) this.fx.add({ k: 'dot', x: t.x + (Math.random() - 0.5) * 40, y: t.y + 10, vx: 0, vy: -90 - Math.random() * 80, life: 0.7, max: 0.7, size: 3.5, color: col });
     this.shake(t.level >= 4 ? 5 : 2.5); this.hintT = 0; this.stats.upgrades = (this.stats.upgrades || 0) + 1;
     this.fx.text(t.x, t.y - 40, t.level >= 4 ? t.label + ' !' : 'NIVEAU ' + t.level + ' !', col, t.level >= 4 ? 20 : 18, 1.3);
-    if (t.level >= 5) { this.stats.legendaries++; this.fx.confetti(t.x, t.y, 40, 300); this.audio.play('legendary'); }
+    if (t.level >= 5) { this.stats.legendaries++; (this.stats.maxedTypes = this.stats.maxedTypes || []).includes(t.type) || this.stats.maxedTypes.push(t.type); this.fx.confetti(t.x, t.y, 40, 300); this.audio.play('legendary'); }
     else this.audio.play('upgrade');
     this.onEvent('upgraded', t);
     return true;
@@ -676,7 +676,8 @@ export class Game {
     if (this._committed) return; this._committed = true;
     const sv = this.save, d = sv.data, s = d.stats, g = this.stats, L = this.level, r = this.result || {};
     s.kills += g.kills; s.bossKills += g.bossKills; s.towersBuilt += g.built; s.legendaries += g.legendaries; s.earlyStarts += g.early; s.games++;
-    s.bestScore = Math.max(s.bestScore || 0, this.score);
+    s.bestScore = Math.max(s.bestScore || 0, this.score); s.bestCombo = Math.max(s.bestCombo || 0, this.chainBest || 0);
+    for (const ty of g.maxedTypes || []) if (!s.maxed.includes(ty)) s.maxed.push(ty);
     const ld = sv.levelData(L.n), hero = !!this.heroic;
     let newStars = 0;
     r.previous = this.endless ? (d.endless[0] ? d.endless[0].score : 0) : hero ? ld.heroicBest : ld.best;

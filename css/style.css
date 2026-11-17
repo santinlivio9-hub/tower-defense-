@@ -2104,3 +2104,17 @@ body:not([data-screen="game"]) #rotate .rot-pause { display: none; }
 .btn.ss-buy { min-height: 50px; font-size: 16px; }
 .pf-sec { width: 100%; }
 .btn.ss-buy { white-space: nowrap; font-size: 15px; padding-left: 10px; padding-right: 10px; } .btn.ss-buy .ico { width: 20px; height: 20px; flex: none; }
+/* ---- Succès : catégories, paliers bronze / argent / or, Récupérer ---- */
+.ach-sum { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; background: linear-gradient(180deg, rgba(255, 210, 63, .2), rgba(255, 210, 63, .05)); border: 2px solid rgba(255, 210, 63, .55); }
+.ach-sum .ach-big { width: 48px; height: 48px; display: grid; place-items: center; } .ach-sum .ach-big .ico { width: 44px; height: 44px; }
+.ach-sum > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; } .ach-sum b { font-size: 22px; color: var(--gold); text-shadow: var(--ol); } .ach-sum small { font-size: 13px; color: var(--text-soft); }
+.ach-sum em { flex: none; font-style: normal; font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 999px; color: #fff; background: #e8283f; border: 2px solid var(--ink); }
+.ach-cat { margin: 10px 2px 2px; display: flex; align-items: center; gap: 6px; font-size: 16px; color: #fff; text-shadow: var(--ol); } .ach-cat .ico { width: 22px; height: 22px; } .ach-cat small { margin-left: auto; font-size: 13px; color: var(--text-soft); }
+.ach-ico { box-shadow: 0 0 0 3px var(--tc, #ffd23f), 0 3px 0 rgba(0, 0, 0, .3); }
+.ach.t-bronze .ach-ico { background: radial-gradient(circle at 50% 30%, #f0b27a, #9a5a2c); } .ach.t-silver .ach-ico { background: radial-gradient(circle at 50% 30%, #f2f6fb, #8d9bb4); } .ach.t-gold .ach-ico { background: radial-gradient(circle at 50% 30%, #fff1a8, #e09600); }
+.ach-pips { display: flex; gap: 4px; } .ach-pips i { width: 16px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .18); } .ach-pips i.on { background: var(--tc); box-shadow: 0 0 6px var(--tc); }
+.ach .qbar { height: 18px; }
+.ach-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ach-rw { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 5px; max-width: 110px; } .ach-rw .rw { font-size: 13px; } .ach-rw .rw .ico, .ach-rw .rw .coin-ico, .ach-rw .rw .gem-ico { width: 13px; height: 13px; } .ach-rw .rw.chest .chest-svg { width: 18px; }
+.ach.ready { border-color: var(--green-2); box-shadow: 0 0 0 2px var(--green-2), 0 4px 0 var(--edge); }
+.ach.claiming { animation: ach-claim .6s ease-out; } @keyframes ach-claim { 30% { transform: scale(1.04); filter: brightness(1.4); } }

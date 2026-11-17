@@ -671,26 +671,35 @@ export function starGoals(L) {
 // ----------------------------------------------------------------------------
 //  SUCCÈS — "stat" lit save.stats[stat] ; "special" est géré dans save.js
 // ----------------------------------------------------------------------------
+// Succès : environ 50 étapes réparties en catégories. Un succès « de quantité » a 3 paliers (bronze, argent, or) aux
+// récompenses croissantes ; les autres ont une seule étape. La récompense se récupère dans Collection > Succès.
+// stat = compteur de la sauvegarde (data.stats) ; special = progression calculée (voir Save.achievementProgress).
+export const ACH_CATS = {
+  campaign: { name: 'Campagne', icon: 'map' }, combat: { name: 'Combat', icon: 'sword' }, towers: { name: 'Tourelles', icon: 'cannon' },
+  castle: { name: 'Château', icon: 'castle' }, economy: { name: 'Économie', icon: 'coins' }, collection: { name: 'Collection', icon: 'book' },
+  heroic: { name: 'Défis Héroïques', icon: 'crown' }, rebirth: { name: 'Renaissance', icon: 'rebirth' },
+};
+export const ACH_TIERS = [{ id: 'bronze', name: 'Bronze', color: '#e0955a' }, { id: 'silver', name: 'Argent', color: '#c9d6e8' }, { id: 'gold', name: 'Or', color: '#ffd23f' }];
+const T3 = (goals, extra = [{}, {}, {}]) => goals.map((goal, i) => ({ goal, reward: { ...[{ coins: 300 }, { coins: 600, gems: 8 }, { gems: 20 }][i], ...extra[i] } }));
 export const ACHIEVEMENTS = [
-  { id: 'kills100',  name: 'Première fournée',   desc: 'Éliminer 100 brainrots',         stat: 'kills', goal: 100,  gems: 3 },
-  { id: 'kills1000', name: 'Exterminateur',      desc: 'Éliminer 1 000 brainrots',       stat: 'kills', goal: 1000, gems: 9 },
-  { id: 'kills5000', name: 'Légende anti-rot',   desc: 'Éliminer 5 000 brainrots',       stat: 'kills', goal: 5000, gems: 24 },
-  { id: 'boss1',     name: 'Chasseur de boss',   desc: 'Vaincre un boss',                stat: 'bossKills', goal: 1, gems: 6 },
-  { id: 'boss10',    name: 'Terreur des boss',   desc: 'Vaincre 10 boss',                stat: 'bossKills', goal: 10, gems: 18 },
-  { id: 'build50',   name: 'Armurier',           desc: 'Poser 50 tourelles',             stat: 'towersBuilt', goal: 50, gems: 6 },
-  { id: 'legend',    name: 'Butin doré',         desc: 'Monter une tourelle au niveau Légendaire', stat: 'legendaries', goal: 1, gems: 6 },
-  { id: 'win1',      name: 'Première victoire',  desc: 'Gagner une partie',              stat: 'wins', goal: 1, gems: 6 },
-  { id: 'win10',     name: 'Vétéran',            desc: 'Gagner 10 parties',              stat: 'wins', goal: 10, gems: 18 },
-  { id: 'perfect',   name: 'Sans une égratignure', desc: 'Gagner sans perdre un seul PV', stat: 'perfectWins', goal: 1, gems: 12 },
-  { id: 'hard',      name: 'Dur à cuire',        desc: 'Gagner un défi Héroïque',        stat: 'heroicWins', goal: 1, gems: 15 },
-  { id: 'world1',    name: 'Sauveur de la prairie', desc: 'Terminer le monde 1',          special: 'progress', goal: 6, gems: 12 },
-  { id: 'rebirth1',  name: 'Phénix',             desc: 'Faire une Renaissance',          stat: 'rebirths', goal: 1, gems: 30 },
-  { id: 'world5',    name: 'Roi du bastion',     desc: 'Terminer la campagne',           special: 'progress', goal: 80, gems: 60 },
-  { id: 'stars9',    name: 'Collectionneur',     desc: 'Obtenir 9 étoiles au total',     special: 'stars', goal: 9, gems: 18 },
-  { id: 'stars45',   name: 'Constellation',      desc: 'Obtenir 45 étoiles au total',    special: 'stars', goal: 45, gems: 36 },
-  { id: 'endless40', name: 'Sans fin',           desc: 'Atteindre la vague 40 en mode infini', stat: 'bestEndless', goal: 40, gems: 18 },
-  { id: 'early20',   name: 'Pressé',             desc: 'Lancer 20 vagues en avance',     stat: 'earlyStarts', goal: 20, gems: 6 },
+  { id: 'progress', cat: 'campaign', name: 'Conquérant', desc: 'Termine {n} niveaux de la campagne', special: 'progress', icon: 'map', tiers: T3([10, 40, 80], [{}, {}, { title: 'legend', frame: 'legend' }]) },
+  { id: 'stars', cat: 'campaign', name: 'Constellation', desc: 'Gagne {n} étoiles', special: 'stars', icon: 'star', tiers: T3([30, 120, 240], [{ frame: 'bronze' }, { frame: 'silver' }, { frame: 'gold' }]) },
+  { id: 'perfect', cat: 'campaign', name: 'Sans une égratignure', desc: 'Gagne {n} parties sans perdre un seul PV', stat: 'perfectWins', icon: 'heart', tiers: T3([1, 10, 50]) },
+  { id: 'kills', cat: 'combat', name: 'Exterminateur', desc: 'Élimine {n} brainrots', stat: 'kills', icon: 'skull', tiers: T3([1000, 10000, 50000], [{}, {}, { title: 'slayer' }]) },
+  { id: 'bosses', cat: 'combat', name: 'Chasseur de boss', desc: 'Bats {n} boss', stat: 'bossKills', icon: 'crown', tiers: T3([1, 10, 30], [{}, {}, { title: 'bossHunter' }]) },
+  { id: 'combo', cat: 'combat', name: 'Enchaînement', desc: 'Réussis un combo x{n}', stat: 'bestCombo', icon: 'flame', tiers: T3([25, 50, 100], [{}, {}, { fx: 'gold' }]) },
+  { id: 'legend', cat: 'towers', name: 'Butin doré', desc: 'Monte {n} tourelles au niveau Légendaire', stat: 'legendaries', icon: 'star', tiers: T3([1, 10, 50], [{}, {}, { skin: 'gold' }]) },
+  ...['assault', 'smg', 'shotgun', 'sniper', 'rocket', 'minigun', 'cryo', 'laser', 'tesla', 'plasma', 'drone', 'mine'].map((t) => ({ id: 'max_' + t, cat: 'towers', type: t, name: 'Maître : ' + ({ assault: 'fusil', smg: 'mitraillette', shotgun: 'pompe', sniper: 'sniper', rocket: 'roquettes', minigun: 'minigun', cryo: 'cryo', laser: 'laser', tesla: 'tesla', plasma: 'plasma', drone: 'drone', mine: 'mine' })[t], desc: 'Monte cette tourelle au niveau Légendaire', special: 'maxed', icon: 'star', tiers: [{ goal: 1, reward: { coins: 400, gems: 5 } }] })),
+  { id: 'castle', cat: 'castle', name: 'Bâtisseur', desc: 'Atteins {n} niveaux d\'amélioration du château', special: 'castle', icon: 'castle', tiers: T3([5, 15, 29], [{}, {}, { title: 'architect' }]) },
+  { id: 'coins', cat: 'economy', name: 'Trésorier', desc: 'Gagne {n} pièces au total', stat: 'coinsEarned', icon: 'coins', tiers: T3([5000, 50000, 250000], [{}, {}, { title: 'tycoon' }]) },
+  { id: 'chests', cat: 'economy', name: 'Pilleur de coffres', desc: 'Ouvre {n} coffres', stat: 'chests', icon: 'chest', tiers: T3([5, 25, 100]) },
+  { id: 'skins', cat: 'collection', name: 'Styliste', desc: 'Possède {n} skins', special: 'skins', icon: 'shop', tiers: T3([3, 8, 15], [{}, {}, { title: 'collector' }]) },
+  { id: 'bestiary', cat: 'collection', name: 'Encyclopédiste', desc: 'Rencontre {n} types de brainrots', special: 'enemies', icon: 'book', tiers: T3([8, 16, 24]) },
+  { id: 'heroic', cat: 'heroic', name: 'Dur à cuire', desc: 'Gagne {n} défis Héroïques', stat: 'heroicWins', icon: 'crown', tiers: T3([1, 10, 40], [{}, {}, { title: 'hero' }]) },
+  { id: 'rebirth', cat: 'rebirth', name: 'Phénix', desc: 'Fais {n} Renaissances', stat: 'rebirths', icon: 'rebirth', tiers: T3([1, 3, 5], [{ title: 'phoenix' }, {}, {}]) },
 ];
+// Anciens succès (sauvegardes d'avant) : étape correspondante déjà récompensée (les gemmes avaient été données)
+export const ACH_LEGACY = { kills1000: 'kills:0', boss1: 'bosses:0', boss10: 'bosses:1', legend: 'legend:0', perfect: 'perfect:0', hard: 'heroic:0', rebirth1: 'rebirth:0', world5: 'progress:2' };
 
 // Séquence de fin de niveau : messages de défaite, conseils (selon l'ennemi qui a fait le plus de dégâts au château)
 export const END = {
