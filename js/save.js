@@ -37,7 +37,7 @@ const defaults = () => ({
   achievements: [],
   stats: { kills: 0, bossKills: 0, towersBuilt: 0, legendaries: 0, wins: 0, perfectWins: 0, heroicWins: 0, bestEndless: 0, earlyStarts: 0, games: 0, bestScore: 0, chests: 0, rebirths: 0, bestCombo: 0, coinsEarned: 0, maxed: [] },
   ach: { claimed: [], seen: [] },   // succès : étapes récompensées, étapes déjà annoncées
-  settings: { muted: false, sfxVol: 0.7, musicVol: 0.6, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true },
+  settings: { muted: false, sfxVol: 0.7, musicVol: 0.6, shake: true, tutorialDone: false, damageNumbers: true, haptics: true, hints: true, autoWave: true, speed: 1, music: true, barHint: false },
 });
 
 // Copies de secours : BAK1 = état au début de la session du jour, BAK2 = celui d'un jour précédent,

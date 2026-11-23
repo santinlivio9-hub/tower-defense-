@@ -2,9 +2,9 @@
 // tourelle actuelle → niveau suivant, 3 barres de stats (gain en vert brillant) et badge « +68 % DPS ».
 // Le panneau se place automatiquement là où il ne recouvre ni la tourelle, ni les boutons, ni le chemin proche.
 // Méthodes ajoutées à la classe UI.
-import { TOWERS, TOWER_SHORT, RARITY, LEVELS, UNLOCKS, RADIAL } from './config.js';
+import { TOWERS, RARITY, LEVELS, UNLOCKS, RADIAL } from './config.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
-import { towerImg, TOWER_COLOR } from './sprites.js';
+import { towerImg } from './sprites.js';
 import { icon, coin } from './icons.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -28,7 +28,7 @@ export function barStats(type, s) {
 }
 // Valeur maximale atteignable de chaque barre pour ce type (niveau 5, meilleure branche) : échelle des barres
 const refCache = new Map();
-function barRef(type, mods) {
+export function barRef(type, mods) {
   const key = type + JSON.stringify(mods || {});
   if (!refCache.has(key)) {
     const all = [computeStats(type, 1, null, mods), ...TOWERS[type].branches.map((b, i) => computeStats(type, 5, i, mods))].map((s) => barStats(type, s));
@@ -55,20 +55,10 @@ export const Radial = {
   },
   statLine(type, s) { return this.statRows(type, s).map((r) => `${r[0]} <b>${r[1]}</b>`).join(' · '); },
 
-  // Éléments du menu : { key, cls, art, label, price, panel | info, preview, tap (immédiat) ou confirm (2e toucher) }
+  // Éléments du menu d'une tourelle posée : { key, cls, art, label, price, panel | info, preview, tap ou confirm (2e toucher) }
   menuItems(slot) {
     const g = this.game, t = slot.tower, skin = this.save.data.skin, items = [];
-    if (!t) {
-      for (const type of g.buildable(slot)) {
-        const cfg = TOWERS[type], cost = g.costOf(type), st = computeStats(type, 1, null, g.mods);
-        const isNew = (this.save.data.hintTowers || []).includes(type);   // arme débloquée à la partie précédente
-        items.push({ key: type, cls: isNew ? 'isnew' : '', cost, dot: TOWER_COLOR[type], short: TOWER_SHORT[type], art: towerImg(type, 42, skin), price: cost, free: cost === 0, label: isNew ? 'NOUVEAU' : '',
-          panel: { kind: 'build', type, cur: st, name: cfg.name, desc: cfg.desc, poor: g.money < cost, cost },
-          preview: { r: type === 'mine' ? st.splash : st.range, mode: g.money < cost ? 'bad' : 'ok' },
-          confirm: () => { if (g.money < g.costOf(type)) { this.audio.play('error'); this.haptics.pulse(1); this.radialLive(true); return; } if (g.placeTower(type, slot)) { const h = this.save.data.hintTowers || []; if (h.includes(type)) { this.save.data.hintTowers = h.filter((x) => x !== type); this.save.persist(); } this.openMenu(null); } else this.haptics.pulse(1); } });
-      }
-      return items;
-    }
+    if (!t) return items;   // choix d'une tourelle : barre du bas (buildbar.js)
     for (const o of t.upgradeOptions()) {
       if (o.locked) { // amélioration légendaire pas encore débloquée par la campagne
         const n = UNLOCKS.legend[t.type], at = LEVELS[Math.max(0, n - 2)].id;
@@ -214,7 +204,7 @@ export const Radial = {
   renderRadial() {
     const g = this.game, box = $('#radial'), slot = g && g.menuSlot;
     this._rad = null; if (g) g.fx.dim = null;
-    if (!slot || g.over) { box.hidden = true; box.innerHTML = ''; return; }
+    if (!slot || !slot.tower || g.over) { box.hidden = true; box.innerHTML = ''; return; }
     const items = this.menuItems(slot), t = slot.tower;
     box.hidden = false; box.innerHTML = '';
     document.querySelectorAll('.tower-tip').forEach((e) => e.remove());   // la bulle « Nouvelle arme » ne cache pas le menu
@@ -222,18 +212,15 @@ export const Radial = {
     const ups = items.filter((i) => !i.side);
     const gl = $('#goals'), top = Math.max($('#hud').getBoundingClientRect().bottom, gl && !gl.hidden ? gl.getBoundingClientRect().bottom : 0) - host.top + 6, bot = $('#dock').getBoundingClientRect().top - host.top - 6;
     const tx = p.x - host.left, ty = p.y - host.top, W = host.width;
-    box.classList.toggle('build', !t); box.classList.toggle('two', !t && n > RADIAL.ringMax);   // deux anneaux : boutons compacts
     const btns = {}, pos = [];
     // un bouton : mêmes écouteurs partout (pointerdown puis pointerup sur le même bouton ; clic clavier en secours)
     const make = (it, i, cls) => {
       const b = el('button', 'rb ' + (it.cls || '') + (cls ? ' ' + cls : ''));
       b.style.setProperty('--i', i);
       if (typeof it.art === 'string') b.innerHTML = it.art; else b.append(it.art);
-      if (!t) { const nm = el('span', 'lab bname', ''); nm.textContent = it.short || ''; b.append(nm); if (it.label === 'NOUVEAU') b.append(el('span', 'snew', 'NOUVEAU')); }
-      else if (it.isBranch) b.append(el('span', 'lab name', it.label));
+      if (it.isBranch) b.append(el('span', 'lab name', it.label));
       else if (it.label) b.append(el('span', 'lab' + (it.side === 'left' ? ' under' : ''), it.label));
-      if (it.dot) { const d = el('i', 'tdot'); d.style.background = it.dot; b.append(d); }
-      if (it.price != null) b.append(el('span', 'price', it.free ? 'GRATUIT' : coin() + it.price));
+      if (it.price != null) b.append(el('span', 'price', coin() + it.price));
       if (it.gain != null) b.append(el('span', 'price gain', '+' + it.gain + coin()));
       b.append(el('span', 'ok', icon('check')));
       let x0 = 0;
@@ -244,66 +231,7 @@ export const Radial = {
       b.addEventListener('click', (e) => { if (e.detail === 0) this.radialTap(it); });   // clavier (touches 1 à 9)
       btns[it.key] = b; return b;
     };
-    if (!t) {
-      // Choix d'une tourelle : boutons de taille fixe sur un anneau (6 tourelles ou moins) ou sur deux anneaux
-      // concentriques (au-delà), le nom court et le prix sous chaque icône. Les rayons grandissent juste assez pour
-      // qu'aucun bouton ni étiquette ne se touche ; l'ensemble est ensuite décalé d'un bloc pour rester dans la zone
-      // de jeu (l'anneau devient un arc autour d'un emplacement proche d'un bord).
-      const E = n > RADIAL.ringMax ? RADIAL.buildBox2 : RADIAL.buildBox, boxOf = (q) => ({ l: q.x - E.w, r: q.x + E.w, t: q.y - E.up, b: q.y + E.down });
-      const hit = (P) => { for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) { const a = boxOf(P[i]), c = boxOf(P[j]); if (a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b) return true; } return false; };
-      const inZone = (q) => q.x - E.w >= 6 && q.x + E.w <= W - 6 && q.y - E.up >= top && q.y + E.down <= bot;
-      // k boutons sur le cercle de centre (cx, cy) et de rayon r, uniquement sur la partie du cercle qui tient dans
-      // l'écran (un ou plusieurs arcs), espacés régulièrement ; null si ça ne tient pas
-      const onCircle = (cx, cy, k, r, a0 = -90, ry = r) => {
-        const at = (deg) => ({ x: cx + Math.cos((deg * Math.PI) / 180) * r, y: cy + Math.sin((deg * Math.PI) / 180) * ry });
-        const STEP = 3, N = 360 / STEP, ok = Array.from({ length: N }, (_, i) => inZone(at(a0 + i * STEP)));
-        if (ok.every(Boolean)) return Array.from({ length: k }, (_, i) => at(a0 + (360 * i) / k));
-        const gapDeg = (2 * Math.asin(Math.min(1, (n > RADIAL.ringMax ? RADIAL.buildGap2 : RADIAL.buildGap) / (2 * Math.min(r, ry)))) * 180) / Math.PI;
-        const safeDeg = (2 * Math.asin(Math.min(1, Math.hypot(2 * E.w, E.up + E.down) / (2 * Math.min(r, ry)))) * 180) / Math.PI;   // écart sûr, quel que soit l'angle
-        const runs = []; const st = ok.indexOf(false);
-        for (let i = 1, cur = null; i <= N; i++) { const j = (st + i) % N; if (ok[j]) { if (!cur) runs.push((cur = { s: j, len: 0 })); cur.len++; } else cur = null; }
-        const cap = runs.map((u) => Math.floor(((u.len - 1) * STEP) / gapDeg) + 1);
-        if (cap.reduce((x, y) => x + y, 0) < k) return null;
-        // répartition des boutons entre les arcs, au prorata de leur longueur
-        const nb = runs.map(() => 0); for (let i = 0; i < k; i++) { let best = -1, sc = -1; runs.forEach((u, j) => { if (nb[j] < cap[j]) { const v = u.len / (nb[j] + 1); if (v > sc) { sc = v; best = j; } } }); nb[best]++; }
-        const out = []; runs.forEach((u, j) => { const m = nb[j]; if (!m) return; const span = Math.min((u.len - 1) * STEP, (m - 1) * safeDeg), s0 = a0 + u.s * STEP + ((u.len - 1) * STEP - span) / 2; for (let i = 0; i < m; i++) out.push(at(s0 + (m > 1 ? (span * i) / (m - 1) : 0))); });
-        return out;
-      };
-      // l'emplacement reste visible : aucun bouton ni étiquette ne le recouvre
-      const clear = (P) => P.every((q) => { const c = boxOf(q), m = RADIAL.slotClear; return tx < c.l - m || tx > c.r + m || ty < c.t - m || ty > c.b + m; });
-      const good = (P) => P && !hit(P) && clear(P);
-      const layout = (cx, cy) => {
-        if (n <= RADIAL.ringMax) { for (let r = RADIAL.rRing; r <= 170; r += 6) { const c = onCircle(cx, cy, n, r); if (good(c)) return c; } return null; }
-        for (const k1 of [4, 3, 5]) for (let r1 = RADIAL.rInner; r1 <= 128; r1 += 8) {
-          const inner = onCircle(cx, cy, k1, r1); if (!good(inner)) continue;
-          // anneau extérieur : cercle, ou ellipse plus haute que large quand l'écran est étroit
-          const rxMax = (W - 12) / 2 - E.w;
-          for (let r2 = r1 + RADIAL.ringStep2; r2 <= 220; r2 += 8) { const rx = Math.min(r2, Math.max(r1 + 50, rxMax)); const outer = onCircle(cx, cy, n - k1, rx, -90 + 180 / (n - k1), r2); if (outer && good(inner.concat(outer))) return inner.concat(outer); }
-        }
-        return null;
-      };
-      // centre des anneaux : l'emplacement, sinon légèrement décalé (l'emplacement reste dans le trou de l'anneau)
-      let P = null;
-      for (const d of [0, 14, 28, 42, 56, 70]) { for (let k = 0; k < (d ? 8 : 1) && !P; k++) { const a = (k * Math.PI) / 4; P = layout(tx + Math.cos(a) * d, ty + Math.sin(a) * d); } if (P) break; }
-      // près d'un bord : arcs concentriques remplis de l'intérieur vers l'extérieur (autant de boutons que chaque arc
-      // en accepte), toujours autour de l'emplacement
-      const arcs = (cx, cy) => {
-        const out = []; let left = n;
-        for (let r = n <= RADIAL.ringMax ? RADIAL.rRing : RADIAL.rInner, ring = 0; left > 0 && ring < 5; r += Math.hypot(2 * E.w, E.up + E.down), ring++) {   // écart entre arcs : aucun chevauchement, quel que soit l'angle
-          let best = null; for (let m = left; m >= 1 && !best; m--) for (const a0 of [-90 + ring * 17, -60 + ring * 17, -120 + ring * 17]) { const c = onCircle(cx, cy, m, r, a0); if (c && good(out.concat(c))) { best = c; break; } }
-          if (best) { out.push(...best); left -= best.length; }
-        }
-        return left ? null : out;
-      };
-      for (const d of [0, 20, 40, 60]) { for (let k = 0; k < (d ? 8 : 1) && !P; k++) { const a = (k * Math.PI) / 4; P = arcs(tx + Math.cos(a) * d, ty + Math.sin(a) * d); } if (P) break; }
-      this._radMode = P ? 'ok' : 'secours';
-      if (!P) {   // secours (écran minuscule) : un seul anneau décalé d'un bloc pour rester dans la zone de jeu
-        const r = RADIAL.rRing + 20; P = Array.from({ length: n }, (_, i) => { const a = ((-90 + (360 * i) / n) * Math.PI) / 180; return { x: tx + Math.cos(a) * r, y: ty + Math.sin(a) * r }; });
-        const o = P.reduce((o, q) => ({ l: Math.max(o.l, 6 - (q.x - E.w)), r: Math.max(o.r, q.x + E.w - (W - 6)), t: Math.max(o.t, top - (q.y - E.up)), b: Math.max(o.b, q.y + E.down - bot) }), { l: 0, r: 0, t: 0, b: 0 });
-        for (const q of P) { q.x += o.l - o.r; q.y += o.t - o.b; }
-      }
-      P.forEach((q, i) => { pos[i] = { x: q.x, y: q.y, e: E }; });
-    } else {
+    {
       // Tourelle posée : une barre groupée, toujours dans le même ordre (ciblage, améliorations, vente), juste sous la
       // tourelle (au-dessus si elle est trop bas). Si la barre est trop large (3 branches), ciblage et vente passent
       // sur une 2e rangée.
@@ -350,8 +278,7 @@ export const Radial = {
     let node;
     if (armed && armed.panel) node = this.upgradePanel(t && !armed.isBranch ? { ...armed.panel, hdr: t } : armed.panel);
     else if (armed && armed.info) node = el('div', 'info', armed.info);
-    else if (t) node = this.towerPanel(t, R0.items);
-    else node = el('div', 'info', slot.kind === 'mine' ? '<b>Zone de mine</b><small class="hint">Choisis une mine</small>' : '<b>Choisis une tourelle</b><small class="hint">Touche-la pour voir ses stats</small>');
+    else node = this.towerPanel(t, R0.items);
     node.classList.add('rpanel');
     if (R0.panel) R0.panel.replaceWith(node); else $('#radial').append(node);
     R0.panel = node; R0.panelKey = key;
@@ -375,13 +302,14 @@ export const Radial = {
   },
   updateRadial() {
     const g = this.game, slot = g.menuSlot;
-    if (!slot || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; $('#radial').innerHTML = ''; this._rad = null; g.menuSlot = null; g.fx.dim = null; } return; }
+    this.updateBuildBar();
+    if (!slot || !slot.tower || g.over) { if (!$('#radial').hidden) { $('#radial').hidden = true; $('#radial').innerHTML = ''; this._rad = null; g.menuSlot = null; g.fx.dim = null; } return; }
     const t = slot.tower;
     // structure seulement : l'argent et le choix en cours ne reconstruisent jamais le menu
-    const opts = t ? t.upgradeOptions().map((o) => (o.locked ? 'L' : o.level + ':' + (o.branch ?? ''))).join(',') : g.buildable(slot).join(',');
-    const key = [g.slots.indexOf(slot), t ? t.level + '|' + t.branch + '|' + t.mode : '', opts, g.freeNext].join('/');
+    const opts = t.upgradeOptions().map((o) => (o.locked ? 'L' : o.level + ':' + (o.branch ?? ''))).join(',');
+    const key = [g.slots.indexOf(slot), t.level + '|' + t.branch + '|' + t.mode, opts].join('/');
     if (this.cache.radial !== key || !this._rad) { this.cache.radial = key; this.renderRadial(); return; }
     this.radialLive(false);
-    if (t) { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { const v = short(t.dmg); if (d.textContent !== v) d.textContent = v; if (k.textContent !== String(t.kills)) k.textContent = t.kills; } }
+    { const d = $('#radial .dmg'), k = $('#radial .kills'); if (d) { const v = short(t.dmg); if (d.textContent !== v) d.textContent = v; if (k.textContent !== String(t.kills)) k.textContent = t.kills; } }
   },
 };
