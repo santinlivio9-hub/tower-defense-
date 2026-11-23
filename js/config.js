@@ -570,14 +570,18 @@ export const SCORE = {
 
 // Étoiles : part des PV restants nécessaire
 // Menu radial d'un emplacement (px écran)
+// Barre de choix des tourelles (en bas de l'écran, au-dessus des boutons du bas)
+export const BUILDBAR = {
+  visible: 3.5,      // cartes visibles : la dernière est coupée à moitié sur le bord droit (on voit qu'il y en a d'autres)
+  pad: 8, gap: 8,    // marge sur les côtés et écart entre deux cartes (px)
+  minW: 84, maxW: 112,   // largeur d'une carte (px), bornée
+  icon: 58,          // taille de l'icône dans la carte (px)
+  tapSlop: 8,        // au-delà de ce déplacement du doigt (px), c'est un swipe et non un toucher
+  outMs: 140,        // durée de fermeture (ms) ; l'ouverture dure 180 ms (css)
+  markR: 36,         // rayon du repère sur l'emplacement (unités du terrain)
+  seeAlpha: 0.22,    // opacité de la barre au niveau d'un emplacement qu'elle recouvre
+};
 export const RADIAL = {
-  ringMax: 6,        // choix de tourelle : un anneau jusqu'à 6 tourelles, au-delà deux anneaux concentriques
-  rRing: 76,         // rayon de départ de l'anneau (px écran), agrandi juste assez pour que rien ne se touche
-  rInner: 64, ringStep: 92,   // deux anneaux : rayon de départ de l'anneau intérieur, écart avec l'anneau extérieur
-  buildGap: 82,      // distance minimale entre deux boutons voisins d'un même anneau (px)
-  slotClear: 14,     // marge (px) entre l'emplacement touché et les boutons qui l'entourent
-  buildBox: { w: 38, up: 29, down: 63 },
-  buildBox2: { w: 33, up: 25, down: 55 }, buildGap2: 70, ringStep2: 80,   // deux anneaux : boutons compacts (icône 44 px)   // emprise d'un bouton de pose autour de son centre (icône 50 px, nom, prix)
   cell: 62, cellBranch: 104, barGap: 6,   // barre d'amélioration : largeur d'une case (px), d'une case de branche, écart
   towerR: 34,        // rayon de la tourelle (unités du terrain) que les boutons et le panneau ne recouvrent pas
   ringPad: 44,       // marge autour des boutons (prix, libellés) que le panneau ne recouvre pas

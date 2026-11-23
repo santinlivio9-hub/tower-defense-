@@ -12,6 +12,7 @@ import { BoostUI } from './boosts.js';
 import { Music } from './music.js';
 import { Daily } from './daily.js';
 import { Radial } from './radial.js';
+import { BuildBar } from './buildbar.js';
 import { Rebirth } from './rebirth.js';
 import { Game } from './game.js';
 import { computeStats, dpsOf, TARGET_MODES } from './towers.js';
@@ -33,7 +34,7 @@ const stars = (n, cls = 'stars') => `<span class="${cls}">${[0, 1, 2].map((i) =>
 
 const TUTORIAL = [
   { text: 'Touche un <b>socle</b>', target: (ui) => { const sl = tutSlot(ui.game); return ui.fieldPoint(sl.x, sl.y); }, done: (g) => !!g.menuSlot || g.towers.length > 0 },
-  { text: 'Choisis une tourelle, puis <b>touche-la encore</b>', target: () => $('#radial .rb'), done: (g) => g.towers.length > 0, keep: true },
+  { text: 'Choisis une tourelle, puis <b>touche-la encore</b>', target: () => $('#buildbar:not([hidden]) .bb-card'), done: (g) => g.towers.length > 0, keep: true },
   { text: '<b>Lance la vague !</b>', target: () => $('#btn-wave'), done: (g) => g.wave >= 1 },
   { text: 'Touche ta tourelle pour l\'<b>améliorer</b>', target: (ui) => { const t = ui.game.towers[0]; return t ? ui.fieldPoint(t.x, t.y) : null; }, wait: (g) => g.cleared < 1 || !g.towers.some((t) => t.canUp), done: (g) => (!!g.menuSlot && !!g.menuSlot.tower) || g.wave >= 4 },
 ];
@@ -342,8 +343,8 @@ export class UI {
     if (g) { try { g.commit(); } catch (e) { console.error(e); this.save.persist(); } g.onEvent = () => {}; g.dispose(); }
     this.game = null; this.introOpen = false; this.aiming = null; this.armed = null; this.down = null; this.flying = 0; this.cache = {}; this.endSeq = null;
     $$('.tower-tip, .boost-pop, .boost-picker, .coin-fly, .drop-fly, .up-float, #toasts > *').forEach((e) => e.remove());
-    for (const id of ['#combo', '#radial', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
-    $('#radial').innerHTML = '';
+    for (const id of ['#combo', '#radial', '#buildbar', '#bb-mark', '#aim-hint', '#tutorial', '#goals']) $(id).hidden = true;
+    $('#radial').innerHTML = ''; $('#buildbar').innerHTML = ''; if (this._bb) clearTimeout(this._bb.hintT); this._bb = null;   // nouvelle partie : barre neuve, défilement au début
     if (window.__game) window.__game = null;
   }
   // Quitter la partie (pause, écran de fin, écran d'erreur) : la progression est écrite, puis on change d'écran
@@ -425,7 +426,7 @@ export class UI {
     const g = this.game; if (!g || g.over) return;
     if (slot !== g.menuSlot) { this.audio.play(slot && !slot.tower ? 'tick' : 'sheet'); if (slot) this.haptics.pulse(0); }
     g.menuSlot = slot; g.selected = slot ? slot.tower : null; g.preview = null; this.armed = null; this.cache.radial = null;
-    if (!slot) this.renderRadial();
+    if (!slot) { this.renderRadial(); this.hideBuildBar(); }
   }
   // Carte d'info affichée la première fois qu'on pose une tourelle de ce type
   towerTip(type, t) {
@@ -438,7 +439,7 @@ export class UI {
     tip.onclick = close; setTimeout(close, 3600);
     $('#screen-game').append(tip);
   }
-  closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; g.fx.dim = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; }
+  closeMenu() { const g = this.game; if (g) { g.menuSlot = null; g.selected = null; g.preview = null; g.fx.dim = null; } this.armed = null; this.cache.radial = null; $('#radial').hidden = true; this.hideBuildBar(true); }
   // Éléments du menu : { key, cls, art, label, price, info, preview, tap (immédiat) ou confirm (2e toucher) }
   toLogical(e) {
     const r = this.canvas.getBoundingClientRect(), v = this.view;
@@ -498,8 +499,9 @@ export class UI {
     const g = this.game; if (!g || this.screen !== 'game' || e.repeat) return;
     if (e.code === 'KeyP') { this.togglePause(); return; }
     if (g.over || g.paused) return;
-    const n = parseInt(e.key, 10), btns = $$('#radial .rb');
-    if (n >= 1 && n <= btns.length) btns[n - 1].click();
+    const n = parseInt(e.key, 10), bar = this._bb && this._bb.open, btns = bar ? $$('#buildbar .bb-card') : $$('#radial .rb');
+    if (n >= 1 && n <= btns.length) { btns[n - 1].click(); if (bar) btns[n - 1].scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    else if (bar && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { e.preventDefault(); this.bbScrollBy(e.code === 'ArrowRight' ? 1 : -1); }
     else if (e.code === 'Space') { e.preventDefault(); g.startNextWave(true); }
     else if (e.code === 'Escape') { if (this.aiming) this.aiming = null; else if (g.menuSlot) this.openMenu(null); else this.togglePause(); }
   }
@@ -695,7 +697,7 @@ export class UI {
     const hide = g.paused || g.over || (step.wait && step.wait(g)) || (!!g.menuSlot && !step.keep);
     const target = hide ? null : step.target(this);
     if (!target) { box.hidden = true; this.cache.tut = null; return; }
-    const r = target.getBoundingClientRect(), key = `${this.tutStep}|${Math.round(r.left)}|${Math.round(r.top)}`;
+    const r = target.getBoundingClientRect(), key = `${this.tutStep}|${Math.round(r.left)}|${Math.round(r.top)}|${this._bb && this._bb.open ? this._bb.panelKey + this._bb.bar.offsetTop : ''}|${g.menuSlot ? g.slots.indexOf(g.menuSlot) : ''}`;
     if (this.cache.tut === key) return; this.cache.tut = key;
     box.hidden = false; box.innerHTML = `<span>${step.text}</span>`;
     const skip = el('button', '', 'Passer'); skip.onclick = () => this.endTutorial(); box.append(skip);
@@ -705,13 +707,16 @@ export class UI {
     const sg = $('#screen-game').getBoundingClientRect(), hudB = $('#hud').getBoundingClientRect().bottom, inDock = !!target.closest && !!target.closest('#dock');
     box.style.left = '0px'; box.style.top = '0px'; box.className = 'placed';
     const bw = box.offsetWidth, bh = box.offsetHeight, cx = r.left + r.width / 2, rr = Math.max(r.width, r.height) / 2 + 14;
-    const avoid = $$('#radial .upp, #radial .info, .tower-tip, #goals:not([hidden]), #radial .rb, #radial .rb .lab, #radial .rb .price').map((e) => e.getBoundingClientRect()).filter((q) => q.width);
+    const avoid = $$('#radial .upp, #radial .info, .tower-tip, #goals:not([hidden]), #radial .rb, #radial .rb .lab, #radial .rb .price, #buildbar:not([hidden]) .bb-panel:not([hidden])').map((e) => e.getBoundingClientRect()).filter((q) => q.width);
     const x = Math.max(sg.left + 10, Math.min(sg.right - bw - 10, cx - bw / 2)), low = inDock ? sg.bottom : $('#dock').getBoundingClientRect().top;
     // cible dans le menu de pose : la bulle se place au-dessus ou au-dessous de TOUT le menu (à l'opposé du cercle)
     if (g.menuSlot) { const q = this.toScreen(g.menuSlot.x, g.menuSlot.y), m = 34; avoid.push({ left: q.x - m, right: q.x + m, top: q.y - m, bottom: q.y + m }); }   // l'emplacement touché reste visible
-    const inMenu = !!target.closest && !!target.closest('#radial'), mb = inMenu ? $$('#radial .rb, #radial .rb .lab, #radial .rb .price').map((e) => e.getBoundingClientRect()).reduce((m, q) => ({ t: Math.min(m.t, q.top), b: Math.max(m.b, q.bottom) }), { t: 1e9, b: -1e9 }) : null;
-    const cands = (inMenu ? [['up', mb.t - 14 - bh], ['down', mb.b + 14]] : [['up', r.top + r.height / 2 - rr - 12 - bh], ['down', r.top + r.height / 2 + rr + 12]]).map(([side, y]) => {
-      let score = y < hudB + 4 || y + bh > low - 4 ? 1000 : 0;
+    // cible dans la barre du bas : la bulle se place au-dessus de toute la barre (et de son panneau), jamais dessus,
+    // en évitant l'emplacement touché
+    const inBar = !!target.closest && !!target.closest('#buildbar'), bt = inBar ? this._bb.bar.offsetTop + sg.top : 0;
+    if (inBar && g.menuSlot) { const q = this.toScreen(g.menuSlot.x, g.menuSlot.y); avoid.push({ left: q.x - 40, right: q.x + 40, top: q.y - 40, bottom: q.y + 40 }); }
+    const cands = (inBar ? [['up', bt - 14 - bh], ['up', bt - 100 - bh], ['up', bt - 190 - bh]] : [['up', r.top + r.height / 2 - rr - 12 - bh], ['down', r.top + r.height / 2 + rr + 12]]).map(([side, y]) => {
+      let score = y < hudB + 4 || y + bh > (inBar ? bt - 4 : low - 4) ? 1000 : 0;
       for (const q of avoid) if (x < q.right && x + bw > q.left && y < q.bottom && y + bh > q.top) score += 500;
       return { side, y, score: score + (side === 'up' ? 0 : 1) };
     }).sort((a, b) => a.score - b.score);
@@ -772,4 +777,4 @@ export class UI {
     catch (e) { this.toast('Image du score enregistrée', '', icon('share')); }
   }
 }
-Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal, Radial, Rebirth);
+Object.assign(UI.prototype, Meta, Hub, Loot, End, Talents, Collection, BoostUI, Daily, Reveal, Radial, BuildBar, Rebirth);
