@@ -6,6 +6,8 @@
   "description": "Brainrot TD : tower defense mobile (version web GitHub Pages + apps Android et iOS via Capacitor)",
   "scripts": {
     "www": "node tools/build-www.cjs",
+    "www:test": "node tools/build-www.cjs --test",
+    "sync:test": "node tools/build-www.cjs --test && npx cap sync",
     "sync": "node tools/build-www.cjs && npx cap sync",
     "android": "node tools/build-www.cjs && npx cap sync android && npx cap open android",
     "ios": "node tools/build-www.cjs && npx cap sync ios && npx cap open ios"

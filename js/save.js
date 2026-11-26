@@ -2,6 +2,7 @@
 // campagne, château, niveau de joueur, talents, inventaire de boosts, coffres.
 import { REBIRTH, PER_WORLD, TALENT_ROWS, TALENT_RESPEC, SHOP, SEASON, PROFILE, seasonOf, premiumReward, ACHIEVEMENTS, ACH_LEGACY, ACH_TIERS, LEVELS, WORLDS, UNLOCKS, STAR_CHESTS, CAMPAIGN, CASTLE, XP, TALENTS, BOOSTS, BOOST_ORDER, BOOST_SLOTS, STARTER_BOOSTS, CHESTS, COINS, DAILY, PASS, passReward } from './config.js';
 import { mulberry32, hashStr } from './maps.js';
+import { ADMIN_ENABLED } from './config.js';
 import { setTierCap } from './castle.js';
 
 // date locale « AAAA-MM-JJ » (le jour change à minuit, heure du téléphone)
@@ -9,7 +10,36 @@ export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth
 const fmtN = (n) => new Intl.NumberFormat('fr-FR').format(n);
 const mondayOf = (d = new Date()) => { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return today(m); };
 
-const KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
+const REAL_KEY = 'brainrot-bastion-save-v1';   // même clé qu'avant : les anciennes sauvegardes sont converties (voir migrate)
+// Mode admin : le jeu lit et écrit UNIQUEMENT une copie (clé « -admin » et ses copies de secours). La vraie sauvegarde
+// et ses copies de secours ne sont jamais réécrites tant que le mode est actif.
+const ADMIN_FLAG = 'brainrot-admin-on', ADMIN_CLOCK = 'brainrot-admin-clock';
+const raw0 = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+export const adminActive = ADMIN_ENABLED && raw0(ADMIN_FLAG) === '1';
+const KEY = adminActive ? REAL_KEY + '-admin' : REAL_KEY;
+// Horloge du jeu avancée (mode admin uniquement) : Date.now() et new Date() sont décalés de adminClock.off ms
+export const adminClock = { off: adminActive ? +raw0(ADMIN_CLOCK) || 0 : 0 };
+if (adminActive) {
+  const RealDate = Date;
+  class AdminDate extends RealDate { constructor(...a) { if (a.length) super(...a); else super(RealDate.now() + adminClock.off); } static now() { return RealDate.now() + adminClock.off; } }
+  globalThis.Date = AdminDate;
+}
+export function setAdminClock(ms) { adminClock.off = Math.max(0, ms); try { localStorage.setItem(ADMIN_CLOCK, String(adminClock.off)); } catch (e) { /* ignore */ } }
+// Entrée : la vraie sauvegarde est recopiée dans la clé admin, puis le jeu redémarre sur la copie
+export function enterAdmin() {
+  if (!ADMIN_ENABLED) return false;
+  const real = raw0(REAL_KEY);
+  try {
+    for (const k of ['', '-bak1', '-bak2', '-broken', '-undo']) localStorage.removeItem(REAL_KEY + '-admin' + k);
+    if (real) localStorage.setItem(REAL_KEY + '-admin', real);
+    localStorage.setItem(ADMIN_FLAG, '1'); localStorage.removeItem(ADMIN_CLOCK);
+  } catch (e) { return false; }
+  return true;
+}
+// Sortie : la copie admin est effacée, la vraie sauvegarde (jamais touchée) est rechargée telle quelle
+export function exitAdmin() {
+  try { for (const k of ['', '-bak1', '-bak2', '-broken', '-undo']) localStorage.removeItem(REAL_KEY + '-admin' + k); localStorage.removeItem(ADMIN_FLAG); localStorage.removeItem(ADMIN_CLOCK); } catch (e) { /* ignore */ }
+}
 
 const defaults = () => ({
   v: 2, lpw: PER_WORLD,   // lpw = niveaux par monde au moment de l'écriture (6 avant la campagne à 10 niveaux)
@@ -165,14 +195,14 @@ export class Save {
   levelDone(n) { return !!this.data.levels[n] && this.data.levels[n].stars > 0; }
   // un niveau s'ouvre quand le précédent est gagné ; tout ce qui est avant le niveau le plus loin gagné reste ouvert
   // (niveaux ajoutés à une campagne déjà avancée : jouables, sans rien bloquer)
-  levelUnlocked(n) { return n <= 1 || this.levelDone(n - 1) || n <= this.progress(); }
+  levelUnlocked(n) { return n <= 1 || this.levelDone(n - 1) || n <= this.progress() || !!this.data.adminOpen; }
   progress() { let p = 0; for (const [n, l] of Object.entries(this.data.levels)) if (l && l.stars > 0 && +n <= LEVELS.length) p = Math.max(p, +n); return p; }   // niveau le plus loin gagné
   // niveaux ouverts pas encore gagnés, en arrière du plus loin (ajoutés par une mise à jour)
   skipped() { const p = this.progress(); return LEVELS.filter((L) => L.n < p && !this.levelDone(L.n)).map((L) => L.n); }
   totalStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0) + (this.data.legacyStars || 0); }
   campaignStars() { return Object.values(this.data.levels).reduce((s, l) => s + (l.stars || 0), 0); }
   bestScore() { return this.data.stats.bestScore || 0; }
-  endlessUnlocked() { return this.progress() >= CAMPAIGN.endlessAfter || this.rank() > 0; }
+  endlessUnlocked() { return this.progress() >= CAMPAIGN.endlessAfter || this.rank() > 0 || !!this.data.adminOpen; }
   addEndless(entry) { const e = this.data.endless; e.push(entry); e.sort((a, b) => b.score - a.score); e.length = Math.min(e.length, 10); return e.indexOf(entry); }
   towerUnlocked(t) { return this.data.towers.includes(t); }
   // Tourelles offertes par la progression ; renvoie celles qui viennent d'être débloquées
@@ -186,7 +216,7 @@ export class Save {
   }
   grantTowers() { return this.grantUnlocks().towers; }
   // amélioration légendaire (5e niveau) disponible pour cette tourelle ?
-  legendOk(t) { return this.progress() >= (UNLOCKS.legend[t] || 1) - 1 || this.rank() > 0; }
+  legendOk(t) { return this.progress() >= (UNLOCKS.legend[t] || 1) - 1 || this.rank() > 0 || !!this.data.adminOpen; }
   // coffres d'étoiles d'un monde : étoiles, paliers prêts / déjà pris
   worldStars(wi) { return LEVELS.filter((l) => l.world === wi).reduce((s, l) => s + ((this.data.levels[l.n] || {}).stars || 0), 0); }
   starChests(wi) { const got = this.data.starChests[wi] || [], st = this.worldStars(wi); return STAR_CHESTS.map(([need, chest], k) => ({ k, need, chest, got: got.includes(k), ready: st >= need && !got.includes(k) })); }
