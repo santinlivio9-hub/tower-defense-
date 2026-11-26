@@ -2,7 +2,7 @@
 // #app est en position fixed, inset 0 (voir style.css) : c'est le navigateur qui lui donne sa taille, sans vh
 // ni hauteur calculée. Seule correction appliquée ici : si la zone réellement visible (visualViewport) est plus
 // petite que la boîte de #app, on réduit #app pour que rien ne sorte de l'écran. On n'agrandit jamais.
-// Mode debug (?debug=1 ou 5 tapes sur le logo) : affiche toutes les mesures et permet d'essayer d'autres réglages.
+// Mode debug (?debug=1, ou depuis la console admin) : affiche toutes les mesures et permet d'essayer d'autres réglages.
 const KEY = 'brainrot-layout';
 const MODES = [
   ['auto', 'Auto', 'boîte CSS, réduite à la zone visible'],
@@ -63,14 +63,14 @@ export function initViewport(cb) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) later(); });
   later();
   if (/[?&]debug=1/.test(location.search)) openDebug();
-  // 5 tapes rapides sur le logo
+  // 7 tapes rapides sur le logo : console admin (code PIN). Le mode debug reste accessible par ?debug=1 et dans la console.
   let n = 0, t = 0;
   document.addEventListener('pointerdown', (e) => {
     // le logo ne capte pas les touchers (pointer-events: none) : on compare la position à son rectangle
     const lg = document.querySelector('#screen-menu.active .logo'); if (!lg) return;
     const q = lg.getBoundingClientRect(); if (e.clientX < q.left || e.clientX > q.right || e.clientY < q.top || e.clientY > q.bottom) return;
     const now = Date.now(); n = now - t < 600 ? n + 1 : 1; t = now;
-    if (n >= 5) { n = 0; panel ? closeDebug() : openDebug(); }
+    if (n >= 7) { n = 0; window.dispatchEvent(new CustomEvent('admin-gesture')); }
   });
 }
 
@@ -120,6 +120,7 @@ export function openDebug() {
   panel._iv = setInterval(renderDebug, 500);
   renderDebug();
 }
+export const debugOpen = () => !!panel;
 export function closeDebug() {
   if (!panel) return;
   clearInterval(panel._iv); panel.remove(); panel = null;

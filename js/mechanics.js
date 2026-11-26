@@ -53,6 +53,13 @@ function blackout(g, m) {
   g.blackDur = m.dur || m.out || 3; g.showBanner('COUPURE DE COURANT', `${list.length} tourelle${list.length > 1 ? 's' : ''} vont s'éteindre`, '#ff3fb4', 1.6); g.audio.play('zap');
 }
 
+// Mode admin : déclenche tout de suite une tempête, une éruption ou une coupure (réglages du monde qui l'a)
+export function forceMech(g, kind, worlds) {
+  const w = worlds.find((x) => x.mech && x.mech.kind === kind), ch = worlds.find((x) => x.mech && x.mech.kind === 'chaos');
+  const m = w ? w.mech : ch ? params(ch.mech, kind) : null; if (!m) return false;
+  if (kind === 'sandstorm') storm(g, m); else if (kind === 'eruption') eruption(g, m); else blackout(g, m);
+  return true;
+}
 export function updateMech(g, dt) {
   const m = g.mech; if (!m) return;
   // mécanique périodique (le chaos en change à chaque fois)

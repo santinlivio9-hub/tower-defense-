@@ -12,7 +12,10 @@ import { MONETIZATION as M } from './config.js';
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const today = () => new Date().toDateString();
-export const isNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+import { adminActive } from './save.js';
+const realNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// mode admin : jamais de vraie pub ni de vrai achat (simulation, comme la version web)
+export const isNative = () => realNative() && !adminActive;
 export const platform = () => (window.Capacitor && window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : 'web');
 
 export class Monetization {
@@ -94,7 +97,7 @@ export class Monetization {
   // Pub factice (web) : 3 s, puis la récompense ; « Fermer » avant la fin = pas de récompense
   fakeAd(reason) {
     return new Promise((resolve) => {
-      const s = M.webAdSeconds, ov = el('div', 'fakead', `<div class="fa-box"><small>PUB (simulation de la version web)</small><b>Brainrot TD</b><p></p><div class="fa-bar"><i></i></div><span class="fa-t">${s}</span><button class="btn sm ghost fa-close">Fermer</button></div>`);
+      const s = M.webAdSeconds, ov = el('div', 'fakead', `<div class="fa-box"><small>PUB (simulation ${adminActive ? 'du mode admin' : 'de la version web'})</small><b>Brainrot TD</b><p></p><div class="fa-bar"><i></i></div><span class="fa-t">${s}</span><button class="btn sm ghost fa-close">Fermer</button></div>`);
       ov.querySelector('p').textContent = reason ? `Récompense : ${reason}` : 'Merci de soutenir le jeu !';
       document.body.append(ov);
       requestAnimationFrame(() => { ov.classList.add('on'); ov.querySelector('.fa-bar i').style.transitionDuration = s + 's'; ov.querySelector('.fa-bar i').style.width = '100%'; });
@@ -157,7 +160,7 @@ export class Monetization {
   // Achat fictif (web) : confirmation explicite, rien n'est facturé
   fakeBuy(p) {
     return new Promise((resolve) => {
-      const ov = el('div', 'fakead on', `<div class="fa-box"><small>ACHAT FICTIF (version web)</small><b></b><p>Aucun paiement : cet achat est une simulation pour tester le jeu.</p><div class="fa-btns"><button class="btn sm ghost fa-no">Annuler</button><button class="btn sm green fa-yes">Simuler l'achat · ${p.price}</button></div></div>`);
+      const ov = el('div', 'fakead on', `<div class="fa-box"><small>ACHAT FICTIF (${adminActive ? 'mode admin' : 'version web'})</small><b></b><p>Aucun paiement : cet achat est une simulation pour tester le jeu.</p><div class="fa-btns"><button class="btn sm ghost fa-no">Annuler</button><button class="btn sm green fa-yes">Simuler l'achat · ${p.price}</button></div></div>`);
       ov.querySelector('b').textContent = p.name;
       document.body.append(ov);
       ov.querySelector('.fa-no').onclick = () => { ov.remove(); resolve(false); };

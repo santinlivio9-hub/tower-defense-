@@ -41,7 +41,8 @@ L'URL de la politique de confidentialité à donner aux stores : `https://<ton-c
 
 ```bash
 npm install          # première fois seulement (Capacitor + plugins AdMob et achats)
-npm run sync         # copie le jeu dans www/ puis dans android/ et ios/
+npm run sync         # copie le jeu dans www/ puis dans android/ et ios/ (version store : mode admin coupé)
+npm run sync:test    # même chose, mais build de TEST : le mode admin reste disponible
 ```
 
 ### Android (Android Studio)
@@ -304,9 +305,31 @@ WCAG AA sur fond uni, contour foncé sur les textes posés sur un décor. Il enr
 - `node tools/rotate.cjs` : téléphone tourné en paysage pendant une partie : écran « Tourne ton téléphone », partie
   en pause et son coupé, mise en page de portrait gardée ; au retour en portrait, la partie reprend, tout est intact.
 
+### Mode admin (console développeur)
+
+Console cachée pour tester tout le jeu (inspirée du « Command Deck » de Chibi Arsenal).
+
+- **Accès** : 7 tapes rapides sur le logo de l'accueil, puis le code PIN **210707** (`ADMIN_PIN` dans
+  `js/config.js`). Le PIN est vérifié dans le navigateur : il protège des curieux, **pas** de quelqu'un qui lit le
+  code. Un badge « ADMIN » reste en haut de l'écran tant que le mode est actif ; le toucher rouvre la console.
+- **Sauvegarde séparée** : en entrant, la vraie sauvegarde est recopiée dans une clé à part
+  (`brainrot-bastion-save-v1-admin`) et le jeu redémarre sur cette copie. Tout ce qui est fait en admin (succès,
+  records, classement infini, pass, achats simulés, horloge avancée) reste dans la copie. « Revenir à ma vraie
+  partie » (onglet Outils) efface la copie et recharge la vraie progression, jamais réécrite.
+- **Onglets** : Progression (campagne, niveau à lancer, joueur, talents, château, déblocages, monnaies, quotidien
+  et horloge), Bestiaire (fiches de tous les ennemis, versions mutées, aperçu animé, apparition en partie), Partie
+  (argent infini, God Mode, vagues, victoire / défaite, vitesse x0,5 à x10, tourelles gratuites, événements de monde,
+  affichage debug et FPS), Outils (écrans de victoire, défaite, montée de niveau, cinématiques, coffres, Renaissance,
+  achat et pub simulés, export / import de la copie, réinitialisation avec double confirmation).
+- **Aucun achat réel** : en mode admin, pubs et achats passent toujours par la simulation, même dans l'app.
+- **Stores** : `ADMIN_ENABLED` (`js/config.js`) est mis à `false` automatiquement par `npm run www` / `npm run sync`
+  (build de production). Il reste actif en version web (GitHub Pages) et avec `npm run www:test` / `npm run sync:test`.
+- Test : `node tools/admin-test.cjs` vérifie notamment que la vraie sauvegarde est identique, octet pour octet,
+  avant et après une session admin complète.
+
 ### Mode debug d'affichage
 
-`?debug=1` dans l'adresse, ou 5 tapes rapides sur le logo de l'accueil : affiche `innerHeight`, `clientHeight`,
+`?debug=1` dans l'adresse, ou depuis la console admin (onglet Partie, « Mesures d'écran ») : affiche `innerHeight`, `clientHeight`,
 `visualViewport`, `screen`, les safe-areas réelles, le mode (navigateur / installé), la position de `#app`, de la
 barre d'onglets et de la barre du bas du jeu, et marque les 4 coins de `#app` en rouge. Les boutons du bas essaient
 d'autres façons de calculer la hauteur ; le choix est gardé en mémoire (`localStorage`, clé `brainrot-layout`).

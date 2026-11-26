@@ -570,6 +570,19 @@ export const SCORE = {
 
 // Étoiles : part des PV restants nécessaire
 // Menu radial d'un emplacement (px écran)
+// Mode admin (développeur) : console cachée pour tester tout le jeu sur une COPIE de la sauvegarde.
+// ADMIN_ENABLED est mis à false automatiquement dans le build Capacitor de production (tools/build-www.cjs) ;
+// il reste actif en version web et en build de test (npm run www:test). Le PIN est vérifié dans le navigateur :
+// il protège des curieux, pas de quelqu'un qui lit le code.
+export const ADMIN_ENABLED = true;
+export const ADMIN_PIN = '210707';
+export const ADMIN = {
+  taps: 7, tapGap: 600,                 // 7 tapes rapides sur le logo de l'accueil (moins de 600 ms entre deux)
+  speeds: [0.5, 1, 2, 3, 5, 10],        // vitesses de jeu proposées
+  clock: [[3600000, '+1 h'], [6 * 3600000, '+6 h'], [86400000, '+1 jour'], [7 * 86400000, '+7 jours']],
+  spawnMax: 50,
+};
+
 // Barre de choix des tourelles (en bas de l'écran, au-dessus des boutons du bas)
 export const BUILDBAR = {
   visible: 3.5,      // cartes visibles : la dernière est coupée à moitié sur le bord droit (on voit qu'il y en a d'autres)

@@ -22,6 +22,8 @@ import { icon, hydrateIcons, coin, gem } from './icons.js';
 import { Haptics } from './haptics.js';
 import { Monetization, isNative } from './monetization.js';
 import { fit, ROT_QUERY } from './viewport.js';
+import { adminActive } from './save.js';
+import { ADMIN_ENABLED } from './config.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -81,6 +83,12 @@ export class UI {
     $('#btn-endless').onclick = () => this.openEndless();
 
     this.buildTabbar();
+    // mode admin : geste secret (7 tapes sur le logo), console chargée seulement à la demande
+    if (ADMIN_ENABLED) {
+      const deck = () => import('./admin.js').then((m) => m.adminDeck(this));
+      window.addEventListener('admin-gesture', () => deck().then((A) => A.gesture()));
+      if (adminActive) deck().then((A) => A.boot());
+    }
 
     this.show('menu');
     if (save.recovered === 'backup') setTimeout(() => this.toast('Sauvegarde récupérée', 'Elle était abîmée : la copie de secours a été chargée', icon('check')), 900);
@@ -603,6 +611,7 @@ export class UI {
     // (le château d'un niveau ne change pas en cours de route : le chantier se termine au retour au hub)
     if (this.save.data.build && this.screen !== 'game' && (!this._bdT || ts - this._bdT > 1000)) { this._bdT = ts; const id = this.save.checkBuild(); if (id) this.onBuildDone(id); }
     if (this.music.on && ((this._mt = (this._mt || 0) + 1) % 10 === 0)) this.syncMusic();
+    if (this.admin) this.admin.tick(ts);
     if (this.save.saveFailed && !this._sfWarn) { this._sfWarn = true; this.toast('Sauvegarde impossible', 'Le stockage du téléphone est plein ou bloqué : exporte ta progression dans les Paramètres', icon('trash')); }
     if (window.__updateReady && this.screen !== 'game' && !$('#overlay.show')) { window.__updateReady = false; location.reload(); }
   }

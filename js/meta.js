@@ -294,7 +294,7 @@ export const Meta = {
 
   // ------------------------------------------------------------------ niveau déjà terminé : rejouer ou défi héroïque
   openPrep(n, heroic = false) {
-    const sv = this.save, L = LEVELS[n - 1], w = WORLDS[L.world], ld = sv.levelData(n), done = sv.levelDone(n);
+    const sv = this.save, L = LEVELS[n - 1], w = WORLDS[L.world], ld = sv.levelData(n), done = sv.levelDone(n) || !!sv.data.adminOpen;
     if (!done) heroic = false;
     const m = el('div', 'panel glass prep');
     const x = el('button', 'icon-btn close', icon('close')); x.onclick = () => this.closeOverlay();

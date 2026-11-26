@@ -296,15 +296,15 @@ export class Game {
   }
   // Tourelles proposées sur un emplacement vide
   buildable(slot) {
-    return TOWER_ORDER.filter((t) => this.save.towerUnlocked(t) && (t === 'mine') === (slot.kind === 'mine') && !(this.banned || []).includes(t));
+    return TOWER_ORDER.filter((t) => (this.adminFree || (this.save.towerUnlocked(t) && !(this.banned || []).includes(t))) && (t === 'mine') === (slot.kind === 'mine'));
   }
   get limitReached() { return !!this.towerLimit && this.towers.filter((t) => t.type !== 'mine').length >= this.towerLimit; }
-  costOf(type) { return this.freeNext ? 0 : TOWERS[type].cost; }
+  costOf(type) { return this.freeNext || this.adminFree ? 0 : TOWERS[type].cost; }
   placeTower(type, slot) {
     if (this.over || !slot || slot.tower || !this.buildable(slot).includes(type)) { this.audio.play('error'); return null; }
     const cost = this.costOf(type);
     if (this.money < cost || (type !== 'mine' && this.limitReached)) { this.audio.play('error'); return null; }
-    this.money -= cost; if (cost === 0) this.freeNext = false;
+    this.money -= cost; if (cost === 0 && !this.adminFree) this.freeNext = false;
     const t = new Tower(this, type, slot.x, slot.y); t.legendLocked = !this.save.legendOk(type);
     t.slot = slot; slot.tower = t; if (cost === 0) t.invested = 0;
     this.towers.push(t); this.stats.built++; this.hintT = 0;
@@ -362,7 +362,9 @@ export class Game {
     let dt = Math.min(0.05, dtReal);
     if (this.cine && !this.paused) { this.cine.t += dtReal; dt *= 0.35; if (this.cine.t >= this.cine.dur) this.cine = null; }   // entrée du boss
     else if (this.slowT > 0 && !this.paused) { this.slowT -= dtReal; dt *= this.slowK || DROPS.slowMo; if (this.slowT <= 0) this.slowK = 0; }
-    if (!this.paused) for (let i = 0; i < (this.slowT > 0 || this.cine ? 1 : this.speed); i++) this.update(dt);
+    // vitesse admin (x0,5 à x10) : plusieurs pas, ou des pas plus courts
+    const sp = this.slowT > 0 || this.cine ? 1 : this.adminSpeed || this.speed, steps = Math.max(1, Math.ceil(sp)); if (sp < 1) dt *= sp;
+    if (!this.paused) for (let i = 0; i < steps; i++) this.update(dt);
     this.render();
   }
   update(dt) {
@@ -375,8 +377,9 @@ export class Game {
       if (this.result && this.result.victory && Math.random() < dt * 14) this.fx.confetti(Math.random() * VIEW.W, -10, 5, 120);
       return;
     }
-    // apparitions
-    this.spawnClock += dt;
+    // apparitions (mode admin : peuvent être suspendues)
+    if (this.infMoney) this.money = Math.max(this.money, 99999);
+    if (!this.holdSpawn) this.spawnClock += dt;
     while (this.queue.length && this.queue[0].t <= this.spawnClock) {
       const q = this.queue.shift();
       this.spawnEnemy(q.type, q.path, 0, q.hpScale, q.bossMul, q);
@@ -455,6 +458,7 @@ export class Game {
     }
     const lk = e.boss ? 'boss' : e.type === 'mini' ? 'splitter' : e.type; this.stats.leakBy[lk] = (this.stats.leakBy[lk] || 0) + e.leakDmg;
     this.lives -= e.leakDmg; this.cleanWave = false; this.lostLife = true; this.onEvent('haptic', 2);
+    if (this.god) this.lives = this.maxLives;   // mode admin : château invincible
     this.baseFlash = 1; this.shake(e.boss ? 16 : 6); this.audio.play('leak');
     this.fx.burst(this.base.x, this.base.y, '#ff4d4d', 14, 220, 6);
     this.fx.text(this.base.x, this.base.y - 96, e.leakDmg >= 99 ? 'CHÂTEAU DÉTRUIT' : '-' + e.leakDmg + ' PV', '#ff5d6c', 26, 1);
@@ -892,6 +896,7 @@ export class Game {
       if (b.sub2) this.label(c, b.sub2, W / 2 + slide, y + 74, 20, '#ffd23f', 6);
       c.globalAlpha = 1;
     }
+    if (this.debugDraw) this.debugDraw(c);   // mode admin : hitbox, portées, chemin, emplacements
     if (this.paused && !this.over) { c.fillStyle = 'rgba(30,14,40,0.35)'; c.fillRect(E.l, E.t, E.r - E.l, E.b - E.t); }
   }
 }
