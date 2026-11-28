@@ -992,3 +992,19 @@ Toutes les règles des tourelles sont respectées
 | Mine | 5A Cratère | 790 | 0,0 | 127,5 | 49,3 | 47,2 | 0,0 | 0,0 | 43,7 | 1,2 | 19,4 | 0,0 | 0,0 | 14,5 |
 | Mine | 5B Bobine Tesla | 760 | 0,0 | **504,4** | **244,7** | **220,8** | 0,0 | 0,0 | **141,7** | 0,9 | **58,2** | 0,0 | 22,3 | 55,6 |
 
+
+# Après correction : étape B (talents et château)
+
+Rangs fusionnés : la valeur totale est gardée, chaque rang vaut au moins 3 %. Pour une sauvegarde existante, les points placés au-delà du nouveau maximum sont rendus (testé dans `tools/save-test.cjs`).
+
+| Élément | Avant | Après | Par rang |
+|---|---|---|---|
+| Poudre premium | 5 rangs × 2 % (10 %) | 3 rangs × 3,5 % (10,5 %) | 3,5 % |
+| Culasse huilée | 5 rangs × 2 % (10 %) | 3 rangs × 3,5 % (10,5 %) | 3,5 % |
+| Longue-vue | 3 rangs × 2 % (6 %) | 2 rangs × 3 % (6 %) | 3 % |
+| Œil vif | 3 rangs × 1 % (3 %) | 1 rang × 3 % (3 %) | 3 % |
+| Chasseur de primes | 5 rangs × 3 % (15 %) | 3 rangs × 5 % (15 %) | 5 % |
+| Brocanteur | 3 rangs × 5 % (15 %) | 1 rang × 15 % (15 %) | 15 % |
+| Réparation (château) | toutes les 4, 3, 2, 2, 1 vagues | toutes les 5, 4, 3, 2, 1 vagues | chaque rang compte |
+
+Points de talent au maximum : 58 → 47. Sur 60 jours (tools/progression.cjs) : monde 1 fini jour 4, campagne jour 32, talents et château au maximum jour 47 (avant : 53). Les pourcentages des talents s'affichent au dixième près (« +10,5 % »).
