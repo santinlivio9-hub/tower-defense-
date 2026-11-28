@@ -356,7 +356,7 @@ export const CAMPAIGN = {
   endlessAfter: 20,                       // le mode infini se débloque après ce niveau (fin du monde 2)
   // gemmes
   // gemmes : seulement à la 1re victoire et aux premières 3 étoiles (pas aux replays) ; ×2 pour un boss
-  gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 3, gems3Stars: 2, gemsHeroicFirst: 4, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.09,   // gemmes : monnaie rare (-40 %)
+  gemsWin: 0, gemsPerStar: 0, gemsFirstClear: 5, gems3Stars: 3, gemsHeroicFirst: 5, gemsBossMult: 2, gemsPerWaveLost: 0, gemsPerWaveEndless: 0.09,   // gemmes : monnaie rare (-40 %)
 };
 // Liste à plat des niveaux (PER_WORLD par monde)
 export const LEVELS = [];
@@ -764,7 +764,7 @@ export const END = {
 export const COINS = {
   start: 150,                 // nouveau joueur
   migrateBase: 300, migratePerStar: 60,   // anciennes sauvegardes (avant les pièces)
-  win: 60, perStar: 15, perWave: 4, perWaveLost: 3, firstClear: 80, bossMult: 2, endlessPerWave: 4,   // pièces : monnaie de tous les jours
+  win: 110, perStar: 25, perWave: 7, perWaveLost: 5, firstClear: 150, bossMult: 2, endlessPerWave: 4,   // pièces : monnaie de tous les jours, gagnée surtout en jouant
 };
 // Barre d'onglets du hub (ordre affiché)
 export const TABS = [
@@ -843,35 +843,36 @@ export const MUSIC = {
 // ----------------------------------------------------------------------------
 export const DAILY = {
   calendar: [
-    { coins: 120 }, { gems: 1 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 220 },
+    { coins: 70 }, { gems: 1 }, { boosts: { coins2: 1, heal: 1 } }, { coins: 120 },
     { gems: 2 }, { boosts: { over: 1, shield: 1 } }, { chest: 'wood', gems: 3 },
   ],
   perDay: 3,                  // quêtes du jour
   quests: [                   // {n} = objectif ; pass = points de passe en plus de la récompense
-    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 130 }, pass: 40 },
-    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 170 }, pass: 50 },
-    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 150 }, pass: 40 },
-    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 160 }, pass: 50 },
-    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 130 }, pass: 40 },
-    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 130 }, pass: 40 },
+    { id: 'kills', text: 'Élimine {n} brainrots', n: 300, icon: 'skull', reward: { coins: 50 }, pass: 40 },
+    { id: 'wins', text: 'Gagne {n} niveaux', n: 2, icon: 'trophy', reward: { coins: 70 }, pass: 50 },
+    { id: 'boosts', text: 'Utilise {n} boosts', n: 3, icon: 'bolt', reward: { coins: 60 }, pass: 40 },
+    { id: 'stars', text: 'Gagne {n} étoiles', n: 5, icon: 'star', reward: { coins: 65 }, pass: 50 },
+    { id: 'built', text: 'Pose {n} tourelles', n: 15, icon: 'cannon', reward: { coins: 50 }, pass: 40 },
+    { id: 'upgrades', text: 'Améliore tes tourelles {n} fois', n: 12, icon: 'arrowup', reward: { coins: 50 }, pass: 40 },
     { id: 'combo', text: 'Réussis un combo x{n}', n: 25, icon: 'flame', reward: { gems: 1 }, pass: 40 },
-    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 220 }, pass: 50 },
+    { id: 'bosses', text: 'Bats {n} boss ou mini-boss', n: 1, icon: 'crown', reward: { coins: 90 }, pass: 50 },
     { id: 'drops', text: 'Ramasse {n} bulles de boost', n: 2, icon: 'gift', reward: { boosts: 1 }, pass: 40 },
-    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 130 }, pass: 40 },
+    { id: 'waves', text: 'Termine {n} vagues', n: 30, icon: 'wave', reward: { coins: 50 }, pass: 40 },
   ],
   weekly: [                   // une grosse quête par semaine (lundi)
-    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 3 }, pass: 200 },
-    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 3 }, pass: 200 },
-    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 3 }, pass: 200 },
+    { id: 'wins', text: 'Gagne {n} niveaux cette semaine', n: 12, icon: 'trophy', reward: { chest: 'gold', gems: 2 }, pass: 200 },
+    { id: 'kills', text: 'Élimine {n} brainrots cette semaine', n: 3000, icon: 'skull', reward: { chest: 'gold', gems: 2 }, pass: 200 },
+    { id: 'stars', text: 'Gagne {n} étoiles cette semaine', n: 30, icon: 'star', reward: { chest: 'gold', gems: 2 }, pass: 200 },
   ],
   // Roue de la chance : un tour gratuit toutes les wheelEvery heures. Segments (w = poids, sur 100) : le JACKPOT
-  // (coffre doré) est le segment le plus rare. Gain moyen par tour : ~98 pièces, ~1,5 gemme, 0,16 coffre en bois,
-  // 0,24 boost, 0,02 coffre doré (calé avec tools/progression.cjs : 4 tours par jour sans accélérer la campagne).
+  // (coffre doré) est le segment le plus rare. Gain moyen par tour : ~38 pièces, ~0,6 gemme, 0,1 coffre en bois,
+  // 0,24 boost, 0,02 coffre doré. Cadeau + roue + quêtes + passe = au plus 30 % de la valeur gagnée dans une journée
+  // (contenu des coffres compris), le reste vient des parties (SOURCES=1 node tools/progression.cjs 60).
   wheel: [
-    { coins: 200, w: 16 }, { gems: 3, w: 18 }, { coins: 450, w: 9 }, { boosts: 1, w: 24 },
-    { coins: 900, w: 3 }, { gems: 6, w: 9 }, { chest: 'wood', w: 16 }, { gems: 15, w: 3 }, { chest: 'gold', w: 2 },
+    { coins: 70, w: 22 }, { gems: 1, w: 18 }, { coins: 150, w: 9 }, { boosts: 1, w: 24 },
+    { coins: 300, w: 3 }, { gems: 3, w: 9 }, { chest: 'wood', w: 10 }, { gems: 6, w: 3 }, { chest: 'gold', w: 2 },
   ],
-  wheelEvery: 6,              // heures entre deux tours gratuits
+  wheelEvery: 8,              // heures entre deux tours gratuits (3 par jour au plus)
   wheelExtraCost: 25,         // gemmes pour un tour bonus (sans attendre le tour gratuit)
   challenges: [               // défi du jour : un niveau déjà joué + un modificateur fun
     { id: 'giant', name: 'Brainrots géants', desc: 'Énormes et coriaces, mais plus lents', size: 1.6, hp: 1.5, speed: 0.8 },
@@ -887,9 +888,9 @@ export const PASS = {
   tiers: 30, perTier: 1050,    // points par palier (≈ 3 à 4 semaines de jeu régulier)
   perStar: 25,                // points par étoile gagnée (en plus de la moitié de l'XP gagnée)
   xpShare: 0.5,
-  cycle: [{ coins: 180 }, { gems: 1 }, { boosts: 1 }, { coins: 260 }],
+  cycle: [{ coins: 60 }, { gems: 1 }, { boosts: 1 }, { coins: 100 }],
   every5: { chest: 'gold' },  // paliers 5, 10, 15...
-  final: { coins: 1500, gems: 12, chest: 'legend' },
+  final: { coins: 600, gems: 10, chest: 'legend' },
 };
 export const passReward = (tier) => (tier === PASS.tiers ? PASS.final : tier % 5 === 0 ? PASS.every5 : PASS.cycle[(tier - 1) % PASS.cycle.length]);
 

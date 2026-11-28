@@ -58,7 +58,7 @@ export const Hub = {
   // Badges rouges : quelque chose à faire dans l'onglet
   tabBadges() {
     const sv = this.save, d = sv.data, want = {}, set = (id, v, soft = false) => { want[id] = { v, soft }; };
-    set('talents', d.talentPts || 0);
+    set('talents', sv.usableTalentPts());
     set('shop', sv.chestCount());
     set('castle', this.castleAffordable() + (d.castleFree || 0));
     set('collection', sv.collectionNew() + sv.achievementsReady());

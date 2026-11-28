@@ -267,7 +267,9 @@ sans navigateur), `win <niveaux> <essais> [boost|hero|rangN]` (taux de victoire 
 pour un débutant, `SKILL=good` pour un bon joueur) et `mono <niveaux>` (stratégie « une seule tourelle partout »).
 Pour `win` et `mono`, l'équipement du joueur (château, talents, niveau) vient de `tools/progression.cjs` lancé avec
 `SNAP=fichier` (état à la 1re tentative de chaque niveau), passé ensuite avec `SNAP=fichier`.
-`SOURCES=1 node tools/progression.cjs 60` détaille l'origine des pièces et des gemmes (niveaux, quotidien, coffres...).
+`SOURCES=1 node tools/progression.cjs 60` détaille l'origine des pièces, des gemmes et des boosts (le contenu d'un coffre
+compte pour la source qui l'a donné ; un coffre acheté est un échange, hors gains) et la part des récompenses
+quotidiennes en valeur (objectif : au plus 30 %). `ADS=10` simule un joueur qui regarde 10 pubs par jour.
 `tools/perf.cjs` mesure le pire moment (boss + foule + x3), la mémoire sur 10 niveaux enchaînés et les erreurs de console.
 Le dernier audit et ses tableaux sont dans `docs/audit-equilibrage.md`.
 
@@ -287,10 +289,11 @@ Pour repartir de zéro : Paramètres → Réinitialiser.
 `tools/progression.cjs` simule un joueur régulier (3 parties par jour, quêtes, roue, passe, coffres) avec la vraie
 logique de sauvegarde et la même formule de gains que le jeu (`js/economy.js`), et affiche jour par jour niveau,
 gemmes, pièces, talents, château et campagne : `node tools/progression.cjs [jours] [parties par jour] [graine]`.
-Les chances de victoire sont calées sur le robot de `tools/simulate.cjs` : il gagne le monde w avec un
-investissement moyen (château et talents, de 0 à 5) égal à w - 1, et il lui faut le maximum dans les mondes
-futuristes. Repères visés : campagne complète (80 niveaux) en 4 à 6 semaines ; le château plafonne vers la fin de
-la campagne, les talents se complètent ensuite.
+Les chances de victoire sont calées sur les taux mesurés par `tools/balance.cjs win` pour un débutant (87 % sur un
+niveau normal, 61 % sur un boss sans boost et 90 % avec, 47 % sur un défi héroïque), plus élevées avec de l'avance
+(château et talents), plus basses en retard. Les tirages (coffres, roue) sont reproductibles avec la graine.
+Repères visés : monde 1 en 3-4 jours, campagne complète (80 niveaux) en 4 à 5 semaines, talents et château au
+maximum en 6 à 8 semaines.
 Le joueur simulé utilise un boost sur les niveaux difficiles (deux sur un boss ou un défi héroïque) et rachète en
 pièces ceux qui lui manquent. Variante `node tools/progression.cjs 50 3 1 renaissance` : il renaît 2 jours après
 avoir battu le dernier boss.
