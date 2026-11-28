@@ -263,6 +263,8 @@ export class Save {
   talentRowOk(b, node) { return this.data.level >= TALENT_ROWS[TALENTS[b].nodes.indexOf(node)]; }
   talentOpen(b, node) { const ns = TALENTS[b].nodes, i = ns.indexOf(node); return this.talentRowOk(b, node) && (i <= 0 || this.talent(ns[i - 1].id) > 0) && this.branchPoints(b) >= (node.need || 0); }
   canTalent(b, node) { return this.data.talentPts > 0 && this.talent(node.id) < node.max && this.talentOpen(b, node); }
+  talentsLeft() { let n = 0; for (const br of Object.values(TALENTS)) for (const nd of br.nodes) n += Math.max(0, nd.max - this.talent(nd.id)); return n; }   // rangs encore à acheter
+  usableTalentPts() { return Math.min(this.data.talentPts || 0, this.talentsLeft()); }   // points en trop (tout est au maximum) : ni badge ni « à placer »
   // Effets cumulés des talents
   mods() {
     const v = (b, id) => { const n = TALENTS[b].nodes.find((x) => x.id === id); return this.talent(id) * n.per; };

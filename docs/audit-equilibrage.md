@@ -1278,3 +1278,67 @@ Référence choisie (option 1B) : le **débutant** simulé (`SKILL=low`).
 | 8-9 | 12 | 2086 | 219824 | 205 | 1206 | +7 % | 2 | oui | - | 3255 |
 | 8-10 (boss) | 28 | 2256 | 1138098 | 686 | 2448 | - | 3 | oui | 44940 | 11661 |
 
+
+# Après correction : étape D (économie)
+
+**Mesure corrigée d'abord** (`tools/progression.cjs`) :
+- le contenu d'un coffre compte pour la source qui l'a donné (roue, passe, quêtes, niveaux...) au lieu d'une ligne « coffres » à part ; un coffre acheté est un simple échange, hors gains ;
+- les tirages (coffres, roue) sont reproductibles avec la graine ;
+- les chances de victoire sont calées sur les taux mesurés à l'étape C (débutant : 87 % sur un niveau normal, 61 % sur un boss sans boost, 90 % avec, 47 % sur un défi héroïque) ;
+- nouveau : `ADS=10` simule un joueur qui regarde 10 pubs par jour (pièces doublées en fin de niveau, réanimation, construction accélérée, tours de roue bonus).
+
+Avec cette mesure, les récompenses quotidiennes pesaient en réalité **48 %** de la valeur gagnée, et non 36 %. Valeur = pièces + gemmes (1 gemme = 27 pièces, le taux du grand échange de la boutique).
+
+| Règle | Objectif | Avant | Après |
+|---|---|---|---|
+| Quotidien (cadeau, roue, quêtes, passe), 3 parties par jour | au plus 30 % | 48 % (46 à 49 % selon la graine) | **25 %** (24 à 26 %) |
+| Quotidien, 2 parties par jour | au plus 30 % | 51 % | **27 %** |
+| Quotidien, 5 parties par jour | au plus 30 % | 40 % | **19 %** |
+| Quotidien, avec 10 pubs par jour | au plus 30 % | 28 % | **15 %** |
+| Monde 1 fini | jour 3-4 | jour 4 | jour 4 |
+| Campagne finie | 4-5 semaines | jour 29 à 31 | jour 29 à 31 (inchangé) |
+| Talents et château au maximum | 6-8 semaines | jour 42 à 50 | jour 42 à 50 (inchangé) |
+| Sans pub ou avec 10 pubs par jour | même progression | campagne jour 30 / 28, tout au maximum jour 45 / 42 | identique |
+| Pièces et gemmes au jour 60 | pas d'accumulation | 2435 pièces, 55 gemmes | 2861 pièces, 62 gemmes |
+| Points de talent en trop (tout est au maximum) | pas de monnaie inutile | 30 au jour 60, badge rouge impossible à effacer | toujours gardés, mais plus de badge ni de « points à placer » (puce « MAX ») |
+| Argent de départ en partie | 2-3 tourelles à la 1re vague | 240-320 pièces : 2 Fusils ou 3 Mitraillettes | inchangé |
+| Argent restant en fin de niveau | jamais beaucoup | normaux 560-780 (18-24 % de l'argent gagné, la dernière vague en rapporte 11-12 %) ; boss 720-2500 (7-20 %) | inchangé |
+| Bonus d'appel anticipé | jamais obligatoire | le débutant simulé n'appelle jamais une vague en avance et gagne 87 % des niveaux | inchangé |
+
+### Origine des gains sur 60 jours (3 parties par jour, graine 1, contenu des coffres compris)
+
+| Source | Pièces avant | Pièces après | Gemmes avant | Gemmes après | Boosts après |
+|---|---|---|---|---|---|
+| Niveaux (victoires, défaites, récompenses de monde) | 48783 (37 %) | **78641 (64 %)** | 866 (45 %) | **1181 (58 %)** | 173 |
+| Roue | 31083 (23 %) | 9460 (8 %) | 464 (24 %) | 162 (8 %) | 82 |
+| Quêtes (du jour et de la semaine) | 21521 (16 %) | 10084 (8 %) | 109 (6 %) | 131 (6 %) | 38 |
+| Passe (piste gratuite) | 12672 (10 %) | 7796 (6 %) | 113 (6 %) | 185 (9 %) | 50 |
+| Cadeau du jour | 3781 (3 %) | 2564 (2 %) | 65 (3 %) | 66 (3 %) | 49 |
+| Succès | 9900 (7 %) | 9300 (8 %) | 188 (10 %) | 180 (9 %) | 0 |
+| Coffres d'étoiles | 2812 (2 %) | 3260 (3 %) | 63 (3 %) | 79 (4 %) | 26 |
+| Niveau de joueur | 2376 (2 %) | 2521 (2 %) | 47 (2 %) | 43 (2 %) | 22 |
+| **Total** | 132928 | 123626 | 1915 | 2027 | |
+| Valeur par jour (dont quotidien) | 3067 (1485) | 2961 (740) | | | |
+
+### Valeurs changées (`js/config.js`)
+
+| Élément | Avant | Après |
+|---|---|---|
+| Pièces d'une victoire (`COINS`) | 60 + 15 par étoile + 4 par vague | 110 + 25 par étoile + 7 par vague |
+| 1re victoire d'un niveau / vague jouée en cas de défaite | +80 / 3 | +150 / 5 |
+| Exemple : 1re victoire, 10 vagues, 2 étoiles | 230 pièces | 380 pièces |
+| Gemmes : 1re victoire / 3 étoiles / 1re victoire héroïque | 3 / 2 / 4 | 5 / 3 / 5 |
+| Roue : tour gratuit | toutes les 6 h (4 par jour au mieux) | toutes les 8 h (3 par jour au mieux) |
+| Roue : segments pièces / gemmes | 200, 450, 900 / 3, 6, 15 | 70, 150, 300 / 1, 3, 6 |
+| Roue : coffre en bois | 16 % | 10 % (jackpot doré inchangé, 2 %) |
+| Quêtes du jour | 130 à 220 pièces | 50 à 90 pièces |
+| Quête de la semaine | coffre doré + 3 gemmes | coffre doré + 2 gemmes |
+| Cadeau du jour (pièces) | 120 et 220 | 70 et 120 |
+| Passe gratuit : pièces des paliers / palier final | 180 et 260 / 1500 pièces + 12 gemmes | 60 et 100 / 600 pièces + 10 gemmes (coffres dorés tous les 5 paliers et coffre légendaire gardés) |
+
+Captures 375 et 390 px vérifiées : roue (nouvelles valeurs, « un tour gratuit toutes les 8 heures »), quêtes, cadeau, passe, écran de victoire (+380 pièces pour la 1re victoire du 2-2), talents au maximum. Aucun débordement (`tools/audit.cjs`, 375, 390 et 430 px).
+
+**Points qui restent :**
+- **Boosts en stock.** Un joueur économe (1 boost sur un niveau difficile, 2 sur un boss) en a environ 70 de chaque au jour 60 (85 avant). Ils viennent surtout des coffres, achetés avec les pièces en trop une fois le château au maximum (point 5 : rythme du château laissé tel quel). On n'emporte que 3 ou 4 boosts par partie, un de chaque sorte : le stock ne gagne jamais un niveau à lui seul (étape C : boss 61 % sans boost, 90 % avec).
+- **Pubs.** 10 pubs par jour donnent environ +70 % de valeur (pièces doublées, tours de roue bonus), mais la progression n'avance que de 2 à 3 jours (campagne jour 28 au lieu de 30, tout au maximum jour 42 au lieu de 45) : le château et les talents dépendent du monde atteint et du niveau de joueur, pas des pièces.
+- Les chances de victoire de `progression.cjs` sont un modèle calé sur les simulations, pas sur de vrais joueurs.

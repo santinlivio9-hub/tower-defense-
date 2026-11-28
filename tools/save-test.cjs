@@ -54,14 +54,15 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
     ok(s.buyRebirth('mk2_smg') && s.owns('mk2_smg') && d.rebirth.shards === 210 && !s.buyRebirth('mk2_smg'), 'boutique d\'éclats : achat unique');
     ok(s.buyRebirth('skin_phoenix') && d.skins.includes('phoenix'), 'skin de Renaissance ajouté aux skins');
     const again = new Save(); ok(again.rank() === 1 && again.owns('mk2_smg'), 'Renaissance enregistrée'); }
-  // roue : un tour gratuit toutes les 6 h ; ancienne sauvegarde (date du jour) : tour disponible ; tour bonus sans effet sur le minuteur
-  { const realNow = Date.now; let t = realNow(); Date.now = () => t;
+  // roue : un tour gratuit toutes les H heures (DAILY.wheelEvery) ; ancienne sauvegarde (date du jour) : tour disponible ; tour bonus sans effet sur le minuteur
+  { const { DAILY } = await import(root + 'config.js'), H = DAILY.wheelEvery, h = H * 3600000;
+    const realNow = Date.now; let t = realNow(); Date.now = () => t;
     s = fresh({ v: 2, lpw: 10, daily: { day: '', streak: 0, cal: 0, calDay: '', quests: [], wheel: new Date().toDateString(), chDay: '', week: '', weekly: null, popped: '', offer: '' } });
     ok(s.wheelReady(), 'roue : ancienne sauvegarde (tour du jour déjà pris) -> tour gratuit disponible');
-    const r = s.spinWheel(); ok(r && !s.wheelReady() && Math.abs(s.wheelLeft() - 6 * 3600000) < 1000, 'roue : après un tour gratuit, prochain dans 6 h');
-    t += 3 * 3600000; s.spinWheel(false); ok(!s.wheelReady() && Math.abs(s.wheelLeft() - 3 * 3600000) < 1000, 'roue : un tour bonus ne repousse pas le tour gratuit');
-    t += 3 * 3600000 + 1000; ok(s.wheelReady(), 'roue : tour gratuit de nouveau disponible 6 h après');
-    s.data.daily.wheelAt = t + 48 * 3600000; ok(s.wheelLeft() <= 6 * 3600000, 'roue : horloge reculée, jamais bloquée plus de 6 h');
+    const r = s.spinWheel(); ok(r && !s.wheelReady() && Math.abs(s.wheelLeft() - h) < 1000, `roue : après un tour gratuit, prochain dans ${H} h`);
+    t += 3 * 3600000; s.spinWheel(false); ok(!s.wheelReady() && Math.abs(s.wheelLeft() - (h - 3 * 3600000)) < 1000, 'roue : un tour bonus ne repousse pas le tour gratuit');
+    t += h - 3 * 3600000 + 1000; ok(s.wheelReady(), `roue : tour gratuit de nouveau disponible ${H} h après`);
+    s.data.daily.wheelAt = t + 48 * 3600000; ok(s.wheelLeft() <= h, `roue : horloge reculée, jamais bloquée plus de ${H} h`);
     Date.now = realNow; }
   // talents : anciens points conservés (mêmes identifiants), respécialisation contre des gemmes
   { s = fresh({ v: 2, lpw: 10, level: 30, gems: 70, talents: { dmg: 5, rate: 2, slot: 1, lives: 3, cd: 2, dur: 1 }, talentPts: 2 });
@@ -80,7 +81,13 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
   // talents aux rangs fusionnés : les rangs en trop sont rendus en points, une seule fois
   { s = fresh({ v: 2, lpw: 10, gems: 5, talentPts: 2, talents: { dmg: 5, rate: 4, range: 3, crit: 3, kill: 5, sell: 2, lives: 5 } });
     const d = s.data;
-    ok(d.talents.dmg === 3 && d.talents.rate === 3 && d.talents.range === 2 && d.talents.crit === 1 && d.talents.kill === 3 && d.talents.sell === 1 && d.talents.lives === 5 && d.talentPts === 11, `talents : rangs fusionnés ramenés au maximum, ${d.talentPts} points (2 + 9 rendus)`); }
+    ok(d.talents.dmg === 3 && d.talents.rate === 3 && d.talents.range === 2 && d.talents.crit === 1 && d.talents.kill === 3 && d.talents.sell === 1 && d.talents.lives === 5 && d.talentPts === 11, `talents : rangs fusionnés ramenés au maximum, ${d.talentPts} points (2 + 9 rendus)`);
+    ok(s.usableTalentPts() === Math.min(11, s.talentsLeft()) && s.talentsLeft() > 0, `talents : ${s.usableTalentPts()} point(s) à placer, ${s.talentsLeft()} rang(s) encore à acheter`); }
+  // talents tous au maximum : les points en trop ne font ni badge ni « à placer »
+  { const { TALENTS } = await import(root + 'config.js'), all = {};
+    for (const br of Object.values(TALENTS)) for (const n of br.nodes) all[n.id] = n.max;
+    s = fresh({ v: 2, lpw: 10, level: 80, talentPts: 30, talents: all });
+    ok(s.talentsLeft() === 0 && s.usableTalentPts() === 0 && s.data.talentPts === 30, 'talents au maximum : 30 points gardés, aucun à placer (pas de badge)'); }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;

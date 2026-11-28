@@ -27,14 +27,15 @@ export function talentShort(n, r) {
 export const Talents = {
   renderTalents() {
     const sv = this.save, d = sv.data, box = $('#talents-content');
-    $('#talent-pts').textContent = d.talentPts;
-    $('#screen-talents .chip.pts').classList.toggle('glow', d.talentPts > 0);
+    const pts = sv.usableTalentPts(), full = sv.talentsLeft() === 0;
+    $('#talent-pts').textContent = full ? 'MAX' : pts;
+    $('#screen-talents .chip.pts').classList.toggle('glow', pts > 0);
     box.innerHTML = '';
-    box.append(el('p', 'thint', d.talentPts ? `<b>${d.talentPts} point${d.talentPts > 1 ? 's' : ''}</b> à placer : touche un talent qui brille` : 'Un point tous les 2 niveaux de joueur, et 1 par victoire Héroïque'));
+    box.append(el('p', 'thint', full ? 'Tous les talents sont au maximum' : pts ? `<b>${pts} point${pts > 1 ? 's' : ''}</b> à placer : touche un talent qui brille` : 'Un point tous les 2 niveaux de joueur, et 1 par victoire Héroïque'));
     // barre vers le prochain point de talent (niveaux pairs)
     const nextLvl = d.level + (d.level % 2 ? 1 : 2), need = (() => { let n = XP.need(d.level) - d.xp; for (let l = d.level + 1; l < nextLvl; l++) n += XP.need(l); return n; })();
     const span = XP.need(d.level) + (nextLvl - d.level > 1 ? XP.need(d.level + 1) : 0), done = span - need;
-    box.append(el('div', 'tnext', `${icon('talent')}<span><small>Prochain point au niveau ${nextLvl}</small><span class="qbar"><i style="width:${(done / span) * 100}%"></i><em>encore ${need} XP</em></span></span>`));
+    if (!full) box.append(el('div', 'tnext', `${icon('talent')}<span><small>Prochain point au niveau ${nextLvl}</small><span class="qbar"><i style="width:${(done / span) * 100}%"></i><em>encore ${need} XP</em></span></span>`));
     const tree = el('div', 'ttree'); tree.style.height = TREE_H + 'px';
     const branches = Object.entries(TALENTS);
     // lignes (x en %, y en px : le SVG garde l'échelle verticale)

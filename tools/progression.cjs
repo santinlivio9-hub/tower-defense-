@@ -4,12 +4,11 @@
 // Usage : node tools/progression.cjs [jours=45] [parties par jour=3] [graine=1]
 //   Joueur régulier : 4 sessions par jour, 3 parties, cadeau + roue gratuite + quêtes + passe + coffres d'étoiles,
 //   achète un coffre en bois quand il a 80 gemmes, n'accélère pas les constructions.
-//   Boosts : il en utilise 1 sur un niveau difficile (2 sur un boss ou un défi héroïque), ce qui l'aide un peu,
+//   Boosts : il en utilise 1 sur un niveau difficile (2 sur un boss ou un défi héroïque), ce qui l'aide nettement,
 //   et rachète en pièces les boosts qui lui manquent (3 de chaque) en gardant de quoi payer le château.
 const path = require('path');
 const DAYS = +(process.argv[2] || 45), GAMES = +(process.argv[3] || 3), SEED = +(process.argv[4] || 1), REBIRTH = process.argv[5] === 'renaissance';
-// tours de roue gratuits par jour (un toutes les 6 h au mieux : 1 h, 7 h, 13 h, 19 h) — variable WHEEL, 4 par défaut
-const WHEEL = +(process.env.WHEEL || 4), WHEEL_HOURS = [1, 7, 13, 19].slice(4 - Math.min(4, WHEEL));
+// tours de roue gratuits par jour : au mieux un toutes les DAILY.wheelEvery heures (variable WHEEL pour en faire moins)
 const root = 'file://' + path.resolve(__dirname, '..') + '/js/';
 
 // horloge simulée (les quêtes, le calendrier et les constructions utilisent la date)
@@ -20,28 +19,38 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
 
 (async () => {
   const C = await import(root + 'config.js'), { Save } = await import(root + 'save.js');
+  const EVERY = C.DAILY.wheelEvery, WMAX = Math.floor(24 / EVERY), WHEEL = Math.min(WMAX, +(process.env.WHEEL || WMAX));
+  const WHEEL_HOURS = Array.from({ length: WMAX }, (_, i) => 1 + i * EVERY).slice(WMAX - WHEEL);
   const { levelRewards } = await import(root + 'economy.js'), { buildWave } = await import(root + 'waves.js');
   let s = SEED; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  { let s2 = SEED * 7919 + 13; Math.random = () => ((s2 = (s2 * 48271) % 2147483647) / 2147483647); }   // coffres, roue : tirages reproductibles
+  // ADS=n : le joueur regarde jusqu'à n pubs par jour (plafond du jeu : MONETIZATION.adsPerDay) : pièces doublées en fin
+  // de niveau gagné, réanimation à la défaite, construction accélérée, puis tours de roue bonus avec le reste
+  const ADS = Math.min(+(process.env.ADS || 0), C.MONETIZATION.adsPerDay); let adsLeft = 0; const adStats = { double: 0, revive: 0, speed: 0, spin: 0 };
   const sv = new Save(), d = sv.data; d.settings.tutorialDone = true;
   // SOURCES=1 : d'où viennent les pièces et les gemmes (niveaux, quotidien, coffres, succès...)
   let SRC = 'autre'; const src = {};
-  const track = (k, c, g) => { const o = (src[k] = src[k] || { coins: 0, gems: 0 }); o.coins += c || 0; o.gems += g || 0; };
-  { const grant0 = sv.grant.bind(sv); sv.grant = (r) => { track(SRC, r.coins, r.gems); return grant0(r); }; }
-  { const open0 = sv.openChest.bind(sv); sv.openChest = (k) => { const c0 = d.coins, g0 = d.gems, r = open0(k); track('coffres (contenu)', d.coins - c0, d.gems - g0); return r; }; }
+  const track = (k, c, g, b) => { const o = (src[k] = src[k] || { coins: 0, gems: 0, boosts: 0 }); o.coins += c || 0; o.gems += g || 0; o.boosts += b || 0; };
+  const nB = (b) => (typeof b === 'number' ? b : b ? Object.values(b).reduce((a, v) => a + v, 0) : 0), stock = () => Object.values(d.boosts).reduce((a, v) => a + v, 0);
+  // le contenu d'un coffre compte pour la source qui l'a donné (roue, passe, niveaux...) ; un coffre acheté est un
+  // simple échange (pièces ou gemmes déjà comptées) : il est affiché à part et n'entre pas dans les gains
+  const chestSrc = {}, BUY = 'coffres achetés (échange)';
+  { const grant0 = sv.grant.bind(sv); sv.grant = (r) => { track(SRC, r.coins, r.gems, nB(r.boosts)); if (r.chest) (chestSrc[r.chest] = chestSrc[r.chest] || []).push(SRC); return grant0(r); }; }
+  { const open0 = sv.openChest.bind(sv); sv.openChest = (k) => { const c0 = d.coins, g0 = d.gems, b0 = stock(), r = open0(k); track((chestSrc[k] || []).shift() || 'niveaux', d.coins - c0, d.gems - g0, stock() - b0); return r; }; }
+  const buyChest = (k) => { d.chests[k]++; (chestSrc[k] = chestSrc[k] || []).push(BUY); };
   const L = C.LEVELS, N = L.length;
   // coût total des ennemis d'un niveau (base de l'XP) : calculé depuis les vraies vagues
   const killCost = L.map((lv) => { let c = 0; for (let w = 1; w <= lv.waves; w++) for (const g of buildWave(w, lv, 1).groups) c += C.ENEMIES[g.type].boss ? 60 : C.ENEMIES[g.type].cost * g.count; return c; });
   const talentSpent = () => Object.values(d.talents).reduce((a, b) => a + b, 0);
-  // Chances de victoire calées sur le robot (tools/simulate.cjs) : il gagne chaque niveau du monde w avec un
-  // investissement moyen (rang du château et des talents, de 0 à 5) égal à w - 1, et il lui faut le maximum (5)
-  // dans les mondes futuristes. Le joueur simulé joue un peu moins bien que le robot (SKILL) : il gagne à coup sûr
-  // avec l'investissement requis, de moins en moins souvent en dessous, et un peu plus souvent avec le niveau.
+  // Investissement (rang moyen du château et des talents, de 0 à 5) comparé à l'investissement attendu à ce niveau.
   const MAXC0 = Object.keys({ ...C.CASTLE.upgrades, ...C.CASTLE.abilities }).reduce((a, id) => a + (C.CASTLE.upgrades[id] || C.CASTLE.abilities[id]).costs.length, 0);
   const MAXT0 = Object.values(C.TALENTS).reduce((a, b) => a + b.nodes.reduce((x, n) => x + n.max, 0), 0);
   const inv = () => 5 * (0.6 * sv.castleSum() / MAXC0 + 0.4 * talentSpent() / MAXT0) + d.level * 0.02;
-  const req = (n, hero) => { const lv = L[n - 1]; return Math.min(5, lv.world) * (0.75 + 0.25 * (lv.idx / (C.PER_WORLD - 1))) + (lv.boss ? 0.4 : 0) + (hero ? 0.8 : 0); };
-  const SKILL = 0.92;
-  const winP = (n, hero) => Math.max(0.06, Math.min(0.96, SKILL - 0.06 * (L[n - 1].world >= 5 ? 1 : 0) + 0.32 * (inv() - req(n, hero))));
+  // Chances calées sur tools/balance.cjs win (débutant simulé, équipement attendu) : ~87 % sur un niveau normal,
+  // ~61 % sur un boss sans boost (~90 % avec), ~47 % sur un défi héroïque ; plus avec de l'avance, moins en retard.
+  const req = (n, hero) => { const lv = L[n - 1]; return Math.min(5, lv.world) * (0.75 + 0.25 * (lv.idx / (C.PER_WORLD - 1))) + (lv.boss ? 0.8 : 0) + (hero ? 1.25 : 0); };
+  const SKILL = 0.87;
+  const winP = (n, hero) => Math.max(0.06, Math.min(0.96, SKILL + 0.32 * (inv() - req(n, hero))));
   const COIN_BOOSTS = C.BOOST_ORDER.filter((id) => (C.BOOSTS[id].cur || 'gems') === 'coins');
   const useBoosts = (k) => { let used = 0; for (const id of [...C.BOOST_ORDER].sort((a, b) => (d.boosts[b] || 0) - (d.boosts[a] || 0))) { if (used >= k) break; if (id !== 'revive' && (d.boosts[id] || 0) > 0) { d.boosts[id]--; used++; stats.used++; } } return used; };
   // SNAP=fichier : état du joueur (château, talents, niveau) à sa 1re tentative de chaque niveau (pour tools/balance.cjs win)
@@ -50,11 +59,13 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     { const k = n + (hero ? 'h' : ''); if (!snaps[k]) snaps[k] = { day: Math.ceil((NOW - new RealDate(2026, 0, 5).getTime()) / 86400000), level: d.level, castle: { ...d.castle }, talents: { ...d.talents }, boosts: { ...d.boosts }, rank: sv.rank() }; }
     const lv = L[n - 1], ld = sv.levelData(n), p0 = winP(n, hero);
     const used = lv.boss || hero ? useBoosts(2) : p0 < 0.85 ? useBoosts(1) : 0;
-    const p = Math.min(0.97, p0 + 0.05 * used), win = rnd() < p;
+    const p = Math.min(0.97, p0 + 0.13 * used); let win = rnd() < p;   // un boost aide nettement (mesuré : boss 61 % -> 90 % avec 2 à 3 boosts)
+    if (!win && adsLeft > 0) { adsLeft--; adStats.revive++; win = rnd() < 0.5; }   // pub de réanimation : une défaite sur deux sauvée
     // étoiles par objectifs : gagner, aucun PV perdu (plus probable avec de la marge), 3e objectif (une fois sur trois)
     const stars = win ? 1 + (rnd() < p - 0.15 ? 1 : 0) + (rnd() < 0.35 ? 1 : 0) : 0, waves = win ? lv.waves : Math.floor(lv.waves * (0.4 + rnd() * 0.5));
     const E = levelRewards({ rebirthMult: sv.rewardMult(), victory: win, stars: Math.max(stars, ld.stars), prevStars: ld.stars, wavesDone: waves, boss: lv.boss, hero, heroDone: !!ld.heroic, killCost: killCost[n - 1] * (win ? 1 : waves / lv.waves), gemMult: sv.mods().gemMult });
-    d.coins += E.coins; d.gems += E.gems; track('niveaux', E.coins, E.gems); SRC = 'niveau de joueur'; sv.addXp(E.xp); sv.addPass(E.pass); SRC = 'niveaux';
+    d.coins += E.coins; d.gems += E.gems; track('niveaux', E.coins, E.gems);
+    if (win && adsLeft > 0) { adsLeft--; adStats.double++; d.coins += E.coins; track('pubs', E.coins, 0); } SRC = 'niveau de joueur'; sv.addXp(E.xp); sv.addPass(E.pass); SRC = 'niveaux';
     if (win) {
       if (hero) { if (E.firstClear) sv.grant({ chest: 'wood', talent: E.talent }); ld.heroic = 1; }
       else { ld.stars = Math.max(ld.stars, stars); if (E.firstClear && lv.boss) { const W = C.WORLD_REWARD; sv.grant({ chest: W.chest, gems: W.gems, boosts: W.boosts }); d.castleFree += W.castleFree; } }
@@ -79,6 +90,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     while (d.castleFree > 0 && can.length) { const id = can.shift(); d.castleFree--; sv.startBuild(id, true); }
     can.splice(0, can.length, ...caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))).sort((a, b) => sv.castleDef(a).costs[d.castle[a]] - sv.castleDef(b).costs[d.castle[b]]));
     if (!d.build && can.length) { const id = can[0], c = sv.castleDef(id).costs[d.castle[id]]; if (d.coins >= c) { d.coins -= c; sv.startBuild(id); } }
+    while (d.build && adsLeft > 4) { adsLeft--; adStats.speed++; sv.speedBy(C.MONETIZATION.rewards.speedMinutes * 60000); }
     // talents : premier nœud disponible, branche par branche
     for (let k = 0; k < 10 && d.talentPts > 0; k++) {
       const opt = Object.entries(C.TALENTS).flatMap(([b, br]) => br.nodes.map((n) => [b, n])).find(([b, n]) => sv.canTalent(b, n));
@@ -94,19 +106,19 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
     { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), need = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) : 0;
       const P = C.SHOP.exchange.packs;
       if (need > d.coins && d.gems >= P[1].gems + 30) { d.gems -= P[1].gems; d.coins += C.exchangeCoins(P[1], sv.worldReached()); stats.xch++; stats.gemsSpent += P[1].gems; }
-      else if (d.gems >= C.CHESTS.wood.cost + 30) { d.gems -= C.CHESTS.wood.cost; d.chests.wood++; stats.bought++; stats.gemsSpent += C.CHESTS.wood.cost; } }
+      else if (d.gems >= C.CHESTS.wood.cost + 30) { d.gems -= C.CHESTS.wood.cost; buyChest('wood'); stats.bought++; stats.gemsSpent += C.CHESTS.wood.cost; } }
     // boosts en pièces : complète son stock (3 de chaque) en gardant de quoi payer la prochaine construction
     { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), reserve = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) : 600;
       for (let k = 0; k < 12; k++) { const id = COIN_BOOSTS.filter((b) => (d.boosts[b] || 0) < 3).sort((a, b) => (d.boosts[a] || 0) - (d.boosts[b] || 0))[0]; if (!id) break; const c = C.boostCost(id, sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; d.boosts[id] = (d.boosts[id] || 0) + 1; stats.boostBuys++; stats.boostCoins += c; } }
     { const left = caps().filter((id) => d.castle[id] < Math.min(sv.castleDef(id).costs.length, sv.castleCap(id))), reserve = left.length ? Math.min(...left.map((id) => sv.castleDef(id).costs[d.castle[id]])) * 1.2 : 1500;
-      for (let k = 0; k < 6; k++) { const c = C.chestCoinCost('gold', sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; d.chests.gold++; stats.coinChests++; stats.coinsChests += c; } }
+      for (let k = 0; k < 6; k++) { const c = C.chestCoinCost('gold', sv.worldReached()); if (d.coins - c < reserve) break; d.coins -= c; buyChest('gold'); stats.coinChests++; stats.coinsChests += c; } }
     for (const k of C.CHEST_ORDER) while (d.chests[k] > 0) sv.openChest(k);
   };
   const stats = { bought: 0, used: 0, boostBuys: 0, boostCoins: 0, spins: 0, xch: 0, gemsSpent: 0, coinChests: 0, coinsChests: 0 }, rows = [], marks = {};
   const MAXT = Object.values(C.TALENTS).reduce((a, b) => a + b.nodes.reduce((x, n) => x + n.max, 0), 0), MAXC = caps().reduce((a, id) => a + sv.castleDef(id).costs.length, 0);
   for (let day = 1; day <= DAYS; day++) {
     NOW = new RealDate(2026, 0, 4 + day, 8, 0, 0).getTime();
-    sv.dailyTick(); SRC = 'cadeau du jour'; sv.claimCalendar();
+    sv.dailyTick(); SRC = 'cadeau du jour'; sv.claimCalendar(); adsLeft = ADS;
     SRC = 'roue'; for (const h of WHEEL_HOURS) { NOW = new RealDate(2026, 0, 4 + day, h, 0, 0).getTime(); if (sv.wheelReady()) { sv.spinWheel(); stats.spins++; } }
     SRC = 'niveaux';
     NOW = new RealDate(2026, 0, 4 + day, 8, 0, 0).getTime();
@@ -120,6 +132,7 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
       for (let i = 0; i < nG; i++) { const [n, h] = pickLevel(); play(n, h); g++; }
       session();
     }
+    if (adsLeft > 0) { SRC = 'pubs'; NOW = new RealDate(2026, 0, 4 + day, 22, 0, 0).getTime(); while (adsLeft > 0) { adsLeft--; adStats.spin++; sv.spinWheel(false); } SRC = 'niveaux'; session(); }
     const camp = sv.progress(), tal = talentSpent(), cs = sv.castleSum(), tier = sv.castleTier();
     if (!marks.w1 && camp >= C.PER_WORLD) marks.w1 = day; if (!marks.w5 && camp >= 5 * C.PER_WORLD) marks.w5 = day; if (!marks.t2 && tier >= 1) marks.t2 = day; if (!marks.camp && camp >= N) marks.camp = day;
     if (!marks.all && tal >= MAXT && cs >= MAXC) marks.all = day;
@@ -129,11 +142,15 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
   }
   if (process.env.SNAP) require('fs').writeFileSync(process.env.SNAP, JSON.stringify(snaps));
   if (process.env.SOURCES) {
-    const tot = Object.values(src).reduce((a, o) => ({ coins: a.coins + o.coins, gems: a.gems + o.gems }), { coins: 0, gems: 0 });
+    const tot = Object.entries(src).filter(([k]) => k !== BUY).reduce((a, [, o]) => ({ coins: a.coins + o.coins, gems: a.gems + o.gems }), { coins: 0, gems: 0 });
     const daily = ['cadeau du jour', 'roue', 'quêtes', 'passe'].reduce((a, k) => ({ coins: a.coins + ((src[k] || {}).coins || 0), gems: a.gems + ((src[k] || {}).gems || 0) }), { coins: 0, gems: 0 });
-    console.log('\nSources de gains sur ' + DAYS + ' jours (pièces | gemmes) :');
-    for (const [k, o] of Object.entries(src).sort((a, b) => b[1].coins - a[1].coins)) console.log(`  ${k.padEnd(20)} ${String(Math.round(o.coins)).padStart(8)} (${((o.coins / tot.coins) * 100).toFixed(0).padStart(2)} %) | ${String(Math.round(o.gems)).padStart(6)} (${((o.gems / tot.gems) * 100).toFixed(0).padStart(2)} %)`);
+    console.log('\nSources de gains sur ' + DAYS + ' jours, contenu des coffres compris (pièces | gemmes | boosts) :');
+    for (const [k, o] of Object.entries(src).sort((a, b) => b[1].coins - a[1].coins)) if (k !== BUY) console.log(`  ${k.padEnd(20)} ${String(Math.round(o.coins)).padStart(8)} (${((o.coins / tot.coins) * 100).toFixed(0).padStart(2)} %) | ${String(Math.round(o.gems)).padStart(6)} (${((o.gems / tot.gems) * 100).toFixed(0).padStart(2)} %) | ${String(o.boosts).padStart(4)}`);
     console.log(`  Récompenses quotidiennes (cadeau, roue, quêtes, passe) : ${((daily.coins / tot.coins) * 100).toFixed(0)} % des pièces, ${((daily.gems / tot.gems) * 100).toFixed(0)} % des gemmes`);
+    // valeur totale en pièces (1 gemme = ce qu'en donne le grand échange de la boutique au monde 1)
+    const P2 = C.SHOP.exchange.packs[2], gv = P2.coins / P2.gems, val = (o) => o.coins + o.gems * gv;
+    console.log(`  En valeur (1 gemme = ${gv.toFixed(0)} pièces) : récompenses quotidiennes ${((val(daily) / val(tot)) * 100).toFixed(0)} % des gains · par jour : ${Math.round(val(tot) / DAYS)} pièces de valeur, dont ${Math.round(val(daily) / DAYS)} au quotidien`);
+    const b = src[BUY]; if (b) console.log(`  (hors gains : contenu des coffres achetés ${Math.round(b.coins)} pièces, ${Math.round(b.gems)} gemmes et ${b.boosts} boosts)`);
   }
   const pad = (v, n) => String(v).padStart(n);
   const show = rows.filter((r) => r.day <= 7 || r.day % 3 === 0 || r.day === DAYS);
@@ -143,6 +160,8 @@ const store = {}; global.localStorage = { getItem: (k) => store[k] ?? null, setI
   console.log(`Gemmes : ${stats.gemsSpent + d.gems} gagnées, ${stats.gemsSpent} dépensées (${stats.bought} coffres en bois, ${stats.xch} échanges contre des pièces) · coffres dorés achetés en pièces : ${stats.coinChests} (${stats.coinsChests} pièces)`);
   console.log(`Roue : ${stats.spins} tours gratuits (${(stats.spins / DAYS).toFixed(1)} par jour)`);
   console.log(`Boosts : ${stats.used} utilisés, ${stats.boostBuys} achetés en pièces (${stats.boostCoins} pièces) · pièces en fin de simulation ${d.coins}`);
+  if (ADS) console.log(`Pubs (${ADS} par jour) : ${adStats.double} fins de niveau doublées, ${adStats.revive} réanimations, ${adStats.speed} constructions accélérées, ${adStats.spin} tours de roue bonus`);
+  console.log(`Stock de boosts en fin de simulation : ${C.BOOST_ORDER.map((id) => id + ' ' + (d.boosts[id] || 0)).join(', ')} · gemmes ${d.gems}`);
   if (marks.rebirths) console.log('Renaissances : ' + marks.rebirths.join(' · '));
   if (marks.rbGain) console.log(`Renaissance possible dès le jour ${marks.rb} : ${marks.rbGain.shards} éclats ce jour-là (dont ${marks.rbGain.fromCoins} pour les pièces) ; au jour ${DAYS} : ${sv.rebirthGain().shards} éclats (dont ${sv.rebirthGain().fromCoins} pour ${d.coins} pièces)`);
 })();
