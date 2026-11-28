@@ -387,7 +387,7 @@ const grow = (base, n = 5) => Array.from({ length: n }, (_, i) => Math.round((ba
 export const CASTLE = {
   upgrades: {
     walls:    { name: 'Murs',        desc: '+2 PV max par niveau', icon: 'heart', per: 2, costs: grow(560) },
-    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 4, 3, 2, 2, 1], costs: grow(720) },   // every[niveau] = toutes les N vagues
+    repair:   { name: 'Réparation',  desc: 'Régénère 1 PV entre les vagues', icon: 'wrench', every: [0, 5, 4, 3, 2, 1], costs: grow(720) },   // every[niveau] = toutes les N vagues (chaque rang compte)
     treasury: { name: 'Trésorerie',  desc: '+20 pièces au départ et +2 par vague, par niveau', icon: 'coins', start: 20, perWave: 2, costs: grow(620) },
     cannon:   { name: 'Canon',       desc: 'Le château tire sur les ennemis proches', icon: 'cannon', damage: [0, 14, 24, 38, 56, 80], rate: [0, 1, 1.1, 1.2, 1.35, 1.5], range: [0, 150, 160, 170, 185, 200], costs: grow(900) },
   },
@@ -453,19 +453,19 @@ export const TALENT_ROWS = [1, 7, 13, 18, 23, 28];
 export const TALENT_RESPEC = { gems: 50 };   // respécialisation : récupère tous les points placés
 export const TALENTS = {
   attack: { name: 'Attaque', color: '#ff5d6c', icon: 'sword', nodes: [
-    { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+2 % de dégâts', max: 5, per: 0.02, pct: 1, fx: '+{v} % dégâts' },
-    { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+2 % de cadence', max: 5, per: 0.02, pct: 1, fx: '+{v} % cadence' },
-    { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+2 % de portée', max: 3, per: 0.02, pct: 1, fx: '+{v} % portée' },
-    { id: 'crit', icon: 'crit',  name: 'Œil vif',        desc: '+1 % de coups critiques', max: 3, per: 0.01, pct: 1, fx: '+{v} % critiques' },
+    { id: 'dmg', icon: 'sword',   name: 'Poudre premium', desc: '+3,5 % de dégâts', max: 3, per: 0.035, pct: 1, fx: '+{v} % dégâts' },
+    { id: 'rate', icon: 'bolt',  name: 'Culasse huilée', desc: '+3,5 % de cadence', max: 3, per: 0.035, pct: 1, fx: '+{v} % cadence' },
+    { id: 'range', icon: 'target', name: 'Longue-vue',     desc: '+3 % de portée', max: 2, per: 0.03, pct: 1, fx: '+{v} % portée' },
+    { id: 'crit', icon: 'crit',  name: 'Œil vif',        desc: '+3 % de coups critiques', max: 1, per: 0.03, pct: 1, fx: '+{v} % critiques' },
     { id: 'boss', icon: 'skull', name: 'Tueur de géants', desc: '+4 % de dégâts aux boss, mini-boss et élites', max: 3, per: 0.04, pct: 1, fx: '+{v} % sur les gros' },
     { id: 'double', icon: 'flame', name: 'Tir double', desc: '1 tir sur 10 inflige le double de dégâts', max: 1, per: 1, need: 12, ult: 1, fx: '1 tir sur 10 doublé' },
   ] },
   economy: { name: 'Économie', color: '#ffd23f', icon: 'coins', nodes: [
     { id: 'start', icon: 'piggy', name: 'Tirelire',       desc: '+15 pièces au départ', max: 5, per: 15, fx: '+{v} pièces' },
-    { id: 'kill', icon: 'coins',  name: 'Chasseur de primes', desc: '+3 % de pièces par kill', max: 5, per: 0.03, pct: 1, fx: '+{v} % pièces' },
+    { id: 'kill', icon: 'coins',  name: 'Chasseur de primes', desc: '+5 % de pièces par kill', max: 3, per: 0.05, pct: 1, fx: '+{v} % pièces' },
     { id: 'wave', icon: 'gift',  name: 'Prime de vague', desc: '+10 % de bonus de vague', max: 3, per: 0.1, pct: 1, fx: '+{v} % bonus' },
     { id: 'gems', icon: 'gem',  name: 'Joaillier',      desc: '+5 % de gemmes gagnées', max: 3, per: 0.05, pct: 1, fx: '+{v} % gemmes' },
-    { id: 'sell', icon: 'trash', name: 'Brocanteur',     desc: '+5 % de valeur de revente des tourelles', max: 3, per: 0.05, pct: 1, fx: '+{v} % revente' },
+    { id: 'sell', icon: 'trash', name: 'Brocanteur',     desc: '+15 % de valeur de revente des tourelles', max: 1, per: 0.15, pct: 1, fx: '+{v} % revente' },
     { id: 'interest', icon: 'piggy', name: 'Intérêts',   desc: 'Au début de chaque vague, +5 % de tes pièces (40 au plus)', max: 1, per: 0.05, cap: 40, need: 12, ult: 1, fx: '+5 % de pièces par vague' },
   ] },
   castle: { name: 'Château', color: '#5c9df2', icon: 'shield', nodes: [

@@ -66,8 +66,9 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
   // talents : anciens points conservés (mêmes identifiants), respécialisation contre des gemmes
   { s = fresh({ v: 2, lpw: 10, level: 30, gems: 70, talents: { dmg: 5, rate: 2, slot: 1, lives: 3, cd: 2, dur: 1 }, talentPts: 2 });
     const d = s.data, n = s.talentsSpent();
-    ok(n === 14 && d.talents.slot === 1 && s.mods().slots === 1 && d.talentPts === 2, 'talents : points déjà placés conservés (Sacoche comprise)');
-    ok(s.respec() === 14 && d.talentPts === 16 && d.gems === 20 && s.talentsSpent() === 0, 'respécialisation : 14 points rendus contre 50 gemmes');
+    // Poudre premium n'a plus que 3 rangs : 2 points rendus (12 placés + 4 disponibles = 16, comme avant)
+    ok(n === 12 && d.talents.slot === 1 && s.mods().slots === 1 && d.talentPts === 4, 'talents : points déjà placés conservés (Sacoche comprise), rangs en trop rendus');
+    ok(s.respec() === 12 && d.talentPts === 16 && d.gems === 20 && s.talentsSpent() === 0, 'respécialisation : 12 points rendus contre 50 gemmes');
     d.talents = { dmg: 1 }; ok(s.respec() === 0 && d.talents.dmg === 1 && d.gems === 20, 'respécialisation refusée sans assez de gemmes, rien de perdu'); }
   // succès : anciens succès (déjà payés) conservés comme étapes récupérées ; les autres étapes atteintes sont à récupérer
   { s = fresh({ v: 2, lpw: 10, gems: 40, achievements: ['kills1000', 'boss1', 'win1'], stats: { kills: 12000, bossKills: 3, chests: 6 } });
@@ -76,6 +77,10 @@ const ok = (c, m) => { if (!c) bad++; console.log(c ? 'ok ' : 'KO ', m); };
     const ready = s.achievementsReady(), g0 = d.gems, c0 = d.coins, r = s.claimAchievement('kills:1');
     ok(ready >= 2 && r && d.gems === g0 + 8 && d.coins === c0 + 600 && !s.claimAchievement('kills:1') && !s.claimAchievement('kills:2'), `succès : étape argent récupérée une seule fois (${ready} à récupérer), étape non atteinte refusée`);
     ok(s.achievementTotal() >= 48 && s.achievementTotal() <= 60, `succès : ${s.achievementTotal()} étapes au total`); }
+  // talents aux rangs fusionnés : les rangs en trop sont rendus en points, une seule fois
+  { s = fresh({ v: 2, lpw: 10, gems: 5, talentPts: 2, talents: { dmg: 5, rate: 4, range: 3, crit: 3, kill: 5, sell: 2, lives: 5 } });
+    const d = s.data;
+    ok(d.talents.dmg === 3 && d.talents.rate === 3 && d.talents.range === 2 && d.talents.crit === 1 && d.talents.kill === 3 && d.talents.sell === 1 && d.talents.lives === 5 && d.talentPts === 11, `talents : rangs fusionnés ramenés au maximum, ${d.talentPts} points (2 + 9 rendus)`); }
   // stockage plein
   s = fresh({ v: 2, gems: 5 }); const set = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceeded'); };
   ok(s.persist() === false && s.saveFailed === true, 'stockage plein : échec signalé, pas de plantage'); localStorage.setItem = set;

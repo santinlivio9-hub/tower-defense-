@@ -118,6 +118,9 @@ export class Save {
     for (const o of [d.castle, d.boosts, d.chests, d.stats]) for (const k in o) if (typeof def[o === d.castle ? 'castle' : o === d.boosts ? 'boosts' : o === d.chests ? 'chests' : 'stats'][k] === 'number' && !Number.isFinite(o[k])) o[k] = 0;
     if (!Array.isArray(d.towers)) d.towers = [...def.towers]; if (!Array.isArray(d.achievements)) d.achievements = []; if (!d.levels || typeof d.levels !== 'object') d.levels = {};
     if (raw.coins == null) d.coins = COINS.migrateBase + COINS.migratePerStar * this.campaignStars();   // sauvegarde d'avant les pièces
+    // talents dont le nombre de rangs a baissé (rangs fusionnés) : les points placés en trop sont rendus
+    if (!d.talents || typeof d.talents !== 'object') d.talents = {};
+    for (const br of Object.values(TALENTS)) for (const n of br.nodes) { const r = d.talents[n.id] || 0; if (r > n.max) { d.talentPts += r - n.max; d.talents[n.id] = n.max; } }
   }
   // Campagne passée de « old » à PER_WORLD niveaux par monde : chaque niveau garde sa place dans son monde, le boss
   // reste le boss (dernier niveau). Les nouveaux niveaux insérés avant le boss sont à jouer (ils ne bloquent rien).

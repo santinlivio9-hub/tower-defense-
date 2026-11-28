@@ -10,14 +10,16 @@ const COLS = [17, 50, 83];                     // x (%) des 3 branches
 const ROOT_Y = 40, HEAD_Y = 112, ROWS = [210, 362, 514, 666, 818, 978], TREE_H = 1090;   // y (px)
 
 // Valeur d'un talent à un rang donné, d'après son texte « fx » (config) : {v} = per × rang (× 100 si pct)
+// pourcentages au dixième près, virgule à la française (+10,5 %)
+const pctOf = (x) => { const v = Math.round(x * 1000) / 10; return Number.isInteger(v) ? String(v) : String(v).replace('.', ','); };
 export function talentEffect(n, r) {
-  const v = n.pct ? Math.round(n.per * r * 100) : n.per * r;
+  const v = n.pct ? pctOf(n.per * r) : n.per * r;
   return n.fx.replace('{v}', v);
 }
 // Effet court sous un nœud : « +4 → +6 % » (actuel → suivant), ou la valeur atteinte au rang maximum
 export function talentShort(n, r) {
   if (n.ult) return r ? 'Actif' : 'Ultime';
-  const m = /^(.*?)\{v\}(\s?%?)/.exec(n.fx), val = (k) => (m[1] || '') + (n.pct ? Math.round(n.per * k * 100) : n.per * k), u = (m[2] || '').trim();
+  const m = /^(.*?)\{v\}(\s?%?)/.exec(n.fx), val = (k) => (m[1] || '') + (n.pct ? pctOf(n.per * k) : n.per * k), u = (m[2] || '').trim();
   if (r >= n.max) return val(r) + (u ? ' ' + u : '');
   return `${r ? val(r) : '0'} → ${val(r + 1)}${u ? ' ' + u : ''}`;
 }
