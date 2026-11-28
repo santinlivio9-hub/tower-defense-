@@ -1,6 +1,6 @@
 // Écrans hors partie : carte du monde, préparation d'un niveau, cartes de présentation, mode infini.
 // Ces méthodes sont ajoutées à la classe UI (voir la fin de ui.js).
-import { PER_WORLD, LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS, starGoals } from './config.js';
+import { PER_WORLD, LEVELS, WORLDS, ENEMIES, TOWERS, HEROIC, heroicHp, heroicMod, CAMPAIGN, COINS, SHOP, unlocksOf, WORLD_REWARD, CHESTS, starGoals } from './config.js';
 import { chestSvg } from './loot.js';
 import { THEMES, buildField, drawMapPreview } from './maps.js';
 import { levelEnemies } from './waves.js';
@@ -335,7 +335,7 @@ export const Meta = {
     const b2 = el('button', (heroic ? 'sel' : '') + (done ? '' : ' locked'), icon(done ? 'crown' : 'lock') + 'Héroïque' + (ld.heroic ? icon('check') : ''));
     b2.onclick = () => { if (!done) { this.toast('Défi verrouillé', 'Termine d\'abord le niveau', icon('lock')); return; } this.openPrep(n, true); };
     seg.append(b1, b2); m.append(seg);
-    if (heroic) m.append(el('div', 'heroic-box', `${icon('crown')}<span><b>${hm.name}</b>${hm.hp ? `PV des ennemis +${Math.round((HEROIC.hp * hm.hp - 1) * 100)} %` : `${hm.desc} · PV ennemis +${Math.round((HEROIC.hp - 1) * 100)} %`}<em>Gemmes et XP x${HEROIC.gemsMult}${ld.heroic ? '' : ' · coffre à la première victoire'}</em></span>`));
+    if (heroic) m.append(el('div', 'heroic-box', `${icon('crown')}<span><b>${hm.name}</b>${hm.hp ? `PV des ennemis +${Math.round((heroicHp(L.world) * hm.hp - 1) * 100)} %` : `${hm.desc} · PV ennemis +${Math.round((heroicHp(L.world) - 1) * 100)} %`}<em>Gemmes et XP x${HEROIC.gemsMult}${ld.heroic ? '' : ' · coffre à la première victoire'}</em></span>`));
     const go = el('button', 'btn primary big cta', icon('playgold') + 'JOUER');
     go.onclick = () => this.startGame(n, heroic, false, this.loadoutFor ? this.loadoutFor(L) : []);
     m.append(go);

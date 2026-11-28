@@ -1,5 +1,5 @@
 // Ennemis : déplacement, états (ralenti, gel, brûlure), capacités, dessin.
-import { ENEMIES, WAVES, REBIRTH } from './config.js';
+import { ENEMIES, WAVES, REBIRTH, ABILITY_WARN } from './config.js';
 import { enemyFrames } from './sprites.js';
 import { patchAt } from './mechanics.js';
 
@@ -76,7 +76,7 @@ export class Enemy {
       if (this.jumpT > 0) { this.jumpT -= dt; sp += cfg0.hop.dist / cfg0.hop.dur; }
       else if ((this.hopT -= dt) <= 0) { this.hopT = cfg0.hop.every; this.jumpT = cfg0.hop.dur; game.fx.burst(this.x, this.gy, '#e8d27a', 6, 110, 4); }
     }
-    if (game.mutant && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * REBIRTH.regenPerRank * game.mutant * dt);   // mutés : régénération
+    if (game.mutant && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + Math.min(this.maxHp * REBIRTH.regenPerRank, REBIRTH.regenCap) * game.mutant * dt);   // mutés : régénération (plafonnée)
     if (cfg0.shield && this.shieldHp < this.shieldMax && (this.shieldIdle += dt) >= cfg0.shield.regen) { this.shieldHp = this.shieldMax; game.fx.ring(this.x, this.y, this.r, this.r * 1.6, '#5ff0ff', 0.35, 5); }
     if (cfg0.boost) { this.boostT += dt; if (this.boostT % cfg0.boost.every < cfg0.boost.dur) { sp *= cfg0.boost.mult; if (Math.random() < dt * 30) game.fx.add({ k: 'dot', x: this.x, y: this.y + this.r, vx: (Math.random() - 0.5) * 40, vy: 120, life: 0.3, max: 0.3, size: 5, color: Math.random() < 0.5 ? '#ffb224' : '#fff3a0', drag: 2 }); } }
     if (cfg0.shieldAura && (this.auraT -= dt) <= 0) {
@@ -129,8 +129,16 @@ export class Enemy {
         game.fx.text(this.x, this.y - this.r - 20, 'RAGE !', '#ff3b3b', 26, 1.2);
       }
       this.abilityT -= dt;
+      // annonce : texte et cercle d'effet un peu avant que la capacité frappe (jamais de surprise)
+      if (!this.warn && this.abilityT > 0 && this.abilityT <= ABILITY_WARN.time) {
+        const nx = a.kind === 'combo' ? a.list[this.abilityN % a.list.length] : a;
+        this.warn = { a: nx, t: this.abilityT, max: this.abilityT };
+        game.fx.text(this.x, this.y - this.r - 34, ABILITY_WARN.names[nx.kind] || '!', ABILITY_WARN.colors[nx.kind] || '#fff', 26, ABILITY_WARN.time + 0.2);
+        if (!game.simulating) game.audio.play('wave_start');
+      }
+      if (this.warn) this.warn.t -= dt;
       if (this.abilityT <= 0) {
-        this.abilityT = a.every * (this.mini ? 1.5 : 1);
+        this.abilityT = a.every * (this.mini ? 1.5 : 1); this.warn = null;
         this.cast(game, a.kind === 'combo' ? a.list[this.abilityN++ % a.list.length] : a);
       }
     }
@@ -195,6 +203,13 @@ export class Enemy {
       c.fillStyle = '#fff'; c.strokeStyle = '#3d2c4e'; c.lineWidth = 2.5;
       c.beginPath(); c.ellipse(this.x, top - 14, 9, 5.5, 0, 0, TAU); c.fill(); c.stroke();
       c.fillStyle = '#3d2c4e'; c.beginPath(); c.arc(this.x, top - 14, 2.8, 0, TAU); c.fill();
+    }
+    if (this.warn) {   // capacité annoncée : cercle qui se resserre (coupure : zone exacte des tourelles touchées)
+      const W = this.warn, k = Math.max(0, W.t / W.max), col = ABILITY_WARN.colors[W.a.kind] || '#fff';
+      c.save(); c.strokeStyle = col; c.lineWidth = 5; c.globalAlpha = 0.55 + (1 - k) * 0.45;
+      if (W.a.kind === 'emp') { c.setLineDash([16, 12]); c.lineDashOffset = -this.walk; c.beginPath(); c.arc(this.x, this.y, W.a.radius, 0, TAU); c.stroke(); c.setLineDash([]); c.globalAlpha *= 0.18; c.fillStyle = col; c.fill(); }
+      else { c.beginPath(); c.arc(this.x, this.y, r * (1.4 + k * 1.6), 0, TAU); c.stroke(); }
+      c.restore();
     }
     if (hidden || this.boss) return;   // le boss a sa grande barre en haut de l'écran
     // barre de vie arrondie

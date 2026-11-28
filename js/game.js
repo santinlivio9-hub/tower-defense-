@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { enemyFrames } from './sprites.js';
 import { levelRewards } from './economy.js';
-import { REBIRTH, abilityDef, WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, starGoals, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
+import { REBIRTH, mutantHp, abilityDef, WORLD_REWARD, PASS, DAILY, JUICE, DROPS, COINS, VIEW, GAME, TOWERS, TOWER_ORDER, RARITY, STARS, starGoals, SCORE, BOSS_ORDER, WORLDS, CAMPAIGN, HEROIC, heroicHp, heroicMod, CASTLE, BOOSTS, XP } from './config.js';
 import { THEMES, buildField, drawMapBackground, drawMapAnimated, drawClouds, mapFlowers, drawMineSpot, SLOT_R } from './maps.js';
 import { Enemy } from './enemies.js';
 import { Tower } from './towers.js';
@@ -29,11 +29,11 @@ export class Game {
     const H = this.heroic || {}, cs = save.data.castle, U = CASTLE.upgrades, m = (this.mods = save.mods());
     const len = this.paths.reduce((a, q) => a + q.total, 0) / this.paths.length;
     this.ease = Math.max(CAMPAIGN.pathEase[0], Math.min(CAMPAIGN.pathEase[1], len / CAMPAIGN.pathRef));
-    this.hpMult = level.hp * this.ease * (this.heroic ? HEROIC.hp * (H.hp || 1) : 1) * (Ch.hp || 1); this.speedMult = level.speed * (H.speed || 1) * (Ch.speed || 1);
+    this.hpMult = level.hp * this.ease * (this.heroic ? heroicHp(level.world) * (H.hp || 1) : 1) * (Ch.hp || 1); this.speedMult = level.speed * (H.speed || 1) * (Ch.speed || 1);
     this.sizeMult = Ch.size || 1; this.coinMult = Ch.coins || 1;
     // Renaissance : brainrots « mutés » (plus résistants, plus rapides, ils se régénèrent)
     this.mutant = save.rank ? save.rank() : 0;
-    if (this.mutant) { this.hpMult *= 1 + REBIRTH.hpPerRank * this.mutant; this.speedMult *= 1 + REBIRTH.speedPerRank * this.mutant; }
+    if (this.mutant) { this.hpMult *= mutantHp(this.mutant) * (level.boss ? REBIRTH.bossHpK : 1); this.speedMult *= 1 + REBIRTH.speedPerRank * this.mutant; }   // niveaux de boss : mutation atténuée
     this.scoreMult = this.heroic ? HEROIC.scoreMult : 1;
     this.banned = Ch.only ? TOWER_ORDER.filter((t) => !Ch.only.includes(t)) : H.ban || []; this.towerLimit = H.towerLimit || 0;
     this.money = Math.round(level.money * (H.money || 1) * (Ch.money || 1)) + cs.treasury * U.treasury.start + m.startMoney;
@@ -452,7 +452,7 @@ export class Game {
   }
   leak(e) {
     this.stats.leaks++;
-    if (this.shielded) { // boost Bouclier : la fuite est bloquée
+    if (this.shielded && !e.boss) { // boost Bouclier : la fuite est bloquée (pas celle d'un boss ou mini-boss)
       this.fx.ring(this.base.x, this.base.y - 10, 30, 110, '#8fd2ff', 0.4, 8); this.fx.text(this.base.x, this.base.y - 96, 'BLOQUÉ !', '#8fd2ff', 24, 1); this.audio.play('zap');
       return;
     }
@@ -593,7 +593,8 @@ export class Game {
   revive(b) {
     this.lives = Math.max(1, Math.ceil(this.maxLives / 2));
     for (const e of this.enemies) {
-      if (e.boss) { e.d = Math.max(0, e.d - 420); e.place(); }
+      // le boss (même celui qui vient d'atteindre le château) revient sur le chemin, repoussé : il faut encore le battre
+      if (e.boss) { e.dead = false; e.reached = false; e.d = Math.max(0, Math.min(e.path.total - 1, e.d) - BOOSTS.revive.bossBack); e.place(); }
       else { e.dead = true; this.fx.burst(e.x, e.y, '#c9a6ff', 8, 180, 5); }
     }
     this.fx.ring(this.base.x, this.base.y, 30, 520, '#c9a6ff', 0.9, 14); this.fx.ring(this.base.x, this.base.y, 10, 320, '#ffffff', 0.7, 8);
