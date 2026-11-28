@@ -286,7 +286,13 @@ export const WAVES = {
   bossHpGrowth: 1.6,        // mode infini : PV des boss x1,6 à chaque boss
   eliteFrom: 31,            // niveau de campagne (4-1) à partir duquel des groupes « élite » apparaissent
   eliteChance: 0.22, eliteHp: 3, eliteReward: 3,
+  // vagues « respiration » : plus calmes (budget x mult), à ces fractions d'un niveau normal ; niveaux de boss : la vague
+  // bossAt de chaque dizaine (entre deux mini-boss)
+  calm: { at: [0.4, 0.7], bossAt: 5, mult: 0.6 },
+  introMax: 5,             // 1re apparition d'un brainrot dans la campagne : il arrive seul, au plus introMax
 };
+// Capacités des boss et mini-boss : annoncées ABILITY_WARN.time secondes avant de frapper (texte + cercle d'effet)
+export const ABILITY_WARN = { time: 1.4, names: { summon: 'Sbires !', emp: 'Coupure !', rage: 'Bouclier !' }, colors: { summon: '#ffd23f', emp: '#5fd8ff', rage: '#fffbe8' } };
 
 // ----------------------------------------------------------------------------
 //  CAMPAGNE : mondes de PER_WORLD niveaux. Le dernier niveau de chaque monde est un niveau de boss, plus long.
@@ -319,7 +325,7 @@ export const WORLDS = [
             storm: { dur: 8, range: 0.75 }, rocks: 3, warn: 1.4, radius: 58, damage: 70, stun: 2.2, part: 0.3, out: 3 } },
 ];
 export const CAMPAIGN = {
-  waves:     [9, 10, 10, 11, 11, 12, 12, 13, 14], // niveaux 1 à 9 d'un monde (~4 à 6 min)
+  waves:     [10, 10, 11, 11, 11, 12, 12, 12, 12], // niveaux 1 à 9 d'un monde (4 à 6 min)
   bossWaves: [20, 22, 24, 25, 26, 26, 27, 28],   // niveau 10 (boss) de chaque monde (15 à 20 min)
   bossPaceTo: 20,                         // un niveau de boss finit à la difficulté d'une « vague 20 »
   pathRef: 2000, pathEase: [0.62, 1.12],  // PV des ennemis x (longueur du chemin / pathRef), borné : un tracé court laisse moins de temps pour tirer
@@ -337,9 +343,12 @@ export const CAMPAIGN = {
     ['ygrec!', 'boucle', 'zigzag!', 'escalier', 'tour', 'croix!', 'fourche', 'detour', 'serpent', 'lacets'],
     ['fourche!', 'tour!', 'croix', 'serpent', 'ygrec', 'lacets!', 'boucle!', 'escalier!', 'zigzag', 'detour!'],
   ],
-  hpWorld:    [1.4, 1.5, 1.6, 1.85, 2.1, 2.2, 2.32, 2.45], // PV des ennemis par monde...
-  bossLevelHp: [1.1, 1.0, 1.35, 0.95, 1.2, 1.0, 0.92, 0.92],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
+  hpWorld:    [1.47, 1.95, 2.65, 2.85, 3.25, 2.8, 3.05, 3.55], // PV des ennemis par monde (calés sur les simulations : débutant 80-90 %)...
+  bossLevelHp: [1.6, 1.62, 1.72, 0.82, 1.0, 0.97, 0.88, 0.68],         // niveaux de boss : PV des ennemis x (monde) — ils se gagnent avec les boosts
   hpLevel:    0.012,                      // ...puis +1,2 % par niveau dans le monde
+  // lissage par niveau (calculé par tools/balance.cjs tune) : chaque niveau normal +7 % par rapport au précédent dans
+  // son monde, sans à-coups dus au tracé ou au tirage des vagues ; 1 = inchangé
+  tune: [1.171, 1.412, 0.774, 0.786, 0.84, 1.087, 0.989, 0.909, 1.211, 1, 0.925, 1.332, 0.967, 1.157, 1.06, 0.879, 0.763, 1.152, 0.886, 1, 0.818, 0.79, 1.169, 0.999, 1.126, 1.076, 0.847, 1.191, 1.084, 1, 1.029, 1.299, 0.932, 1.053, 1.477, 0.785, 0.733, 0.713, 1.257, 1, 0.847, 1.121, 0.791, 1.264, 1.057, 0.92, 0.908, 1.036, 1.151, 1, 1.069, 1.199, 1.072, 1.285, 0.909, 0.828, 1.061, 0.808, 0.878, 1, 0.978, 1.184, 1.003, 0.626, 1.301, 0.937, 1.196, 0.88, 1.071, 1, 0.849, 1.083, 1.139, 0.974, 1.275, 0.755, 0.869, 1.141, 1.028, 1],
   density:    [1, 1.08, 1.16, 1.24, 1.32, 1.34, 1.37, 1.4],// budget des vagues par monde
   speedWorld: [1, 1.03, 1.06, 1.09, 1.12, 1.14, 1.16, 1.18],
   miniBossEvery: 10,                      // niveaux de boss : un mini-boss toutes les 10 vagues
@@ -357,7 +366,7 @@ WORLDS.forEach((w, wi) => {
     LEVELS.push({
       n: wi * PER_WORLD + i + 1, id: `${wi + 1}-${i + 1}`, world: wi, idx: i, boss, waves,
       layout: lay.replace('!', ''), mirror: lay.endsWith('!'), slots: CAMPAIGN.slots[i], money: CAMPAIGN.money[i],
-      hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i) * (boss ? CAMPAIGN.bossLevelHp[wi] : 1)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
+      hp: +(CAMPAIGN.hpWorld[wi] * (1 + CAMPAIGN.hpLevel * i) * (boss ? CAMPAIGN.bossLevelHp[wi] : 1) * (CAMPAIGN.tune[wi * PER_WORLD + i] || 1)).toFixed(3), density: CAMPAIGN.density[wi], speed: CAMPAIGN.speedWorld[wi],
       pace: boss ? (CAMPAIGN.bossPaceTo - 1) / (waves - 1) : 1,
     });
   }
@@ -366,6 +375,8 @@ WORLDS.forEach((w, wi) => {
 // Défi « Héroïque » : débloqué en terminant un niveau. Une contrainte par niveau (à tour de rôle) + ennemis plus résistants.
 export const HEROIC = {
   hp: 1.25, gemsMult: 2, xpMult: 2, scoreMult: 1.5,
+  // PV des ennemis par monde : les défis se jouent avec le château et les talents de fin de campagne (30-50 % de victoires)
+  hpWorld: [4.4, 3.3, 2.7, 2.35, 2.6, 1.95, 1.2, 1.1],
   coinsMult: 1,   // pièces d'un défi héroïque : comme un niveau normal (le château est déjà au maximum à ce stade)
   mods: [
     { id: 'limit', name: 'Effectif réduit',    desc: '6 tourelles maximum (hors mines)', towerLimit: 6 },
@@ -377,6 +388,7 @@ export const HEROIC = {
   ],
 };
 export const heroicMod = (n) => HEROIC.mods[(n - 1) % HEROIC.mods.length];
+export const heroicHp = (world) => (HEROIC.hpWorld ? HEROIC.hpWorld[world] : HEROIC.hp);
 
 // ----------------------------------------------------------------------------
 //  CHÂTEAU (amélioré avec les gemmes entre les niveaux)
@@ -413,9 +425,9 @@ export const BOOSTS = {
   coins2: { name: 'Pièces x2',        desc: 'Double les pièces des kills pendant 1 vague', icon: 'coins',  color: '#ffd23f', cost: 150, cur: 'coins', rarity: 1 },
   heal:   { name: '+5 PV',            desc: 'Répare 5 PV du château (peut dépasser le maximum)', icon: 'heart', color: '#ff5d6c', cost: 120, cur: 'coins', rarity: 0, amount: 5 },
   free:   { name: 'Tourelle gratuite', desc: 'La prochaine tourelle posée ne coûte rien', icon: 'gift', color: '#3fd873', cost: 180, cur: 'coins', rarity: 1 },
-  over:   { name: 'Surcharge',        desc: 'Cadence de toutes les tourelles +50 % pendant 20 s', icon: 'bolt', color: '#ff9f1a', cost: 200, cur: 'coins', rarity: 2, rate: 1.5, dur: 20 },
-  shield: { name: 'Bouclier',         desc: 'Bloque toutes les fuites pendant 1 vague', icon: 'shield', color: '#5c9df2', cost: 25, cur: 'gems', rarity: 3 },
-  revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés', icon: 'revive', color: '#b05cff', cost: 40, cur: 'gems', rarity: 4 },
+  over:   { name: 'Surcharge',        desc: 'Cadence de toutes les tourelles +40 % pendant 20 s', icon: 'bolt', color: '#ff9f1a', cost: 200, cur: 'coins', rarity: 2, rate: 1.4, dur: 20 },
+  shield: { name: 'Bouclier',         desc: 'Bloque les fuites pendant 1 vague (pas celle d\'un boss)', icon: 'shield', color: '#5c9df2', cost: 25, cur: 'gems', rarity: 3 },
+  revive: { name: 'Seconde chance',   desc: 'À la défaite : château réparé à moitié, ennemis balayés, boss repoussé', icon: 'revive', color: '#b05cff', cost: 40, cur: 'gems', rarity: 4, bossBack: 160 },
 };
 export const BOOST_ORDER = ['coins2', 'heal', 'free', 'over', 'shield', 'revive'];
 // Prix en pièces des boosts selon le monde atteint (les gains en pièces grandissent avec les mondes) :
@@ -610,7 +622,10 @@ export const REBIRTH = {
   shardsBase: 20, shardsPerStar: 1, shardsPerHeroic: 3,   // éclats gagnés : base + étoiles + défis héroïques réussis
   coinsPerShard: 250,                                      // + les pièces restantes, converties : 1 éclat par 250 pièces
   coinsPerRank: 0.10, damagePerRank: 0.05,                 // bonus permanents par rang
-  hpPerRank: 0.30, speedPerRank: 0.03, regenPerRank: 0.004, // mutation : PV, vitesse, régénération (part des PV max / s)
+  // mutation (brainrots plus forts à chaque rang) : PV x (1 + hpBase) dès le rang 1 (le joueur garde ses tourelles, ses
+  // talents et ses branches légendaires), puis +hpPerRank par rang ; les niveaux de boss n'en prennent que bossHpK ; vitesse, régénération
+  hpBase: 1.5, hpPerRank: 0.06, bossHpK: 0.85, speedPerRank: 0.03, regenPerRank: 0.004,
+  regenCap: 6,                                             // régénération plafonnée à 6 PV/s par rang (un boss ne devient pas immortel)
   rewardPerRank: 0.5,                                      // gains de fin de niveau (pièces, gemmes, XP) x (1 + 0.5 x rang)
   // Mk II : une 3e branche d'amélioration (niveau 4, puis 5 légendaire)
   mk2: {
@@ -642,6 +657,8 @@ export const REBIRTH = {
     { id: 'slot', kind: 'slot', cost: 260, name: 'Emplacement de boost', desc: 'Un 4e boost à emporter dans chaque niveau' },
   ],
 };
+// multiplicateur de PV des brainrots mutés au rang r (1 = pas de mutation)
+export const mutantHp = (r) => (r > 0 ? (1 + REBIRTH.hpBase) * (1 + REBIRTH.hpPerRank * (r - 1)) : 1);
 export const ROMAN = (n) => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
 // capacité active, du château ou de Renaissance
 export const abilityDef = (id) => CASTLE.abilities[id] || REBIRTH.abilities[id];
@@ -666,23 +683,16 @@ export const QUALITY = {
   hold: 3,                          // secondes de lenteur continue avant de descendre
 };
 // Étoiles : 3 objectifs indépendants par niveau (une étoile gagnée le reste, on peut les obtenir en plusieurs fois)
-//   1. gagner   2. aucun PV perdu   3. selon le niveau : N tourelles maximum, ou finir avant un temps limite
+//   1. gagner   2. aucun PV perdu   3. N tourelles maximum (mines non comptées)
 // three / two = anciens seuils (part de PV restants), encore utilisés pour le défi Héroïque et le défi du jour.
 export const STARS = {
   three: 0.9, two: 0.5,
-  towersRatio: 0.55,          // tourelles autorisées = emplacements x ce ratio (mines non comptées)
-  timeRatio: 0.82,            // temps limite = durée de référence x ce ratio, arrondi à 15 s
-  timeRatioBoss: 0.92,        // niveaux de boss : le combat contre le boss ne se raccourcit presque pas
-  // durée de référence par vague (s), vagues lancées automatiquement (mesurée par tools/simulate.cjs, robot « good »)
-  parPerWave: 28, parPerWaveBoss: 31,
+  towersRatio: 0.5,           // tourelles autorisées = emplacements x ce ratio (mines non comptées)
 };
-const mmss = (s) => `${Math.floor(s / 60)} min${s % 60 ? ' ' + String(s % 60).padStart(2, '0') : ''}`;
 // Les 3 objectifs d'un niveau : [{ id, text, n }]
 export function starGoals(L) {
-  const third = !L.boss && L.idx % 2 === 0
-    ? (() => { const n = Math.max(3, Math.round(L.slots * STARS.towersRatio)); return { id: 'towers', n, text: `${n} tourelles maximum` }; })()
-    : (() => { const n = Math.max(60, Math.round((L.waves * (L.boss ? STARS.parPerWaveBoss * STARS.timeRatioBoss : STARS.parPerWave * STARS.timeRatio)) / 15) * 15); return { id: 'time', n, text: `Finir en moins de ${mmss(n)}` }; })();
-  return [{ id: 'win', text: 'Gagner le niveau' }, { id: 'clean', text: 'Aucun PV perdu' }, third];
+  const n = Math.max(3, Math.round(L.slots * STARS.towersRatio));
+  return [{ id: 'win', text: 'Gagner le niveau' }, { id: 'clean', text: 'Aucun PV perdu' }, { id: 'towers', n, text: `${n} tourelles maximum` }];
 }
 
 // ----------------------------------------------------------------------------

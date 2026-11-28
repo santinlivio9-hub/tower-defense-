@@ -4,7 +4,7 @@
 // SAUVEGARDE SÉPARÉE : en mode admin, le jeu travaille sur une copie (voir save.js : enterAdmin / exitAdmin). La vraie
 // sauvegarde n'est jamais réécrite ; « Revenir à ma vraie partie » efface la copie et la recharge intacte.
 // Aucun achat réel : en mode admin, la monétisation passe toujours par la simulation (monetization.js).
-import { ADMIN_ENABLED, ADMIN_PIN, ADMIN, LEVELS, WORLDS, ENEMIES, TOWERS, TOWER_ORDER, CASTLE, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, SHOP, PASS, PROFILE, REBIRTH, ACHIEVEMENTS, XP } from './config.js';
+import { ADMIN_ENABLED, ADMIN_PIN, ADMIN, mutantHp, LEVELS, WORLDS, ENEMIES, TOWERS, TOWER_ORDER, CASTLE, TALENTS, BOOSTS, BOOST_ORDER, CHESTS, SHOP, PASS, PROFILE, REBIRTH, ACHIEVEMENTS, XP } from './config.js';
 import { adminActive, enterAdmin, exitAdmin, adminClock, setAdminClock } from './save.js';
 import { enemySvg } from './sprites.js';
 import { icon, coin, gem } from './icons.js';
@@ -259,7 +259,7 @@ class AdminDeck {
     this.row(s, 'Rang de mutation', this.sel(Array.from({ length: 11 }, (_, i) => [i, i ? `Rang ${ROMAN[i]}` : 'Normal']), this.rank, (v) => { this.rank = +v; this.render(); }));
     // ---- fiche
     const id = this.pick, c = ENEMIES[id], k = this.rank;
-    const hpK = 1 + REBIRTH.hpPerRank * k, spK = 1 + REBIRTH.speedPerRank * k, regen = REBIRTH.regenPerRank * k;
+    const hpK = mutantHp(k) * (c.boss && k ? REBIRTH.bossHpK : 1), spK = 1 + REBIRTH.speedPerRank * k, regen = REBIRTH.regenPerRank * k;
     const card = el('section', 'adm-sec adm-enemy');
     card.innerHTML = `<div class="ae-top"><div class="ae-view"><img alt=""></div><div class="ae-id"><small>${c.tag || (c.boss ? 'BOSS' : '')}${k ? ' · muté ' + ROMAN[k] : ''}</small><b></b><span class="ae-hint"></span></div></div>
       <div class="ae-anim"></div><div class="ae-stats"></div><ul class="ae-sp"></ul>`;

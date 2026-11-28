@@ -15,12 +15,15 @@ export function buildWave(n, level, pathCount) {
     if (last) boss = WORLDS[level.world].boss;
     else if (n % CAMPAIGN.miniBossEvery === 0) { boss = WORLDS[level.world].boss; mini = true; bossMul = CAMPAIGN.miniBossHp[Math.min(CAMPAIGN.miniBossHp.length - 1, n / CAMPAIGN.miniBossEvery - 1)]; }
   }
-  const budget = WAVES.budget(m) * level.density * (boss ? WAVES.bossEscortBudget : last ? WAVES.finalWaveBudget : 1);
+  // vague « respiration » : plus calme (jamais la dernière, ni une vague de boss)
+  const C0 = WAVES.calm, calm = !level.endless && !boss && !last && (level.boss ? n % 10 === C0.bossAt : C0.at.some((f) => n === Math.round(level.waves * f)));
+  const budget = WAVES.budget(m) * level.density * (boss ? WAVES.bossEscortBudget : last ? WAVES.finalWaveBudget : 1) * (calm ? C0.mult : 1);
   const lvl = level.endless ? 99 : level.n;
   const avail = Object.keys(ENEMIES).filter((k) => ENEMIES[k].unlock <= lvl && (ENEMIES[k].from || 1) <= n);
   // un type qui apparaît pour la première fois dans la campagne est toujours présenté à sa vague « from »
   const picks = avail.filter((k) => ENEMIES[k].unlock === lvl && ENEMIES[k].from === n);
-  const nGroups = Math.min(WAVES.maxGroups, avail.length, 1 + Math.floor(n / 3));
+  const intro = picks.length > 0 && !boss;   // 1re apparition : le nouveau brainrot arrive seul, en petit nombre
+  const nGroups = intro ? picks.length : Math.min(WAVES.maxGroups, avail.length, 1 + Math.floor(n / 3));
   let guard = 0;
   while (picks.length < nGroups && guard++ < 50) {
     const k = avail[Math.floor(rnd() * avail.length)];
@@ -32,8 +35,8 @@ export function buildWave(n, level, pathCount) {
   let t = 0;
   picks.forEach((type, i) => {
     const cfg = ENEMIES[type];
-    let count = Math.max(1, Math.min(WAVES.maxPerGroup, Math.round((budget * weights[i]) / wSum / cfg.cost)));
-    const elite = lvl >= WAVES.eliteFrom && n > 4 && rnd() < WAVES.eliteChance;
+    let count = Math.max(1, Math.min(intro ? WAVES.introMax : WAVES.maxPerGroup, Math.round((budget * weights[i]) / wSum / cfg.cost)));
+    const elite = !intro && lvl >= WAVES.eliteFrom && n > 4 && rnd() < WAVES.eliteChance;
     if (elite) count = Math.max(1, Math.round(count / WAVES.eliteHp));
     const interval = cfg.interval * WAVES.spawnPace * Math.max(0.5, 1 - m * 0.012) * (elite ? 1.6 : 1);
     const path = pathCount > 1 ? (rnd() < 0.5 ? 'alt' : Math.floor(rnd() * pathCount)) : 0;
@@ -43,7 +46,7 @@ export function buildWave(n, level, pathCount) {
   const span = Math.max(...groups.map((g) => g.delay + g.count * g.interval), 1);
   if (span > WAVES.maxSpan) { const k = WAVES.maxSpan / span; for (const g of groups) { g.delay *= k; g.interval *= k; } }
   if (boss) groups.push({ type: boss, count: 1, interval: 0, delay: 2.5, path: 0, mini });
-  return { n, boss, mini, bossMul, groups, hpScale: WAVES.hpScale(m) };
+  return { n, boss, mini, bossMul, groups, hpScale: WAVES.hpScale(m), calm, intro };
 }
 
 // Résumé { type: nombre } pour l'aperçu de la prochaine vague

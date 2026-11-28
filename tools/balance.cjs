@@ -223,7 +223,7 @@ async function flux() {
 }
 
 // ============================================================================ courbe de difficulté (Node)
-async function waves() {
+async function waves(quiet = false) {
   const root = 'file://' + path.resolve(__dirname, '..') + '/js/';
   const C = await import(root + 'config.js'), { buildWave } = await import(root + 'waves.js'), { buildField } = await import(root + 'maps.js');
   const out = [];
@@ -246,15 +246,16 @@ async function waves() {
       // DPS requis : PV de la vague / (durée des apparitions + traversée du chemin à la vitesse moyenne de la vague)
       const spd = w.groups.reduce((a, gr) => a + C.ENEMIES[gr.type].speed * L.speed * gr.count, 0) / Math.max(1, w.groups.reduce((a, gr) => a + gr.count, 0));
       const need = hp / (span + len / Math.max(10, spd));
-      per.push({ n, hp, k, span, need, hps: hp / Math.max(6, span), boss: w.boss, mini: w.mini });
+      per.push({ n, hp, k, span, need, hps: hp / Math.max(6, span), boss: w.boss, mini: w.mini, calm: w.calm });
       total += hp; count += k; peak = Math.max(peak, hp / Math.max(6, span));
     }
     const needs = per.map((q) => q.need), peakNeed = Math.max(...needs);
     // vagues « respiration » : plus calmes que la précédente d'au moins 15 %
-    const calm = per.filter((q, i) => i > 0 && q.need < per[i - 1].need * 0.85).length;
+    const calm = per.filter((q) => q.calm).length;
     const lastIsMax = needs.indexOf(peakNeed) >= needs.length - 2;
     out.push({ n: L.n, id: L.id, boss: L.boss, waves: L.waves, len: Math.round(len), hpMult, total, count, bossHp, peak, peakNeed, calm, lastIsMax, money, per });
   }
+  if (quiet === true) return out;
   console.log('| Niveau | Vagues | Chemin (px) | PV totaux | Ennemis | DPS requis au pic | Écart / niveau normal précédent | Vagues calmes | Pic en fin | PV boss | Pièces gagnables |');
   console.log('|---|---|---|---|---|---|---|---|---|---|---|');
   let prevN = null;
@@ -374,7 +375,10 @@ async function win() {
   const levels = parseLevels(args[0]), tries = +(args[1] || 8), mode = args[2] || '';
   const snaps = snapsOf(), jobs = [];
   for (const n of levels) for (let s = 1; s <= tries; s++) {
-    const hero = mode === 'hero', snap = process.env.SNAPKEY ? snaps[process.env.SNAPKEY] : snaps[n + (hero ? 'h' : '')] || snaps[n];
+    const hero = mode === 'hero';
+    let snap = process.env.SNAPKEY ? snaps[process.env.SNAPKEY] : snaps[n + (hero ? 'h' : '')] || snaps[n];
+    // Renaissance : château reconstruit comme au 1er passage, mais tous les talents (points rendus puis replacés)
+    if (process.env.TALENTKEY && snaps[process.env.TALENTKEY]) snap = { ...snap, talents: snaps[process.env.TALENTKEY].talents };
     jobs.push({ n, seed: s, snap, hero, boost: mode === 'boost', rank: mode.startsWith('rank') ? +mode.slice(4) : 0, skill: process.env.SKILL || 'mid' });
   }
   const res = await runJobs(jobs);
@@ -462,6 +466,32 @@ async function check() {
   console.log(bad ? `\n${bad} règle(s) non respectée(s)` : '\nToutes les règles des tourelles sont respectées');
 }
 
-const run = { dps, waves, flux, win, mono, check, 'win-shard': winShard };
+// ============================================================================ lissage de la courbe (Node)
+// Calcule CAMPAIGN.tune : pour chaque niveau normal, le coefficient de PV qui place son « DPS requis au pic » sur une
+// courbe lisse : +STEP par niveau dans un monde, autour de la moyenne actuelle du monde (le niveau général de chaque
+// monde se règle ensuite avec CAMPAIGN.hpWorld, d'après les simulations). Niveaux de boss : 1.
+//   node tools/balance.cjs tune [--write]
+async function tune() {
+  const STEP = 1.07, write = args.includes('--write');
+  const root = 'file://' + path.resolve(__dirname, '..') + '/js/';
+  const C = await import(root + 'config.js');
+  const cur = C.CAMPAIGN.tune.slice();
+  const res = await waves.call(null, true);
+  const need = res.map((r, i) => r.peakNeed / (cur[i] || 1));   // sans le lissage actuel
+  const tuneOut = cur.map(() => 1);
+  for (let w = 0; w < C.WORLDS.length; w++) {
+    const idx = Array.from({ length: C.PER_WORLD - 1 }, (_, i) => w * C.PER_WORLD + i);
+    const base = Math.exp(idx.reduce((a, n, i) => a + Math.log(need[n]) - i * Math.log(STEP), 0) / idx.length);
+    idx.forEach((n, i) => { tuneOut[n] = Math.max(0.5, Math.min(2, (base * STEP ** i) / need[n])); });
+  }
+  const line = '  tune: [' + tuneOut.map((v) => +v.toFixed(3)).join(', ') + '],';
+  console.log(line);
+  if (write) {
+    const f = path.resolve(__dirname, '../js/config.js'); let src = fs.readFileSync(f, 'utf8');
+    src = src.replace(/  tune: (Array\(80\)\.fill\(1\)|\[[^\]]*\]),/, line); fs.writeFileSync(f, src); console.log('config.js mis à jour');
+  }
+}
+
+const run = { dps, waves, flux, win, mono, check, tune, 'win-shard': winShard };
 if (!run[cmd]) { console.error('commande inconnue : ' + cmd); process.exit(1); }
 run[cmd]().catch((e) => { console.error(e); process.exit(1); });
