@@ -24,7 +24,7 @@ async function page() {
 
 // ============================================================================ banc d'essai des tourelles
 // Cibles immobiles, PV infinis, devant un socle : 1 cible (mono), 6 cibles espacées de 24 px sur le chemin (groupe),
-// 1 cible blindée (blindage 5, comme le Granchio), 1 boss (Tricheco, capacités coupées). Mesure : dégâts sur 120 s
+// 1 cible blindée (blindage 5, comme le Granchio), 1 boss (Tricheco, capacités coupées). Mesure : dégâts sur 240 s
 // après 4 s de mise en route (montée du minigun, chauffe du laser). Aucun talent, aucune Renaissance.
 async function dps() {
   const { b, p } = await page();
@@ -44,7 +44,7 @@ async function dps() {
     const mSlot = g.slots.find((s) => s.kind === 'mine');
     const pinned = [];
     const clear = () => { for (const e of g.enemies) e.dead = true; g.enemies.length = 0; g.projectiles.length = 0; g.delayed.length = 0; pinned.length = 0; };
-    const add = (type, dd, armor) => { const e = g.spawnEnemy(type, 0, dd, 1, 1); e.maxHp = e.hp = 1e12; e.speed = 0; e.armor = armor; e.d0 = dd; e.abilityT = 1e9; e.healT = 1e9; pinned.push(e); return e; };
+    const add = (type, dd, armor) => { const e = g.spawnEnemy(type, 0, dd, 1, 1); e.maxHp = e.hp = 1e12; e.speed = 0; e.armor = armor; e.d0 = dd; e.off = 0; e.place(); e.abilityT = 1e9; e.healT = 1e9; pinned.push(e); return e; };   // cibles centrées sur le chemin
     const step = (n) => { for (let i = 0; i < n; i++) { g.update(1 / 30); for (const e of pinned) { e.d = e.d0; e.place(); e.hp = e.maxHp; e.dead = false; e.stunT = 0; } } };
     const configs = (type) => {
       const out = [{ id: '1', path: [] }, { id: '2', path: [0] }, { id: '3', path: [0, 0] }];
@@ -56,7 +56,7 @@ async function dps() {
     for (const type of C.TOWER_ORDER) for (const cf of configs(type)) {
       const out = { type, id: cf.id, name: '', cost: 0 };
       for (const sc of ['mono', 'groupe', 'blinde', 'boss']) {
-        clear();
+        clear(); { let sd = 987654321; Math.random = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); }   // hasard reproductible
         const sl = type === 'mine' ? mSlot : tSlot, nr = near(sl);
         const t = g.placeTower(type, sl); t.legendLocked = false;
         for (const k of cf.path) { const o = t.upgradeOptions()[k]; g.upgradeTower(t, o); }
@@ -64,8 +64,8 @@ async function dps() {
         if (sc === 'groupe') for (let k = -2; k <= 3; k++) add('basic', nr.dd + k * 24, 0);
         else if (sc === 'boss') add('boss1', nr.dd, 0);
         else add('basic', nr.dd, sc === 'blinde' ? 5 : 0);
-        step(120); const d0 = t.dmg; step(3600);
-        out[sc] = (t.dmg - d0) / 120;
+        step(120); const d0 = t.dmg; step(7200);
+        out[sc] = (t.dmg - d0) / 240;
         g.sellTower(t);
       }
       res.push(out);
@@ -94,7 +94,20 @@ async function dps() {
 const THREATS = [   // [nom, ennemi, rythme (x intervalle de config.js), mesure]
   ['rapides', 'fast', 1, 'cap'], ['groupe', 'basic', 0.5, 'debit'], ['tanks', 'tank', 1, 'debit'], ['blindés', 'armored', 1, 'debit'],
   ['volants', 'flying', 1, 'debit'], ['diviseurs', 'splitter', 1, 'cap'], ['invisibles', 'stealth', 1, 'debit'], ['boss', 'boss1', 0, 'debit'],
+  ['boucliers', 'robo', 1, 'cap'], ['sauteurs', 'monkey', 1, 'cap'], ['contrôle', 'basic', 1, 'slow'],
 ];
+// Rôle attendu de chaque tourelle : la colonne où elle doit être la meilleure (par pièce au niveau 1, ou par emplacement)
+const ROLES = { assault: ['polyvalence', '1'], smg: ['rapides', '1'], shotgun: ['tanks', '1'], sniper: ['boss', '1'], rocket: ['diviseurs', '1'],
+  minigun: ['boss', '3 slot'], cryo: ['contrôle', '1'], laser: ['boucliers', '1'], tesla: ['volants', '1'], plasma: ['blindés', '1'], drone: ['sauteurs', '1'], mine: ['groupe', '1'] };
+// polyvalence : moyenne, sur les menaces de combat, de la valeur par pièce rapportée à la meilleure du même niveau
+function addPoly(rows) {
+  const core = THREATS.filter((t) => t[3] !== 'slow' && t[0] !== 'boss').map((t) => t[0]);
+  for (const lvl of ['1', '2', '3', '4', '5']) {
+    const sub = rows.filter((r) => r.id.startsWith(lvl)); if (!sub.length) continue;
+    const best = Object.fromEntries(core.map((n) => [n, Math.max(1e-9, ...sub.map((r) => r[n] / r.cost))]));
+    for (const r of sub) r.polyvalence = (core.reduce((a, n) => a + r[n] / r.cost / best[n], 0) / core.length) * r.cost;
+  }
+}
 async function flux() {
   const { b, p } = await page();
   const lv = args[0] ? args[0].split(',') : ['1', '3', '5'];
@@ -126,6 +139,7 @@ async function flux() {
         const g = __game, B = window.__bench, C = B.C, P = g.paths[0];
         // ennemis sur TOUT le chemin (du portail au château) : la portée compte ; moyenne de 2 socles
         const start = 0, stop = P.total - 40, vals = [];
+        { let sd = 123456789; Math.random = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); }   // hasard reproductible
         let cost = 0, name = '';
         for (const sl of B.slots[cf.type === 'mine' ? 'mine' : 'tower']) {
           const setup = () => {
@@ -143,6 +157,16 @@ async function flux() {
             vals.push((h0 - boss.hp) / 120); continue;
           }
           const cfg = C.ENEMIES[et], every = cfg.interval * pace, N = 30;
+          if (mode === 'slow') {   // contrôle : temps passé par les ennemis près du socle, comparé à leur vitesse normale (en %)
+            setup(); let clock = every, extra = 0, cnt = 0; const near0 = (() => { let best = 0, bd = 1e9; for (let dd = 0; dd < P.total; dd += 3) { const q = P.pointAt(dd); const k = Math.hypot(q.x - sl.x, q.y - sl.y); if (k < bd) { bd = k; best = dd; } } return best; })();
+            const a0 = Math.max(0, near0 - 300), a1 = Math.min(P.total - 50, near0 + 300), t0 = new Map();
+            for (let i = 0; i < 2400; i++) {
+              clock += 1 / 30; while (clock >= every) { clock -= every; const e = g.spawnEnemy(et, 0, start, 1); e.maxHp = e.hp = 1e9; }
+              g.update(1 / 30);
+              for (const e of g.enemies) { if (!t0.has(e) && e.d >= a0) t0.set(e, i); if (t0.has(e) && e.d >= a1 && !e.done) { e.done = true; if (i > 600) { extra += ((i - t0.get(e)) / 30) / ((a1 - a0) / (cfg.speed * g.speedMult)) - 1; cnt++; } } if (e.d > stop) e.dead = true; }
+            }
+            vals.push(Math.max(0, (extra / Math.max(1, cnt)) * 100)); continue;
+          }
           if (mode === 'debit') {   // ennemis increvables à l'espacement réel : dégâts utiles par seconde
             setup(); let clock = every, dmg = 0;
             const tick = (m) => {
@@ -184,7 +208,8 @@ async function flux() {
   }
   await b.close();
   const C = await import(path.resolve(__dirname, '../js/config.js'));
-  const names = THREATS.map((t) => t[0]);
+  const names = [...THREATS.map((t) => t[0]), 'polyvalence'];
+  addPoly(rows);
   for (const lvl of lv) {
     const sub = rows.filter((r) => r.id.startsWith(lvl));
     console.log(`\n### Niveau ${lvl} : dégâts utiles par seconde (rapides, diviseurs : PV traités par seconde) pour 100 pièces investies, meilleur de chaque colonne en gras\n`);
@@ -377,6 +402,66 @@ async function mono() {
   return res;
 }
 
-const run = { dps, waves, flux, win, mono, 'win-shard': winShard };
+// ============================================================================ vérification des règles des tourelles
+// À partir des résultats de « dps » (et de « flux » pour les rôles) : gains par niveau, rentabilité des améliorations,
+// écart entre les 2 branches, pic du niveau 5, DPS par pièce selon le prix. Lit --json des commandes précédentes :
+//   node tools/balance.cjs check dps.json [flux.json]
+// Mesure principale : DPS mono-cible pour les armes à une cible, DPS sur un groupe pour les armes de zone.
+const ZONE = ['rocket', 'tesla', 'plasma', 'mine'];
+async function check() {
+  const C = await import(path.resolve(__dirname, '../js/config.js'));
+  const rows = JSON.parse(fs.readFileSync(args[0], 'utf8')), by = {};
+  for (const r of rows) (by[r.type] = by[r.type] || {})[r.id] = r;
+  const P = (r) => Math.cbrt(Math.max(1, r.mono) * Math.max(1, r.groupe) * Math.max(1, r.blinde));
+  const M = (t, r) => (ZONE.includes(t) ? r.groupe : (r.mono + r.boss) / 2);
+  let bad = 0; const flag = (c) => { if (!c) bad++; return c ? '' : ' ✗'; };
+  console.log('| Tourelle | Gain niv. 2 / 3 (≥ 30 %) | Amélioration / tourelle neuve (80-120 %) | Gain niv. 4 A / B (≥ 30 %) | Pic niv. 5 A / B (≥ 50 %) | Écart des branches niv. 4 / 5 (≤ 10 %) |');
+  console.log('|---|---|---|---|---|---|');
+  for (const t of C.TOWER_ORDER) {
+    const b = by[t]; if (!b) continue;
+    const g = (a, c, f = P) => (f(c) / f(a) - 1) * 100;
+    const m = (r) => M(t, r), base = m(b['1']) / b['1'].cost;
+    const u2 = ((m(b['2']) - m(b['1'])) / (b['2'].cost - b['1'].cost) / base) * 100, u3 = ((m(b['3']) - m(b['2'])) / (b['3'].cost - b['2'].cost) / base) * 100;
+    const gap = (x, y) => (Math.max(P(x), P(y)) / Math.min(P(x), P(y)) - 1) * 100;
+    const sup = t === 'cryo';   // soutien : effet visible (ralenti, gel, fragilité) plutôt que DPS
+    const c1 = `${fmt(g(b['1'], b['2'], m))} / ${fmt(g(b['2'], b['3'], m))} %` + (sup ? '' : flag(g(b['1'], b['2'], m) >= 30 && g(b['2'], b['3'], m) >= 30));
+    const c2 = sup ? 'soutien' : `${fmt(u2)} / ${fmt(u3)} %` + flag(u2 >= 80 && u2 <= 120 && u3 >= 80 && u3 <= 120);
+    const c3 = sup ? 'effets' : `${fmt(g(b['3'], b['4A']))} / ${fmt(g(b['3'], b['4B']))} %` + flag(g(b['3'], b['4A']) >= 30 && g(b['3'], b['4B']) >= 30);
+    const c4 = sup ? 'effets' : `${fmt(g(b['4A'], b['5A']))} / ${fmt(g(b['4B'], b['5B']))} %` + flag(g(b['4A'], b['5A']) >= 50 && g(b['4B'], b['5B']) >= 50);
+    const c5 = sup ? `${fmt(gap(b['4A'], b['4B']))} / ${fmt(gap(b['5A'], b['5B']))} % (soutien)` : `${fmt(gap(b['4A'], b['4B']))} / ${fmt(gap(b['5A'], b['5B']))} %` + flag(gap(b['4A'], b['4B']) <= 10 && gap(b['5A'], b['5B']) <= 10);
+    console.log(`| ${C.TOWERS[t].name} | ${c1} | ${c2} | ${c3} | ${c4} | ${c5} |`);
+  }
+  // prix : une tourelle plus chère ne doit pas être plus de 15 % plus rentable (même famille, niveau 1)
+  console.log('\nDPS par pièce au niveau 1, par prix croissant (mono pour les armes à une cible, groupe pour la zone ; mine et cryo à part) :');
+  for (const fam of [['assault', 'smg', 'shotgun', 'sniper', 'minigun', 'laser', 'drone'], ['rocket', 'tesla', 'plasma']]) {
+    const list = fam.map((t) => ({ t, c: by[t]['1'].cost, v: (M(t, by[t]['1']) / by[t]['1'].cost) * 100 })).sort((a, c) => a.c - c.c);
+    let line = '';
+    list.forEach((x, i) => { const cheaper = list.slice(0, i).filter((y) => y.c < x.c), lim = cheaper.length ? Math.min(...cheaper.map((y) => y.v)) * 1.15 : Infinity; line += `${C.TOWER_SHORT[x.t]} ${x.c} : ${fmt(x.v, 1)}${flag(x.v <= lim + 1e-9)}  ·  `; });
+    console.log('  ' + line);
+  }
+  if (args[1]) {   // rôles : chaque tourelle doit être LA meilleure réponse dans au moins une situation
+    const fl = JSON.parse(fs.readFileSync(args[1], 'utf8')); addPoly(fl);
+    const cols = [...THREATS.map((x) => x[0]), 'polyvalence'], wins = {};
+    const win = (t, label) => (wins[t] = wins[t] || []).push(label);
+    for (const [lv, perSlot] of [['1', false], ['3', false], ['5', true]]) {
+      const sub = fl.filter((r) => r.id.startsWith(lv));
+      // branches Mk II (Renaissance) exclues ; la mine (emplacements à part) n'enlève de rôle à personne, mais peut en avoir
+      for (const n of cols) {
+        if (perSlot && n === 'polyvalence') continue;
+        const val = (r) => (perSlot ? r[n] : r[n] / r.cost), pool = sub.filter((r) => !r.id.endsWith('C'));
+        const best = pool.filter((r) => r.type !== 'mine').reduce((a, r) => (val(r) > val(a) ? r : a)), bestAll = pool.reduce((a, r) => (val(r) > val(a) ? r : a));
+        const label = `${n} (niv. ${lv}, ${perSlot ? 'par emplacement' : 'par pièce'})`;
+        if (val(best) > 0) win(best.type, label); if (bestAll.type === 'mine' && val(bestAll) > 0) win('mine', label);
+      }
+    }
+    // banc fixe : DPS le plus élevé par emplacement (cible unique, groupe, blindé, boss) aux niveaux 3 et 5 (hors mine et Mk II)
+    for (const lv of ['3', '5']) for (const n of ['mono', 'groupe', 'blinde', 'boss']) { const sub = rows.filter((r) => r.id.startsWith(lv) && r.type !== 'mine' && !r.id.endsWith('C')); const best = sub.reduce((a, r) => (r[n] > a[n] ? r : a)); win(best.type, `${n === 'blinde' ? 'blindé' : n} immobile (niv. ${lv}, par emplacement)`); }
+    console.log('\nMeilleure réponse (rôle) :');
+    for (const t of C.TOWER_ORDER) console.log(`  ${C.TOWERS[t].name} : ${(wins[t] || ['aucune']).join(', ')}${flag(!!wins[t])}`);
+  }
+  console.log(bad ? `\n${bad} règle(s) non respectée(s)` : '\nToutes les règles des tourelles sont respectées');
+}
+
+const run = { dps, waves, flux, win, mono, check, 'win-shard': winShard };
 if (!run[cmd]) { console.error('commande inconnue : ' + cmd); process.exit(1); }
 run[cmd]().catch((e) => { console.error(e); process.exit(1); });
