@@ -761,3 +761,234 @@ Glitch Mozzarella      niveau 8-2  vague 3  : 2 nouveaux, avec 18 Lumaca Pizzett
 ## 9. Performance et stabilité (tools/perf.cjs)
 
 Pire moment (niveau 8-10, 19 tourelles au niveau 5, boss + 115 brainrots, x3, définition x3, rendu logiciel sans carte graphique) : calcul médian 4,2-4,5 ms par image, 95 % sous 42-64 ms, 6 à 16 % des images au-dessus de 16,7 ms, qualité automatique descendue au cran le plus bas. Profil : 81 % du temps dans le dessin natif, la logique du jeu (mises à jour, ciblage) reste sous 2 %. Mémoire sur 10 niveaux enchaînés : 3,4 → 4,2 Mo (+0,6 Mo entre le 2e et le 10e). Aucune erreur de console.
+
+---
+
+# Après correction : étape A (tourelles)
+
+Toutes les règles des tourelles sont respectées (`node tools/balance.cjs check dps.json flux.json`).
+Le hasard des bancs est maintenant fixé (graine) et les cibles immobiles sont centrées sur le chemin : les mesures sont reproductibles.
+
+**Changements principaux**
+
+- Fusil d'assaut : dégâts 11 → 12 (polyvalent le plus rentable).
+- Mitraillette : dégâts 4,5 → 3,3 (garde les rapides et les diviseurs) ; Perce-tout +80 %.
+- Pompe : dégâts 8 → 9,1 (meilleure contre les tanks) ; Brasier renforcé, Chasseur de gros ramené.
+- Sniper : prix 220 → 200, améliorations 150 / 250 ; Lunette thermique cadence x2,25.
+- Lance-roquettes : prix 280 → 250, dégâts 55, zone 78 ; Fragmentation renforcée, Missile guidé et Salve ramenés.
+- Minigun : branche incendiaire au niveau de Surchauffe.
+- Cryo : Zéro absolu (gel 30 %, puis 45 %) au niveau de Givre fragilisant (+25 %, puis +40 % de dégâts subis).
+- Mine : améliorations 45 / 75 et +40 % de dégâts ; branches équilibrées.
+- Laser : dégâts 5,5 → 4,9 ; Prisme, Arc-en-ciel (4 rayons) et Rayon solaire (+50 %, au lieu de +80 %) équilibrés.
+- Tesla : dégâts 42 → 38 ; Tempête électrique +60 %.
+- Plasma (option B) : traverse toujours tout, mais dégâts 105 → 36 et boule 16 → 14 ; branches équilibrées.
+- Drone : dégâts 14 → 22 ; Essaim et Tapis de feu équilibrés.
+
+| Tourelle | Gain niv. 2 / 3 (≥ 30 %) | Amélioration / tourelle neuve (80-120 %) | Gain niv. 4 A / B (≥ 30 %) | Pic niv. 5 A / B (≥ 50 %) | Écart des branches niv. 4 / 5 (≤ 10 %) |
+|---|---|---|---|---|---|
+| Fusil d'assaut | 65 / 70 % | 93 / 92 % | 74 / 63 % | 86 / 98 % | 7 / 0 % |
+| Mitraillette | 69 / 67 % | 97 / 91 % | 121 / 122 % | 80 / 73 % | 0 / 4 % |
+| Pompe | 67 / 69 % | 103 / 100 % | 47 / 54 % | 87 / 71 % | 5 / 5 % |
+| Sniper | 72 / 73 % | 96 / 100 % | 127 / 123 % | 67 / 74 % | 2 / 3 % |
+| Lance-roquettes | 69 / 65 % | 102 / 94 % | 74 / 63 % | 60 / 71 % | 7 / 0 % |
+| Minigun | 68 / 68 % | 113 / 114 % | 49 / 46 % | 56 / 58 % | 3 / 2 % |
+| Tourelle cryo | 50 / 75 % | soutien | effets | effets | 25 / 40 % (soutien) |
+| Laser | 64 / 61 % | 96 / 91 % | 60 / 59 % | 64 / 60 % | 1 / 4 % |
+| Tesla | 71 / 69 % | 104 / 106 % | 37 / 42 % | 60 / 57 % | 4 / 1 % |
+| Plasma | 71 / 63 % | 107 / 100 % | 101 / 95 % | 54 / 60 % | 3 / 1 % |
+| Drone | 62 / 63 % | 95 / 93 % | 100 / 108 % | 95 / 91 % | 4 / 2 % |
+| Mine | 59 / 60 % | 92 / 90 % | 88 / 90 % | 101 / 89 % | 1 / 5 % |
+
+DPS par pièce au niveau 1, par prix croissant (mono pour les armes à une cible, groupe pour la zone ; mine et cryo à part) :
+  Mitrail. 85 : 37,7  ·  Fusil 100 : 41,8  ·  Pompe 130 : 43,3  ·  Sniper 200 : 24,6  ·  Laser 300 : 28,2  ·  Drone 320 : 22,1  ·  Minigun 400 : 24,3  ·  
+  Roquettes 250 : 43,5  ·  Tesla 280 : 42,3  ·  Plasma 360 : 9,6  ·  
+
+Meilleure réponse (rôle) :
+  Fusil d'assaut : boucliers (niv. 1, par pièce), polyvalence (niv. 1, par pièce), rapides (niv. 3, par pièce), diviseurs (niv. 3, par pièce), boucliers (niv. 3, par pièce), sauteurs (niv. 3, par pièce), polyvalence (niv. 3, par pièce)
+  Mitraillette : rapides (niv. 1, par pièce), diviseurs (niv. 1, par pièce)
+  Pompe : tanks (niv. 1, par pièce), volants (niv. 1, par pièce), invisibles (niv. 1, par pièce), sauteurs (niv. 1, par pièce), tanks (niv. 3, par pièce), volants (niv. 3, par pièce), invisibles (niv. 3, par pièce)
+  Sniper : boss (niv. 1, par pièce), boss (niv. 3, par pièce), boss (niv. 5, par emplacement)
+  Lance-roquettes : groupe (niv. 1, par pièce)
+  Minigun : mono immobile (niv. 3, par emplacement), blindé immobile (niv. 3, par emplacement), boss immobile (niv. 3, par emplacement)
+  Tourelle cryo : contrôle (niv. 1, par pièce), contrôle (niv. 3, par pièce), contrôle (niv. 5, par emplacement)
+  Laser : rapides (niv. 5, par emplacement), tanks (niv. 5, par emplacement), volants (niv. 5, par emplacement), boucliers (niv. 5, par emplacement), sauteurs (niv. 5, par emplacement)
+  Tesla : blindés (niv. 1, par pièce), blindés (niv. 3, par pièce), groupe immobile (niv. 3, par emplacement)
+  Plasma : groupe (niv. 3, par pièce), groupe (niv. 5, par emplacement)
+  Drone : blindés (niv. 5, par emplacement), diviseurs (niv. 5, par emplacement), invisibles (niv. 5, par emplacement), mono immobile (niv. 5, par emplacement), groupe immobile (niv. 5, par emplacement), blindé immobile (niv. 5, par emplacement), boss immobile (niv. 5, par emplacement)
+  Mine : groupe (niv. 1, par pièce), blindés (niv. 1, par pièce), groupe (niv. 3, par pièce), groupe (niv. 5, par emplacement), tanks (niv. 5, par emplacement), blindés (niv. 5, par emplacement), invisibles (niv. 5, par emplacement)
+
+Toutes les règles des tourelles sont respectées
+
+## Banc d'essai après correction
+
+| Tourelle | Niv. | Nom | Coût cumulé | DPS mono | DPS / 100 pièces | DPS groupe (6) | Blindé (5) | % vs blindé | Boss |
+|---|---|---|---|---|---|---|---|---|---|
+| Fusil d'assaut | 1 | Fusil d'assaut | 100 | 42 | 42,3 | 41 | 26 | 61 % | 41 |
+| Fusil d'assaut | 2 | Fusil d'assaut | 170 | 69 | 40,3 | 71 | 52 | 76 % | 70 |
+| Fusil d'assaut | 3 | Fusil d'assaut | 295 | 117 | 39,8 | 116 | 97 | 83 % | 117 |
+| Fusil d'assaut | 4A | Rafale | 555 | 204 | 36,8 | 204 | 169 | 83 % | 203 |
+| Fusil d'assaut | 5A | Tempête de plomb | 985 | 370 | 37,5 | 371 | 328 | 89 % | 368 |
+| Fusil d'assaut | 4B | Balles traçantes | 535 | 186 | 34,8 | 185 | 166 | 89 % | 191 |
+| Fusil d'assaut | 5B | Œil de lynx | 935 | 362 | 38,8 | 358 | 345 | 95 % | 361 |
+| Fusil d'assaut | 4C | Munitions explosives | 565 | 215 | 38,0 | 313 | 184 | 86 % | 215 |
+| Fusil d'assaut | 5C | Obus | 1015 | 303 | 29,8 | 449 | 273 | 90 % | 303 |
+| Mitraillette | 1 | Mitraillette | 85 | 32 | 37,6 | 32 | 8 | 25 % | 32 |
+| Mitraillette | 2 | Mitraillette | 145 | 54 | 37,3 | 54 | 16 | 29 % | 54 |
+| Mitraillette | 3 | Mitraillette | 250 | 90 | 35,9 | 90 | 33 | 37 % | 90 |
+| Mitraillette | 4A | Balles perforantes | 470 | 114 | 24,2 | 225 | 114 | 100 % | 114 |
+| Mitraillette | 5A | Perce-tout | 850 | 204 | 24,0 | 408 | 204 | 100 % | 204 |
+| Mitraillette | 4B | Double canon | 490 | 199 | 40,6 | 198 | 75 | 38 % | 200 |
+| Mitraillette | 5B | Triple canon | 910 | 328 | 36,0 | 328 | 141 | 43 % | 329 |
+| Mitraillette | 4C | Balles ricochets | 510 | 99 | 19,5 | 220 | 37 | 38 % | 99 |
+| Mitraillette | 5C | Billard infernal | 950 | 138 | 14,6 | 475 | 77 | 56 % | 139 |
+| Pompe | 1 | Pompe | 130 | 56 | 43,4 | 56 | 28 | 50 % | 56 |
+| Pompe | 2 | Pompe | 215 | 94 | 43,8 | 95 | 62 | 66 % | 94 |
+| Pompe | 3 | Pompe | 365 | 159 | 43,7 | 157 | 124 | 78 % | 159 |
+| Pompe | 4A | Souffle du dragon | 645 | 226 | 35,0 | 252 | 175 | 77 % | 225 |
+| Pompe | 5A | Brasier | 1085 | 405 | 37,3 | 485 | 333 | 82 % | 405 |
+| Pompe | 4B | Canon long | 635 | 238 | 37,5 | 237 | 202 | 85 % | 237 |
+| Pompe | 5B | Chasseur de gros | 1075 | 399 | 37,1 | 399 | 356 | 89 % | 399 |
+| Pompe | 4C | Fléchettes | 645 | 159 | 24,6 | 297 | 159 | 100 % | 158 |
+| Pompe | 5C | Tempête de fléchettes | 1105 | 264 | 23,9 | 496 | 264 | 100 % | 262 |
+| Sniper | 1 | Sniper | 200 | 49 | 24,5 | 50 | 45 | 92 % | 50 |
+| Sniper | 2 | Sniper | 350 | 86 | 24,7 | 83 | 84 | 97 % | 83 |
+| Sniper | 3 | Sniper | 600 | 146 | 24,3 | 144 | 143 | 98 % | 147 |
+| Sniper | 4A | Calibre lourd | 1080 | 336 | 31,1 | 310 | 336 | 100 % | 321 |
+| Sniper | 5A | Tueur de boss | 1830 | 557 | 30,4 | 522 | 557 | 100 % | 534 |
+| Sniper | 4B | Lunette thermique | 1020 | 327 | 32,1 | 317 | 321 | 98 % | 334 |
+| Sniper | 5B | Semi-auto | 1700 | 563 | 33,1 | 566 | 554 | 98 % | 562 |
+| Sniper | 4C | Rail-gun | 1100 | 183 | 16,7 | 334 | 183 | 100 % | 175 |
+| Sniper | 5C | Canon électromagnétique | 1880 | 322 | 17,1 | 613 | 322 | 100 % | 308 |
+| Lance-roquettes | 1 | Lance-roquettes | 250 | 28 | 11,0 | 109 | 26 | 95 % | 27 |
+| Lance-roquettes | 2 | Lance-roquettes | 420 | 44 | 10,6 | 184 | 43 | 97 % | 45 |
+| Lance-roquettes | 3 | Lance-roquettes | 710 | 73 | 10,3 | 303 | 72 | 98 % | 74 |
+| Lance-roquettes | 4A | Fragmentation | 1230 | 114 | 9,3 | 661 | 112 | 98 % | 138 |
+| Lance-roquettes | 5A | Tapis de bombes | 2050 | 178 | 8,7 | 1104 | 176 | 99 % | 229 |
+| Lance-roquettes | 4B | Missile guidé | 1210 | 123 | 10,1 | 484 | 117 | 95 % | 119 |
+| Lance-roquettes | 5B | Salve | 2010 | 206 | 10,3 | 823 | 204 | 99 % | 216 |
+| Lance-roquettes | 4C | Napalm | 1250 | 104 | 8,3 | 538 | 81 | 77 % | 105 |
+| Lance-roquettes | 5C | Mer de feu | 2080 | 133 | 6,4 | 724 | 113 | 85 % | 133 |
+| Minigun | 1 | Minigun | 400 | 97 | 24,3 | 97 | 29 | 30 % | 97 |
+| Minigun | 2 | Minigun | 640 | 163 | 25,4 | 162 | 78 | 48 % | 164 |
+| Minigun | 3 | Minigun | 1040 | 274 | 26,4 | 275 | 181 | 66 % | 273 |
+| Minigun | 4A | Surchauffe | 1720 | 412 | 23,9 | 410 | 269 | 65 % | 410 |
+| Minigun | 5A | Fusion | 2720 | 611 | 22,5 | 614 | 462 | 76 % | 612 |
+| Minigun | 4B | Balles incendiaires | 1680 | 390 | 23,2 | 391 | 277 | 71 % | 390 |
+| Minigun | 5B | Enfer | 2630 | 588 | 22,4 | 592 | 476 | 81 % | 589 |
+| Tourelle cryo | 1 | Tourelle cryo | 150 | 3 | 2,1 | 19 | 3 | 100 % | 3 |
+| Tourelle cryo | 2 | Tourelle cryo | 250 | 5 | 1,9 | 29 | 5 | 100 % | 5 |
+| Tourelle cryo | 3 | Tourelle cryo | 420 | 8 | 2,0 | 51 | 8 | 100 % | 8 |
+| Tourelle cryo | 4A | Zéro absolu | 740 | 17 | 2,3 | 101 | 17 | 100 % | 17 |
+| Tourelle cryo | 5A | Ère glaciaire | 1260 | 17 | 1,3 | 101 | 17 | 100 % | 17 |
+| Tourelle cryo | 4B | Givre fragilisant | 760 | 21 | 2,8 | 127 | 21 | 100 % | 21 |
+| Tourelle cryo | 5B | Cristal brisé | 1300 | 24 | 1,8 | 142 | 24 | 100 % | 24 |
+| Laser | 1 | Laser | 300 | 85 | 28,2 | 85 | 35 | 41 % | 85 |
+| Laser | 2 | Laser | 500 | 138 | 27,7 | 137 | 82 | 60 % | 139 |
+| Laser | 3 | Laser | 830 | 224 | 27,0 | 224 | 161 | 72 % | 224 |
+| Laser | 4A | Prisme | 1390 | 246 | 17,7 | 738 | 183 | 75 % | 248 |
+| Laser | 5A | Arc-en-ciel | 2270 | 356 | 15,7 | 1419 | 293 | 82 % | 355 |
+| Laser | 4B | Surchauffe | 1370 | 343 | 25,0 | 342 | 275 | 80 % | 343 |
+| Laser | 5B | Rayon solaire | 2230 | 511 | 22,9 | 511 | 506 | 99 % | 512 |
+| Tesla | 1 | Tesla | 280 | 39 | 14,0 | 118 | 34 | 88 % | 41 |
+| Tesla | 2 | Tesla | 470 | 70 | 14,9 | 202 | 64 | 92 % | 68 |
+| Tesla | 3 | Tesla | 780 | 116 | 14,9 | 341 | 110 | 95 % | 116 |
+| Tesla | 4A | Orage | 1300 | 148 | 11,4 | 541 | 140 | 95 % | 147 |
+| Tesla | 5A | Tempête électrique | 2120 | 235 | 11,1 | 863 | 227 | 97 % | 233 |
+| Tesla | 4B | Surtension | 1320 | 163 | 12,4 | 485 | 157 | 96 % | 162 |
+| Tesla | 5B | Paralysie | 2160 | 254 | 11,8 | 760 | 248 | 98 % | 258 |
+| Tesla | 4C | Arc magnétique | 1320 | 140 | 10,6 | 517 | 134 | 96 % | 139 |
+| Tesla | 5C | Orage polaire | 2160 | 218 | 10,1 | 825 | 212 | 97 % | 221 |
+| Plasma | 1 | Plasma | 360 | 17 | 4,8 | 34 | 17 | 100 % | 18 |
+| Plasma | 2 | Plasma | 600 | 29 | 4,8 | 59 | 29 | 100 % | 29 |
+| Plasma | 3 | Plasma | 990 | 51 | 5,1 | 97 | 51 | 100 % | 49 |
+| Plasma | 4A | Fusion | 1630 | 88 | 5,4 | 262 | 88 | 100 % | 91 |
+| Plasma | 5A | Supernova | 2610 | 134 | 5,1 | 405 | 134 | 100 % | 135 |
+| Plasma | 4B | Double cœur | 1610 | 97 | 6,0 | 196 | 97 | 100 % | 98 |
+| Plasma | 5B | Réacteur | 2570 | 149 | 5,8 | 344 | 149 | 100 % | 147 |
+| Drone | 1 | Drone | 320 | 70 | 21,9 | 72 | 56 | 79 % | 71 |
+| Drone | 2 | Drone | 530 | 115 | 21,8 | 114 | 99 | 86 % | 114 |
+| Drone | 3 | Drone | 880 | 187 | 21,3 | 188 | 169 | 90 % | 187 |
+| Drone | 4A | Escadrille | 1440 | 376 | 26,1 | 375 | 338 | 90 % | 372 |
+| Drone | 5A | Essaim | 2320 | 725 | 31,2 | 730 | 669 | 92 % | 729 |
+| Drone | 4B | Bombardier | 1460 | 246 | 16,9 | 909 | 239 | 97 % | 243 |
+| Drone | 5B | Tapis de feu | 2360 | 450 | 19,1 | 1943 | 427 | 95 % | 447 |
+| Mine | 1 | Mine | 70 | 12 | 17,0 | 52 | 12 | 97 % | 12 |
+| Mine | 2 | Mine | 115 | 18 | 16,0 | 83 | 18 | 98 % | 19 |
+| Mine | 3 | Mine | 190 | 29 | 15,2 | 134 | 28 | 98 % | 29 |
+| Mine | 4A | Méga-mine | 410 | 53 | 12,9 | 261 | 52 | 99 % | 53 |
+| Mine | 5A | Cratère | 790 | 106 | 13,4 | 526 | 105 | 99 % | 115 |
+| Mine | 4B | Piège électrique | 400 | 55 | 13,8 | 248 | 54 | 99 % | 54 |
+| Mine | 5B | Bobine Tesla | 760 | 103 | 13,5 | 459 | 107 | 105 % | 102 |
+
+## Rôles après correction
+
+
+### Niveau 1 : dégâts utiles par seconde (rapides, diviseurs : PV traités par seconde) pour 100 pièces investies, meilleur de chaque colonne en gras
+
+| Tourelle | Config | Coût | rapides | groupe | tanks | blindés | volants | diviseurs | invisibles | boss | boucliers | sauteurs | contrôle | polyvalence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Fusil d'assaut | 1  | 100 | 30,9 | 41,8 | 41,9 | 25,3 | 41,7 | 14,8 | 41,2 | 10,9 | **27,4** | 40,3 | 0,0 | **84,0** |
+| Mitraillette | 1  | 85 | **35,9** | 37,9 | 37,7 | 9,7 | 37,6 | **22,8** | 36,9 | 7,7 | 25,8 | 38,6 | 0,2 | 80,0 |
+| Pompe | 1  | 130 | 7,2 | 43,1 | **42,9** | 21,4 | **42,6** | 6,2 | **42,7** | 9,1 | 24,1 | **40,7** | 0,6 | 71,1 |
+| Sniper | 1  | 200 | 0,0 | 26,6 | 28,1 | 23,0 | 26,9 | 0,0 | 25,2 | **19,9** | 12,7 | 0,0 | 0,2 | 36,1 |
+| Lance-roquettes | 1  | 250 | 13,6 | 72,3 | 30,3 | 28,8 | 26,9 | 19,3 | 25,9 | 4,0 | 14,0 | 8,1 | 0,0 | 60,5 |
+| Minigun | 1  | 400 | 24,5 | 24,2 | 24,2 | 7,3 | 24,1 | 15,9 | 23,7 | 5,9 | 17,2 | 24,6 | 0,0 | 52,9 |
+| Tourelle cryo | 1  | 150 | 15,6 | 45,3 | 18,3 | 17,8 | 15,2 | 12,4 | 15,5 | 0,6 | 15,7 | 8,1 | **22,6** | 43,0 |
+| Laser | 1  | 300 | 21,3 | 19,1 | 22,9 | 6,8 | 19,7 | 12,4 | 21,1 | 8,0 | 15,7 | 21,6 | 0,0 | 45,8 |
+| Tesla | 1  | 280 | 34,0 | 41,1 | 38,8 | 33,6 | 39,1 | 12,2 | 33,3 | 4,2 | 24,0 | 27,6 | 0,1 | 77,6 |
+| Plasma | 1  | 360 | 2,0 | 64,4 | 30,2 | 26,9 | 14,5 | 3,5 | 5,8 | 2,3 | 10,9 | 5,6 | 0,1 | 37,3 |
+| Drone | 1  | 320 | 17,5 | 21,9 | 22,4 | 17,2 | 22,0 | 5,1 | 21,6 | 6,4 | 13,8 | 21,2 | 0,1 | 44,3 |
+| Mine | 1  | 70 | 0,0 | **89,4** | 39,0 | **37,8** | 0,0 | 0,0 | 32,9 | 1,0 | 0,0 | 0,0 | 0,4 | 40,9 |
+
+### Niveau 3 : dégâts utiles par seconde (rapides, diviseurs : PV traités par seconde) pour 100 pièces investies, meilleur de chaque colonne en gras
+
+| Tourelle | Config | Coût | rapides | groupe | tanks | blindés | volants | diviseurs | invisibles | boss | boucliers | sauteurs | contrôle | polyvalence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Fusil d'assaut | 3  | 295 | **44,3** | 39,7 | 39,8 | 33,1 | 39,9 | **23,6** | 39,1 | 11,9 | **28,4** | **40,2** | 0,1 | **88,8** |
+| Mitraillette | 3  | 250 | 40,2 | 36,5 | 36,2 | 13,8 | 36,5 | 22,5 | 35,6 | 8,1 | 26,1 | 37,7 | 0,1 | 77,0 |
+| Pompe | 3  | 365 | 24,2 | 43,4 | **43,1** | 33,6 | **43,3** | 16,4 | **43,5** | 9,7 | 24,5 | 36,7 | 0,4 | 81,2 |
+| Sniper | 3  | 600 | 0,0 | 24,0 | 22,6 | 22,0 | 23,5 | 0,0 | 23,5 | **21,5** | 19,1 | 0,0 | 0,0 | 34,3 |
+| Lance-roquettes | 3  | 710 | 13,7 | 66,8 | 31,0 | 29,1 | 25,6 | 22,5 | 25,9 | 4,8 | 15,3 | 14,0 | 0,0 | 60,6 |
+| Minigun | 3  | 1040 | 26,3 | 26,2 | 26,0 | 17,1 | 25,9 | 18,0 | 25,6 | 7,0 | 19,0 | 26,4 | 0,0 | 57,4 |
+| Tourelle cryo | 3  | 420 | 21,6 | 60,1 | 23,6 | 23,6 | 19,8 | 15,3 | 20,5 | 0,6 | 20,9 | 10,7 | **14,0** | 53,4 |
+| Laser | 3  | 830 | 21,5 | 18,1 | 21,8 | 12,6 | 19,1 | 12,3 | 20,5 | 8,5 | 15,4 | 21,0 | 0,0 | 44,3 |
+| Tesla | 3  | 780 | 40,6 | 44,0 | 38,8 | **38,5** | 40,8 | 20,9 | 33,9 | 4,2 | 24,8 | 29,2 | 0,0 | 82,7 |
+| Plasma | 3  | 990 | 13,0 | 71,1 | 26,2 | 29,0 | 25,6 | 14,9 | 6,4 | 3,2 | 9,0 | 9,1 | 0,0 | 47,2 |
+| Drone | 3  | 880 | 19,1 | 21,5 | 21,3 | 19,3 | 21,2 | 8,5 | 21,1 | 6,0 | 13,8 | 19,6 | 0,0 | 43,8 |
+| Mine | 3  | 190 | 0,0 | **104,0** | 41,6 | 38,4 | 0,0 | 0,0 | 33,9 | 0,8 | 0,0 | 0,0 | 0,0 | 41,6 |
+
+### Niveau 5 : dégâts utiles par seconde (rapides, diviseurs : PV traités par seconde) pour 100 pièces investies, meilleur de chaque colonne en gras
+
+| Tourelle | Config | Coût | rapides | groupe | tanks | blindés | volants | diviseurs | invisibles | boss | boucliers | sauteurs | contrôle | polyvalence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Fusil d'assaut | 5A Tempête de plomb | 985 | 44,8 | 37,2 | 37,7 | 33,5 | 37,8 | 24,3 | 37,4 | 11,3 | 28,4 | 40,7 | 0,0 | 47,0 |
+| Fusil d'assaut | 5B Œil de lynx | 935 | 34,9 | 38,7 | 39,2 | 35,3 | 38,1 | 17,3 | 37,4 | 13,4 | 29,1 | 39,7 | 0,0 | 42,6 |
+| Fusil d'assaut | 5C Obus | 1015 | 39,1 | 63,9 | 40,3 | 36,0 | 38,4 | 24,8 | 36,5 | 9,1 | 25,6 | 33,3 | 0,0 | 44,3 |
+| Mitraillette | 5A Perce-tout | 850 | 49,9 | 90,4 | 55,7 | 55,4 | 48,6 | **33,2** | 41,8 | 5,5 | 33,2 | 35,6 | 0,0 | **55,8** |
+| Mitraillette | 5B Triple canon | 910 | 40,4 | 35,9 | 36,2 | 15,6 | 35,9 | 23,4 | 35,8 | 8,1 | 25,3 | 37,9 | 0,0 | 43,0 |
+| Mitraillette | 5C Billard infernal | 950 | **50,4** | 49,8 | 44,9 | 17,2 | 44,3 | 29,4 | 35,8 | 3,3 | 26,8 | 29,5 | 0,0 | 47,4 |
+| Pompe | 5A Brasier | 1085 | 30,5 | 46,9 | 43,6 | 34,3 | 43,1 | 15,3 | 42,5 | 8,5 | 23,9 | 37,2 | 0,1 | 40,8 |
+| Pompe | 5B Chasseur de gros | 1075 | 34,0 | 37,3 | 36,4 | 33,1 | 37,0 | 17,6 | 36,9 | 11,8 | 25,0 | 32,7 | 0,3 | 39,4 |
+| Pompe | 5C Tempête de fléchettes | 1105 | 24,7 | 69,1 | 50,2 | 41,2 | 40,4 | 22,9 | 31,1 | 6,4 | 27,4 | 26,8 | 0,1 | 39,8 |
+| Sniper | 5A Tueur de boss | 1830 | 0,0 | 28,7 | 32,2 | 28,8 | 29,6 | 0,0 | 27,9 | 26,7 | 23,7 | 0,0 | 0,1 | 14,8 |
+| Sniper | 5B Semi-auto | 1700 | 30,4 | 32,2 | 34,2 | 33,2 | 34,4 | 0,0 | 31,5 | **31,6** | 20,1 | 28,1 | 0,0 | 29,5 |
+| Sniper | 5C Canon électromagnétique | 1880 | 34,2 | 181,1 | 124,0 | 92,1 | **72,7** | 0,0 | 23,1 | 15,0 | 34,3 | 40,5 | 0,3 | 51,9 |
+| Lance-roquettes | 5A Tapis de bombes | 2050 | 37,2 | 122,4 | 49,1 | 46,3 | 38,8 | 28,7 | 39,6 | 4,9 | 21,8 | 22,8 | 0,0 | 44,2 |
+| Lance-roquettes | 5B Salve | 2010 | 32,3 | 64,1 | 26,0 | 25,2 | 23,6 | 25,4 | 23,4 | 6,4 | 17,3 | 19,4 | 0,0 | 33,3 |
+| Lance-roquettes | 5C Mer de feu | 2080 | 25,0 | 76,2 | 29,4 | 23,9 | 23,0 | 17,1 | 26,5 | 2,9 | 15,5 | 15,3 | 0,0 | 28,0 |
+| Minigun | 5A Fusion | 2720 | 23,8 | 22,3 | 21,9 | 16,4 | 21,1 | 15,8 | 21,2 | 6,4 | 15,9 | 23,8 | 0,0 | 27,0 |
+| Minigun | 5B Enfer | 2630 | 24,9 | 29,7 | 24,0 | 20,0 | 25,8 | 16,3 | 23,0 | 6,2 | 16,4 | 23,4 | 0,0 | 28,7 |
+| Tourelle cryo | 5A Ère glaciaire | 1260 | 38,5 | 148,7 | 45,6 | 55,8 | 50,1 | 31,5 | 51,5 | 0,5 | 43,4 | 15,6 | **28,0** | 51,3 |
+| Tourelle cryo | 5B Cristal brisé | 1300 | 21,5 | 63,7 | 24,5 | 24,8 | 21,2 | 16,2 | 21,7 | 0,7 | 21,6 | 12,1 | 5,1 | 26,2 |
+| Laser | 5A Arc-en-ciel | 2270 | 47,8 | 42,6 | 50,1 | 35,8 | 43,6 | 24,6 | 36,6 | 5,0 | 32,1 | **42,3** | 0,0 | 50,5 |
+| Laser | 5B Rayon solaire | 2230 | 15,1 | 13,3 | 19,2 | 16,8 | 15,9 | 8,6 | 17,9 | 7,3 | 13,1 | 18,2 | 0,0 | 19,3 |
+| Tesla | 5A Tempête électrique | 2120 | 47,3 | 49,1 | 43,2 | 42,1 | 42,9 | 24,5 | 31,1 | 3,3 | 22,5 | 24,6 | 0,0 | 43,5 |
+| Tesla | 5B Paralysie | 2160 | 38,2 | 35,5 | 34,9 | 34,7 | 34,9 | 19,8 | 34,9 | 3,5 | 20,6 | 40,3 | 0,5 | 41,7 |
+| Tesla | 5C Orage polaire | 2160 | 47,8 | 42,3 | 40,8 | 39,0 | 40,8 | 25,2 | 36,2 | 4,0 | 22,8 | 30,5 | 1,4 | 45,1 |
+| Plasma | 5A Supernova | 2610 | 26,9 | 97,0 | 39,7 | 37,4 | 37,8 | 20,4 | 10,2 | 3,7 | 12,3 | 15,1 | 0,0 | 31,5 |
+| Plasma | 5B Réacteur | 2570 | 22,5 | 64,5 | 27,0 | 24,5 | 24,5 | 14,3 | 6,7 | 3,0 | 8,4 | 12,2 | 0,0 | 22,7 |
+| Drone | 5A Essaim | 2320 | 34,7 | 31,5 | 31,5 | 29,2 | 31,4 | 19,9 | 31,2 | 10,0 | 21,4 | 32,0 | 0,0 | 37,6 |
+| Drone | 5B Tapis de feu | 2360 | 43,5 | 103,9 | 45,5 | 46,0 | 34,3 | 32,2 | 41,9 | 5,6 | 26,6 | 28,9 | 0,0 | 48,2 |
+| Mine | 5A Cratère | 790 | 0,0 | 127,5 | 49,3 | 47,2 | 0,0 | 0,0 | 43,7 | 1,2 | 19,4 | 0,0 | 0,0 | 14,5 |
+| Mine | 5B Bobine Tesla | 760 | 0,0 | **504,4** | **244,7** | **220,8** | 0,0 | 0,0 | **141,7** | 0,9 | **58,2** | 0,0 | 22,3 | 55,6 |
+
