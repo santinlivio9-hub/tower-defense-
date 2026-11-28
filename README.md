@@ -258,6 +258,19 @@ moyen, `bad` joue mal, `boost` joue bien et utilise ses boosts) et affiche le r�
 Mode d'emploi en tête du fichier. Repères visés : un niveau normal dure environ 5 minutes et un joueur moyen le gagne
 avec 2 ou 3 étoiles ; un niveau de boss dure 20 minutes au plus et se gagne en jouant bien (plus facilement avec les boosts).
 
+### Mesures d'équilibrage
+
+`tools/balance.cjs` mesure l'équilibrage avec le vrai moteur du jeu (serveur local sur le port 8123) :
+`dps` (banc d'essai des tourelles : DPS mono-cible, groupe, blindé, boss, pour chaque niveau et branche),
+`flux` (rôles : quelle tourelle répond le mieux à chaque menace, par pièce investie), `waves` (courbe de difficulté,
+sans navigateur), `win <niveaux> <essais> [boost|hero|rangN]` (taux de victoire d'un joueur moyen simulé, `SKILL=low`
+pour un débutant, `SKILL=good` pour un bon joueur) et `mono <niveaux>` (stratégie « une seule tourelle partout »).
+Pour `win` et `mono`, l'équipement du joueur (château, talents, niveau) vient de `tools/progression.cjs` lancé avec
+`SNAP=fichier` (état à la 1re tentative de chaque niveau), passé ensuite avec `SNAP=fichier`.
+`SOURCES=1 node tools/progression.cjs 60` détaille l'origine des pièces et des gemmes (niveaux, quotidien, coffres...).
+`tools/perf.cjs` mesure le pire moment (boss + foule + x3), la mémoire sur 10 niveaux enchaînés et les erreurs de console.
+Le dernier audit et ses tableaux sont dans `docs/audit-equilibrage.md`.
+
 ### Tester rapidement
 
 Dans la console du navigateur, la partie en cours est accessible via `__game` :
